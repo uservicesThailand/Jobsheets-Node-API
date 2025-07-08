@@ -8,7 +8,7 @@ const dayjs = require('dayjs');
 const path = require('path');
 
 const app = express();
-const port = 5000;
+const port = process.env.PORT || 5000;
 
 //รูปภาพ test report
 const multer = require('multer');
