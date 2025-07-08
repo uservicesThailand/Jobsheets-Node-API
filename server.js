@@ -218,6 +218,11 @@ app.post('/api/inspection', async (req, res) => {
   );
 });
 
+app.get('/', (req, res) => {
+  res.send('✅ API Server is running on Azure');
+});
+
+
 /* 002-GET-Motor */
 app.get('/api/motors', (req, res) => {
   db.query(
