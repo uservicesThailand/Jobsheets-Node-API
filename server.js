@@ -1,3 +1,5 @@
+require('dotenv').config(); // ⬅️ ใส่บนสุด
+
 const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const express = require('express');
@@ -609,7 +611,6 @@ app.post('/api/forms/FormStaticTest/:insp_id', (req, res) => {
   });
 });
 
-
 // ⬇️ FormEquipmentTest
 app.get('/api/forms/FormEquipmentTest/:insp_id', (req, res) => {
   const { insp_id } = req.params;
@@ -651,7 +652,6 @@ app.post('/api/forms/FormEquipmentTest/:insp_id', (req, res) => {
     }
   });
 });
-
 
 // ⬇️ FormDynamicTest
 app.get('/api/forms/FormDynamicTest/:insp_id', (req, res) => {
