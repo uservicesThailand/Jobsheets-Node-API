@@ -22,8 +22,7 @@ app.use(express.json());
 // ✅ เสิร์ฟไฟล์ภาพจาก public/img_upload
 app.use('/img', express.static(path.join(__dirname, 'public', 'img_upload')));
 
-// 🔄 BC API - ใช้ axios
-const { getBcAccessToken } = require('./bcAuth');
+
 // ✅ ฟังก์ชันช่วยดึง ServiceItemLines แบบ recursive
 async function fetchAllServiceItemLines(baseUrl, token) {
   let allItems = [];
@@ -43,8 +42,10 @@ async function fetchAllServiceItemLines(baseUrl, token) {
 
   return allItems;
 }
+
 app.post('/api/bc/data', async (req, res) => {
-  const selectedYear = req.body.year || new Date().getFullYear();
+  // ✅ แปลงเป็น string เพื่อใช้กับ OData filter
+  const selectedYear = (req.body.year || new Date().getFullYear()).toString();
 
   const startDate = `${selectedYear}-01-01`;
   const endDate = `${selectedYear}-12-31`;
@@ -52,7 +53,7 @@ app.post('/api/bc/data', async (req, res) => {
   try {
     const token = await getBcAccessToken();
 
-    const orderUrl = `https://api.businesscentral.dynamics.com/v2.0/${process.env.BC_TENANT_ID}/${process.env.BC_ENVIRONMENT}/ODataV4/Company('${process.env.BC_COMPANY_NAME}')/ServiceOrderList?$orderby=Order_Date desc&$filter=Status eq 'pending' and Order_Date ge ${startDate} and Order_Date le ${endDate}`;
+    const orderUrl = `https://api.businesscentral.dynamics.com/v2.0/${process.env.BC_TENANT_ID}/${process.env.BC_ENVIRONMENT}/ODataV4/Company('${process.env.BC_COMPANY_NAME}')/ServiceOrderList?$orderby=Order_Date desc&$filter=Status eq 'pending' and Order_Date ge ${JSON.stringify(startDate)} and Order_Date le ${JSON.stringify(endDate)}`;
 
     const itemUrl = `https://api.businesscentral.dynamics.com/v2.0/${process.env.BC_TENANT_ID}/${process.env.BC_ENVIRONMENT}/ODataV4/Company('${process.env.BC_COMPANY_NAME}')/ServiceItemLines`;
 
@@ -86,7 +87,7 @@ app.post('/api/bc/data', async (req, res) => {
 
     res.json(joined);
   } catch (err) {
-    console.error('BC API JOIN Error:', err.message || err);
+    console.error('BC API JOIN Error:', err.response?.data || err.message || err);
     res.status(500).json({ error: 'เกิดข้อผิดพลาดในการดึงข้อมูลจาก BC' });
   }
 });
