@@ -1,5 +1,4 @@
-require('dotenv').config(); // ⬅️ ใส่บนสุด
-
+/* require('dotenv').config(); */
 const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const express = require('express');
@@ -8,7 +7,6 @@ const db = require('./db');
 const axios = require('axios'); // ✅ เพิ่ม axios
 const dayjs = require('dayjs');
 const path = require('path');
-
 const app = express();
 const port = process.env.PORT || 5000;
 
@@ -24,8 +22,19 @@ app.use(express.json());
 // ✅ เสิร์ฟไฟล์ภาพจาก public/img_upload
 app.use('/img', express.static(path.join(__dirname, 'public', 'img_upload')));
 
+app.get('/', (req, res) => {
+  res.json({
+    service: 'Inspection Management API',
+    version: '1.0.0',
+    status: 'running',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString()
+  });
+});
+
 // 🔄 BC API - ใช้ axios
 const { getBcAccessToken } = require('./bcAuth');
+
 // ✅ ฟังก์ชันช่วยดึง ServiceItemLines แบบ recursive
 async function fetchAllServiceItemLines(baseUrl, token) {
   let allItems = [];
@@ -45,6 +54,8 @@ async function fetchAllServiceItemLines(baseUrl, token) {
 
   return allItems;
 }
+
+
 app.post('/api/bc/data', async (req, res) => {
   const selectedYear = req.body.year || new Date().getFullYear();
 
@@ -93,51 +104,60 @@ app.post('/api/bc/data', async (req, res) => {
   }
 });
 
-
 // 🔐 LOGIN
 app.post('/api/login', async (req, res) => {
-  const { username, password, branch } = req.body;
+  try {
+    // ✅ ป้องกัน body undefined
+    const { username, password, branch } = req.body || {};
 
-  const sql = `
-    SELECT * FROM u_user 
-    WHERE username = ? 
-      AND user_status = 1
-  `;
-
-  db.query(sql, [username], async (err, results) => {
-    if (err) return res.status(500).json({ error: 'Database error' });
-    if (results.length === 0) return res.status(401).json({ error: 'ไม่พบผู้ใช้' });
-
-    const user = results[0];
-    const storedHash = user.password;
-
-    let isMatch = false;
-
-    try {
-      if (storedHash.startsWith('$2')) {
-        isMatch = await bcrypt.compare(password, storedHash); // bcrypt
-      } else {
-        const md5Hash = crypto.createHash('md5').update(password).digest('hex');
-        isMatch = (md5Hash === storedHash); // md5
-      }
-
-      if (!isMatch) return res.status(401).json({ error: 'รหัสผ่านไม่ถูกต้อง' });
-
-      // ✅ ส่งข้อมูลกลับไป frontend
-      res.json({
-        user_key: user.user_key,
-        name: user.name,
-        lastname: user.lastname,
-        username: user.username,
-        user_class: user.user_class,
-        user_type: user.user_type,
-        branch_log: user.branch_log, // ส่งมาให้ใช้ก็ได้
-      });
-    } catch (error) {
-      console.error('Error verifying password:', error);
-      res.status(500).json({ error: 'Server error' });
+    if (!username || !password || !branch) {
+      return res.status(400).json({ error: 'กรุณากรอกข้อมูลให้ครบถ้วน' });
     }
-  });
+
+    const sql = `
+      SELECT * FROM u_user 
+      WHERE username = ? 
+        AND user_status = 1
+    `;
+
+    db.query(sql, [username], async (err, results) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+      if (results.length === 0) return res.status(401).json({ error: 'ไม่พบผู้ใช้' });
+
+      const user = results[0];
+      const storedHash = user.password;
+
+      let isMatch = false;
+
+      try {
+        if (storedHash.startsWith('$2')) {
+          isMatch = await bcrypt.compare(password, storedHash); // ✅ bcrypt
+        } else {
+          const md5Hash = crypto.createHash('md5').update(password).digest('hex');
+          isMatch = (md5Hash === storedHash); // ✅ md5
+        }
+
+        if (!isMatch) return res.status(401).json({ error: 'รหัสผ่านไม่ถูกต้อง' });
+
+        // ✅ สำเร็จ
+        res.json({
+          user_key: user.user_key,
+          name: user.name,
+          lastname: user.lastname,
+          username: user.username,
+          user_class: user.user_class,
+          user_type: user.user_type,
+          branch_log: user.branch_log,
+        });
+      } catch (err2) {
+        console.error('Password check error:', err2);
+        res.status(500).json({ error: 'Server error' });
+      }
+    });
+  } catch (e) {
+    console.error('Unexpected error:', e);
+    res.status(500).json({ error: 'Unexpected error' });
+  }
 });
 
 
@@ -219,7 +239,6 @@ app.post('/api/inspection', async (req, res) => {
     }
   );
 });
-
 
 /* 002-GET-Motor */
 app.get('/api/motors', (req, res) => {
@@ -307,7 +326,6 @@ app.post("/api/send_station001", (req, res) => {
     );
   });
 });
-
 
 /* 005-list-station */
 app.get("/api/list_station", (req, res) => {
@@ -520,7 +538,6 @@ app.delete('/api/upload', (req, res) => {
   });
 });
 
-
 // ⬇️ FormMotorNameplate
 app.get('/api/forms/FormMotorNameplate/:insp_id', (req, res) => {
   const { insp_id } = req.params;
@@ -567,7 +584,6 @@ app.post('/api/forms/FormMotorNameplate/:insp_id', (req, res) => {
     }
   });
 });
-
 
 // ⬇️ FormStaticTest
 app.get('/api/forms/FormStaticTest/:insp_id', (req, res) => {
@@ -695,7 +711,6 @@ app.post('/api/forms/FormDynamicTest/:insp_id', (req, res) => {
   });
 });
 
-
 // ⬇️ FormHousingShaft
 app.get('/api/forms/FormHousingShaft/:insp_id', (req, res) => {
   const { insp_id } = req.params;
@@ -737,7 +752,6 @@ app.post('/api/forms/FormHousingShaft/:insp_id', (req, res) => {
     }
   });
 });
-
 
 // ⬇️ FormRequisition
 app.get('/api/forms/FormRequisition/:insp_id', (req, res) => {
@@ -781,7 +795,6 @@ app.post('/api/forms/FormRequisition/:insp_id', (req, res) => {
   });
 });
 
-
 // ⬇️ FormBalance
 app.get('/api/forms/FormBalance/:insp_id', (req, res) => {
   const { insp_id } = req.params;
@@ -823,7 +836,6 @@ app.post('/api/forms/FormBalance/:insp_id', (req, res) => {
     }
   });
 });
-
 
 // ⬇️ FormElectricalServices
 app.get('/api/forms/FormElectricalServices/:insp_id', (req, res) => {
@@ -867,7 +879,6 @@ app.post('/api/forms/FormElectricalServices/:insp_id', (req, res) => {
   });
 });
 
-
 // ⬇️ FormInstruments
 app.get('/api/forms/FormInstruments/:insp_id', (req, res) => {
   const { insp_id } = req.params;
@@ -909,7 +920,6 @@ app.post('/api/forms/FormInstruments/:insp_id', (req, res) => {
     }
   });
 });
-
 
 // ⬇️ FormCoilBrakeTest
 app.get('/api/forms/FormCoilBrakeTest/:insp_id', (req, res) => {
@@ -953,7 +963,6 @@ app.post('/api/forms/FormCoilBrakeTest/:insp_id', (req, res) => {
   });
 });
 
-
 // ⬇️ FormApproval
 app.get('/api/forms/FormApproval/:insp_id', (req, res) => {
   const { insp_id } = req.params;
@@ -995,7 +1004,6 @@ app.post('/api/forms/FormApproval/:insp_id', (req, res) => {
     }
   });
 });
-
 
 // ⬇️ FormMechanicalServices
 app.get('/api/forms/FormMechanicalServices/:insp_id', (req, res) => {
@@ -1039,7 +1047,6 @@ app.post('/api/forms/FormMechanicalServices/:insp_id', (req, res) => {
   });
 });
 
-
 // ⬇️ FormMechanicalInspectionData
 app.get('/api/forms/FormMechanicalInspectionData/:insp_id', (req, res) => {
   const { insp_id } = req.params;
@@ -1081,7 +1088,6 @@ app.post('/api/forms/FormMechanicalInspectionData/:insp_id', (req, res) => {
     }
   });
 });
-
 
 // ⬇️ FormLaserAlignment
 app.get('/api/forms/FormLaserAlignment/:insp_id', (req, res) => {
@@ -1125,7 +1131,6 @@ app.post('/api/forms/FormLaserAlignment/:insp_id', (req, res) => {
   });
 });
 
-
 // ⬇️ FormVibrationAfterInstalled
 app.get('/api/forms/FormVibrationAfterInstalled/:insp_id', (req, res) => {
   const { insp_id } = req.params;
@@ -1167,7 +1172,6 @@ app.post('/api/forms/FormVibrationAfterInstalled/:insp_id', (req, res) => {
     }
   });
 });
-
 
 // ⬇️ FormCoreLossHotSpot
 app.get('/api/forms/FormCoreLossHotSpot/:insp_id', (req, res) => {
@@ -1211,7 +1215,6 @@ app.post('/api/forms/FormCoreLossHotSpot/:insp_id', (req, res) => {
   });
 });
 
-
 // ⬇️ FormRewind
 app.get('/api/forms/FormRewind/:insp_id', (req, res) => {
   const { insp_id } = req.params;
@@ -1253,7 +1256,6 @@ app.post('/api/forms/FormRewind/:insp_id', (req, res) => {
     }
   });
 });
-
 
 // ⬇️ FormMachine
 app.get('/api/forms/FormMachine/:insp_id', (req, res) => {
@@ -1297,7 +1299,6 @@ app.post('/api/forms/FormMachine/:insp_id', (req, res) => {
   });
 });
 
-
 // ⬇️ FormPartData
 app.get('/api/forms/FormPartData/:insp_id', (req, res) => {
   const { insp_id } = req.params;
@@ -1340,7 +1341,6 @@ app.post('/api/forms/FormPartData/:insp_id', (req, res) => {
   });
 });
 
-
 // ⬇️ FormAttachments
 app.get('/api/forms/FormAttachments/:insp_id', (req, res) => {
   const { insp_id } = req.params;
@@ -1382,7 +1382,6 @@ app.post('/api/forms/FormAttachments/:insp_id', (req, res) => {
     }
   });
 });
-
 
 // ⬇️ FormPhotoManager
 app.get('/api/forms/FormPhotoManager/:insp_id', (req, res) => {
