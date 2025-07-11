@@ -1,5 +1,5 @@
-require('dotenv').config(); // ⬅️ ใส่บนสุด
-
+/* require('dotenv').config(); // ⬅️ ใส่บนสุด
+ */
 const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const express = require('express');
