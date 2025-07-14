@@ -161,6 +161,7 @@ app.post('/api/login', async (req, res) => {
 });
 
 
+
 /* 001-start-POST-inspection */
 app.post('/api/inspection', async (req, res) => {
   const {
@@ -1424,6 +1425,28 @@ app.post('/api/forms/FormPhotoManager/:insp_id', (req, res) => {
     }
   });
 });
+
+/* 00-Tag-List-All */
+app.get('/api/tagList', (req, res) => {
+  const sql = `
+    SELECT i.*, m.motor_name
+    FROM tbl_inspection_list i
+    LEFT JOIN list_motor_type m ON i.insp_motor_code = m.motor_code
+    WHERE m.is_active = '1'
+   ORDER BY COALESCE(i.inspection_updated_at, i.insp_created_at) DESC
+    LIMIT 1000
+  `;
+
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error('Query error:', err);
+      return res.status(500).json({ error: 'ไม่สามารถดึง tagList ได้' });
+    }
+    res.json(results);
+  });
+});
+
+
 // ✅ Listen ทั้งเครือข่าย
 app.listen(port, '0.0.0.0', () => {
   console.log(`API เริ่มทำงานที่ http://0.0.0.0:${port}`);
