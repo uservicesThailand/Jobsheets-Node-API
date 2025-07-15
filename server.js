@@ -32,6 +32,8 @@ app.get('/', (req, res) => {
   });
 });
 
+app.get('/health', (req, res) => res.status(200).send("OK"));
+
 // 🔄 BC API - ใช้ axios
 const { getBcAccessToken } = require('./bcAuth');
 
@@ -54,7 +56,6 @@ async function fetchAllServiceItemLines(baseUrl, token) {
 
   return allItems;
 }
-
 
 app.post('/api/bc/data', async (req, res) => {
   const selectedYear = req.body.year || new Date().getFullYear();
@@ -159,8 +160,6 @@ app.post('/api/login', async (req, res) => {
     res.status(500).json({ error: 'Unexpected error' });
   }
 });
-
-
 
 /* 001-start-POST-inspection */
 app.post('/api/inspection', async (req, res) => {
@@ -1445,7 +1444,6 @@ app.get('/api/tagList', (req, res) => {
     res.json(results);
   });
 });
-
 
 // ✅ Listen ทั้งเครือข่าย
 app.listen(port, '0.0.0.0', () => {
