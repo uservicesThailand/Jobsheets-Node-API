@@ -149,6 +149,7 @@ app.post('/api/login', async (req, res) => {
           user_class: user.user_class,
           user_type: user.user_type,
           branch_log: user.branch_log,
+          user_photo: user.user_photo
         });
       } catch (err2) {
         console.error('Password check error:', err2);
@@ -349,6 +350,7 @@ app.get("/api/inspection/:id", (req, res) => {
       insp_id,
       insp_no,
       insp_customer_name,
+      insp_customer_no,
       insp_sale_quote,
       insp_service_order,
       insp_service_type,
@@ -416,6 +418,7 @@ app.post('/api/forms/FormTestReport/:insp_no', (req, res) => {
     trp_service_item: data.serviceItem,
     trp_id_text: data.id,
     trp_project_no: data.projectNo,
+    trp_customer_no: data.cusNo,
     trp_so_id: data.soId,
     trp_customer: data.customer,
     trp_erp_mat: data.erpMat,
@@ -1545,7 +1548,61 @@ app.get('/api/station-counts', (req, res) => {
   });
 });
 
+// 1507681313 ดึงข้อมูลโปรไฟล์
+app.get('/api/user/:id', (req, res) => {
+  const userId = req.params.id;
+  const sql = `SELECT user_key, name, lastname, u_tel, line_id, u_email, user_photo, user_type FROM u_user WHERE user_key = ?`;
 
+  db.query(sql, [userId], (err, results) => {
+    if (err) return res.status(500).json({ error: 'ไม่สามารถดึงข้อมูลผู้ใช้ได้' });
+    if (results.length === 0) return res.status(404).json({ error: 'ไม่พบผู้ใช้' });
+    res.json(results[0]);
+  });
+});
+
+// 1507681314 อัปเดตข้อมูลโปรไฟล์
+app.put('/api/user/:id', (req, res) => {
+  const userId = req.params.id;
+  const { name, lastname, u_email, u_tel, lineId, user_photo } = req.body;
+
+  const sql = `
+    UPDATE u_user 
+    SET name = ?, lastname = ?, u_email = ?, u_tel = ?, line_id = ?, user_photo = ?, u_update_date = NOW()
+    WHERE user_key = ?
+  `;
+
+  db.query(sql, [name, lastname, u_email, u_tel, lineId, user_photo || null, userId], (err, result) => {
+    if (err) return res.status(500).json({ error: 'อัปเดตข้อมูลไม่สำเร็จ' });
+    res.json({ message: 'อัปเดตข้อมูลสำเร็จ' });
+  });
+});
+
+// 1507681325 อัปโหลดภาพโปรไฟล์
+app.post('/api/upload-profile-image/:userId', upload.single('image'), async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const file = req.file;
+
+    if (!file) return res.status(400).json({ error: 'No file uploaded' });
+
+    const fileName = `user-${userId}.jpg`;
+    const outputPath = path.join(__dirname, 'public', 'img_upload', fileName);
+
+    // ลบไฟล์เดิมก่อน (ถ้ามี)
+    if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
+
+    // บีบอัดและบันทึกใหม่
+    await sharp(file.buffer)
+      .resize(300)
+      .jpeg({ quality: 80 })
+      .toFile(outputPath);
+
+    res.json({ fileName });
+  } catch (err) {
+    console.error('Upload failed:', err);
+    res.status(500).json({ error: 'Upload failed' });
+  }
+});
 // ✅ Listen ทั้งเครือข่าย
 app.listen(port, '0.0.0.0', () => {
   console.log(`API เริ่มทำงานที่ http://0.0.0.0:${port}`);
