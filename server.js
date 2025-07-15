@@ -1445,6 +1445,107 @@ app.get('/api/tagList', (req, res) => {
   });
 });
 
+
+/* 150768831-company-list */
+app.get('/company/list', (req, res) => {
+  const sql = `
+    SELECT DISTINCT insp_customer_no, insp_customer_name
+FROM tbl_inspection_list
+ORDER BY insp_customer_name
+  `;
+
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error('Query error:', err);
+      return res.status(500).json({ error: 'ไม่สามารถดึง company list ได้' });
+    }
+    res.json(results);
+  });
+});
+
+/* 150768845 Search by Service Order (SV) */
+app.post('/api/searchSV', (req, res) => {
+  const { order_id } = req.body;
+
+  const sql = `
+    SELECT 
+      insp_no,
+      insp_customer_name,
+      insp_service_order,
+      insp_status,
+      insp_created_at,
+      insp_document_date,
+      insp_station_now,
+      insp_branch
+    FROM tbl_inspection_list
+    WHERE insp_service_order = ?
+    ORDER BY insp_created_at DESC
+  `;
+
+  db.query(sql, [order_id], (err, results) => {
+    if (err) {
+      console.error('searchSV error:', err);
+      return res.status(500).json({ error: 'ไม่สามารถค้นหาข้อมูลด้วย Service Order ได้' });
+    }
+    res.json(results.map(row => ({
+      ...row,
+      insp_created_at: row.insp_created_at?.toISOString().slice(0, 10),
+      insp_document_date: row.insp_document_date?.toISOString().slice(0, 10)
+    })));
+
+  });
+});
+
+/* 150768846 Search by Customer No (CT) */
+app.post('/api/searchCustomer', (req, res) => {
+  const { company_code } = req.body;
+
+  const sql = `
+    SELECT 
+      insp_no,
+      insp_customer_name,
+      insp_service_order,
+      insp_status,
+      insp_document_date,
+      insp_created_at,
+      insp_station_now,
+      insp_branch
+    FROM tbl_inspection_list
+    WHERE insp_customer_no = ?
+    ORDER BY insp_created_at DESC
+  `;
+
+  db.query(sql, [company_code], (err, results) => {
+    if (err) {
+      console.error('searchCustomer error:', err);
+      return res.status(500).json({ error: 'ไม่สามารถค้นหาข้อมูลด้วย Customer No ได้' });
+    }
+    res.json(results.map(row => ({
+      ...row,
+      insp_created_at: row.insp_created_at?.toISOString().slice(0, 10),
+      insp_document_date: row.insp_document_date?.toISOString().slice(0, 10)
+    })));
+
+  });
+});
+
+// 150768928 GET /api/station-counts
+app.get('/api/station-counts', (req, res) => {
+  const sql = `
+    SELECT insp_station_now AS station, COUNT(*) AS count
+    FROM tbl_inspection_list
+    GROUP BY insp_station_now
+  `;
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error('Query error:', err);
+      return res.status(500).json({ error: 'ไม่สามารถดึงข้อมูลสถานีได้' });
+    }
+    res.json(results);
+  });
+});
+
+
 // ✅ Listen ทั้งเครือข่าย
 app.listen(port, '0.0.0.0', () => {
   console.log(`API เริ่มทำงานที่ http://0.0.0.0:${port}`);
