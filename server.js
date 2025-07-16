@@ -258,7 +258,7 @@ app.get('/api/motors', (req, res) => {
 /* 003-GET-QA */
 app.get('/api/Step1', (req, res) => {
   db.query(
-    'SELECT * FROM tbl_inspection_list WHERE insp_status IS NULL AND insp_station_now = "Start" ORDER BY insp_created_at DESC',
+    'SELECT * FROM tbl_inspection_list WHERE (insp_station_now = "Start" OR insp_station_prev = "Start") ORDER BY insp_created_at DESC',
     (err, results) => {
       if (err) {
         console.error('Query error:', err);
@@ -1603,6 +1603,92 @@ app.post('/api/upload-profile-image/:userId', upload.single('image'), async (req
     res.status(500).json({ error: 'Upload failed' });
   }
 });
+
+/* 1607681321 ระบบแจ้งเตือน การติดตาม*/
+app.get('/api/notifications/:userKey', (req, res) => {
+  const userKey = req.params.userKey;
+
+  const sql = `
+        SELECT i.insp_id, i.insp_no, i.insp_service_order, i.insp_customer_name, i.inspection_updated_at
+        FROM tbl_inspection_follow f
+        JOIN tbl_inspection_list i ON f.insp_id = i.insp_id
+        WHERE f.user_key = ?
+          AND f.is_active = 1
+          AND (f.last_read_at IS NULL OR i.inspection_updated_at > f.last_read_at)
+          AND i.inspection_updated_at IS NOT NULL	
+    `;
+
+  db.query(sql, [userKey], (err, results) => {
+    if (err) {
+      console.error("Error fetching notifications:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
+    res.json(results);
+  });
+});
+
+/* 1607681338 ระบบแจ้งเตือน การติดตาม อ่านแล้ว*/
+app.post('/api/notifications/read', (req, res) => {
+  const { user_key, insp_id } = req.body;
+
+  if (!user_key || !insp_id) {
+    return res.status(400).json({ error: 'Missing user_key or insp_id' });
+  }
+
+  const sql = `
+        UPDATE tbl_inspection_follow
+        SET last_read_at = NOW()
+        WHERE user_key = ? AND insp_id = ? AND is_active = 1
+    `;
+
+  db.query(sql, [user_key, insp_id], (err, result) => {
+    if (err) {
+      console.error('Failed to mark as read:', err);
+      return res.status(500).json({ error: 'Database error' });
+    }
+
+    res.json({ success: true });
+  });
+});
+
+/* 1607681344 ระบบแจ้งเตือน การติดตาม-กดติดตาม*/
+app.post('/api/follow', (req, res) => {
+  const { user_key, insp_id, insp_no } = req.body;
+  const sql = `
+        INSERT INTO tbl_inspection_follow (user_key, insp_id, insp_no, is_active, followed_at)
+        VALUES (?, ?, ?, 1, NOW())
+        ON DUPLICATE KEY UPDATE is_active = 1, followed_at = NOW()
+    `;
+  db.query(sql, [user_key, insp_id, insp_no], (err) => {
+    if (err) return res.status(500).json({ error: 'DB error' });
+    res.json({ success: true });
+  });
+});
+
+/* 1607681345 ระบบแจ้งเตือน การติดตาม-เลิกติดตาม*/
+app.post('/api/follow/unfollow', (req, res) => {
+  const { user_key, insp_id } = req.body;
+  const sql = `UPDATE tbl_inspection_follow SET is_active = 0 WHERE user_key = ? AND insp_id = ?`;
+  db.query(sql, [user_key, insp_id], (err) => {
+    if (err) return res.status(500).json({ error: 'DB error' });
+    res.json({ success: true });
+  });
+});
+
+/* 1607681346 ระบบแจ้งเตือน การติดตาม-ตรวจสถานะติดตาม*/
+app.get('/api/follow/status', (req, res) => {
+  const { user_key, insp_id } = req.query;
+  const sql = `
+        SELECT is_active FROM tbl_inspection_follow
+        WHERE user_key = ? AND insp_id = ?
+    `;
+  db.query(sql, [user_key, insp_id], (err, results) => {
+    if (err) return res.status(500).json({ error: 'DB error' });
+    const is_following = results.length > 0 && results[0].is_active === 1;
+    res.json({ is_following });
+  });
+});
+
 // ✅ Listen ทั้งเครือข่าย
 app.listen(port, '0.0.0.0', () => {
   console.log(`API เริ่มทำงานที่ http://0.0.0.0:${port}`);
