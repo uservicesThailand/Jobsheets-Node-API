@@ -106,64 +106,74 @@ app.post('/api/bc/data', async (req, res) => {
 });
 
 // 🔐 LOGIN
-app.post('/api/login', async (req, res) => {
-  try {
-    // ✅ ป้องกัน body undefined
-    const { username, password, branch } = req.body || {};
+app.post('/api/login', (req, res) => {
+  const { username, password, branch } = req.body || {};
 
-    if (!username || !password || !branch) {
-      return res.status(400).json({ error: 'กรุณากรอกข้อมูลให้ครบถ้วน' });
-    }
-
-    const sql = `
-      SELECT * FROM u_user 
-      WHERE username = ? 
-        AND user_status = 1
-    `;
-
-    db.query(sql, [username], async (err, results) => {
-      if (err) return res.status(500).json({ error: 'Database error' });
-      if (results.length === 0) return res.status(401).json({ error: 'ไม่พบผู้ใช้' });
-
-      const user = results[0];
-      const storedHash = user.password;
-
-      let isMatch = false;
-
-      try {
-        if (storedHash.startsWith('$2')) {
-          isMatch = await bcrypt.compare(password, storedHash); // ✅ bcrypt
-        } else {
-          const md5Hash = crypto.createHash('md5').update(password).digest('hex');
-          isMatch = (md5Hash === storedHash); // ✅ md5
-        }
-
-        if (!isMatch) return res.status(401).json({ error: 'รหัสผ่านไม่ถูกต้อง' });
-
-        // ✅ สำเร็จ
-        res.json({
-          user_key: user.user_key,
-          name: user.name,
-          lastname: user.lastname,
-          username: user.username,
-          user_class: user.user_class,
-          user_type: user.user_type,
-          branch_log: user.branch_log,
-          user_photo: user.user_photo
-        });
-      } catch (err2) {
-        console.error('Password check error:', err2);
-        res.status(500).json({ error: 'Server error' });
-      }
-    });
-  } catch (e) {
-    console.error('Unexpected error:', e);
-    res.status(500).json({ error: 'Unexpected error' });
+  if (!username || !password || !branch) {
+    return res.status(400).json({ error: 'กรุณากรอกข้อมูลให้ครบถ้วน' });
   }
+
+  const sql = `
+    SELECT * FROM u_user 
+    WHERE username = ? 
+      AND user_status = 1
+  `;
+
+  db.query(sql, [username], (err, results) => {
+    if (err) return res.status(500).json({ error: 'Database error' });
+    if (results.length === 0) return res.status(401).json({ error: 'ไม่พบผู้ใช้' });
+
+    const user = results[0];
+    const storedHash = user.password;
+
+    // ✅ ตรวจรหัสผ่านแบบ async ด้วย .then()
+    if (storedHash.startsWith('$2')) {
+      bcrypt.compare(password, storedHash)
+        .then((isMatch) => {
+          if (!isMatch) return res.status(401).json({ error: 'รหัสผ่านไม่ถูกต้อง' });
+
+          // ✅ สำเร็จ
+          res.json({
+            user_key: user.user_key,
+            name: user.name,
+            lastname: user.lastname,
+            username: user.username,
+            user_class: user.user_class,
+            user_type: user.user_type,
+            branch_log: user.branch_log,
+            user_photo: user.user_photo
+          });
+        })
+        .catch((err2) => {
+          console.error('Password check error:', err2);
+          res.status(500).json({ error: 'Server error' });
+        });
+
+    } else {
+      // 🔒 เช็ครหัสแบบ MD5 เดิม
+      const md5Hash = crypto.createHash('md5').update(password).digest('hex');
+      const isMatch = (md5Hash === storedHash);
+
+      if (!isMatch) return res.status(401).json({ error: 'รหัสผ่านไม่ถูกต้อง' });
+
+      // ✅ สำเร็จ
+      res.json({
+        user_key: user.user_key,
+        name: user.name,
+        lastname: user.lastname,
+        username: user.username,
+        user_class: user.user_class,
+        user_type: user.user_type,
+        branch_log: user.branch_log,
+        user_photo: user.user_photo
+      });
+    }
+  });
 });
 
+
 /* 001-start-POST-inspection */
-app.post('/api/inspection', async (req, res) => {
+app.post('/api/inspection', (req, res) => {
   const {
     name,
     cusNo,
@@ -258,7 +268,11 @@ app.get('/api/motors', (req, res) => {
 /* 003-GET-QA */
 app.get('/api/Step1', (req, res) => {
   db.query(
-    'SELECT * FROM tbl_inspection_list WHERE (insp_station_now = "Start" OR insp_station_prev = "Start") ORDER BY insp_created_at DESC',
+    `SELECT i.*, tr.trp_service_order, tr.trp_motor_code, trp_customer 
+    FROM tbl_inspection_list i
+    LEFT JOIN form_test_report tr ON i.insp_no = tr.insp_no
+    WHERE (i.insp_station_now = 'Start' OR i.insp_station_prev = 'Start')
+    ORDER BY i.insp_created_at DESC`,
     (err, results) => {
       if (err) {
         console.error('Query error:', err);
@@ -414,6 +428,7 @@ app.post('/api/forms/FormTestReport/:insp_no', (req, res) => {
   };
 
   const mapFields = (data) => ({
+    trp_motor_code: data.motorCode,
     trp_service_order: data.serviceOrder,
     trp_service_item: data.serviceItem,
     trp_id_text: data.id,
