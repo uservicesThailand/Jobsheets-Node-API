@@ -19,6 +19,14 @@ const upload = multer({ storage: multer.memoryStorage() });
 app.use(cors());
 app.use(express.json());
 
+process.on('uncaughtException', err => {
+  console.error('Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', err => {
+  console.error('Unhandled Rejection:', err);
+});
+
 // ✅ เสิร์ฟไฟล์ภาพจาก public/img_upload
 app.use('/img', express.static(path.join(__dirname, 'public', 'img_upload')));
 
@@ -37,64 +45,105 @@ app.get('/health', (req, res) => res.status(200).send("OK"));
 // 🔄 BC API - ใช้ axios
 const { getBcAccessToken } = require('./bcAuth');
 
-// ✅ ฟังก์ชันช่วยดึง ServiceItemLines แบบ recursive
-async function fetchAllServiceItemLines(baseUrl, token) {
-  let allItems = [];
-  let url = baseUrl;
 
-  while (url) {
-    const response = await axios.get(url, {
+// 🔧 ช่วยสร้าง `$filter=Document_No eq 'SO-001' or ...`
+function buildDocumentNoFilter(orderNos = []) {
+  if (!orderNos.length) return "";
+  const conditions = orderNos
+    .map(no => `Document_No eq '${no.replace(/'/g, "''")}'`)
+    .join(' or ');
+  return `$filter=${conditions}`;
+}
+
+// 🔧 แบ่ง array เป็นชุดย่อย
+function chunkArray(array, size) {
+  const result = [];
+  for (let i = 0; i < array.length; i += size) {
+    result.push(array.slice(i, i + size));
+  }
+  return result;
+}
+
+app.post('/api/bc/data', async (req, res) => {
+  const selectedYear = req.body.year || new Date().getFullYear();
+  const selectedMonth = req.body.month; // << เพิ่มตรงนี้
+  const branch = req.body.branch;
+
+  // กำหนดวันที่เริ่ม/สิ้นสุด
+  let startDate = `${selectedYear}-01-01`;
+  let endDate = `${selectedYear}-12-31`;
+
+  if (selectedMonth) {
+    const paddedMonth = selectedMonth.padStart(2, '0');
+    const start = new Date(`${selectedYear}-${paddedMonth}-01`);
+    const end = new Date(start.getFullYear(), start.getMonth() + 1, 0); // สิ้นเดือน
+    startDate = start.toISOString();      // ได้ '2024-07-01T00:00:00.000Z'
+    endDate = end.toISOString();
+  }
+
+  try {
+    const token = await getBcAccessToken();
+
+    // ✅ ดึงเฉพาะช่วงวันที่ตามปี + เดือน
+    const orderUrl = `https://api.businesscentral.dynamics.com/v2.0/${process.env.BC_TENANT_ID}/${process.env.BC_ENVIRONMENT}/ODataV4/Company('${process.env.BC_COMPANY_NAME}')/ServiceOrderList?$orderby=Order_Date desc&$filter=Status eq 'pending' and Order_Date ge ${startDate} and Order_Date le ${endDate} and Service_Order_Type ne 'ADD'`;
+
+    const orderRes = await axios.get(orderUrl, {
       headers: {
         Authorization: `Bearer ${token}`,
         Accept: 'application/json'
       }
     });
 
-    allItems = allItems.concat(response.data.value);
-    url = response.data['@odata.nextLink']; // ถ้ามีหน้าถัดไป จะใช้ลิงก์นี้
-  }
+    const allOrders = orderRes.data.value;
 
-  return allItems;
-}
 
-app.post('/api/bc/data', async (req, res) => {
-  const selectedYear = req.body.year || new Date().getFullYear();
+    // 2. ดึงรายการที่ inspect แล้วจาก MySQL
+    const existingOrders = await new Promise((resolve, reject) => {
+      db.query(
+        'SELECT insp_service_order FROM tbl_inspection_list WHERE YEAR(insp_created_at) = ?',
+        [selectedYear],
+        (err, results) => {
+          if (err) reject(err);
+          else resolve(results.map(r => r.insp_service_order));
+        }
+      );
+    });
 
-  const startDate = `${selectedYear}-01-01`;
-  const endDate = `${selectedYear}-12-31`;
+    // 3. กรองเฉพาะรายการใหม่ + ตรง branch
+    const filteredOrders = allOrders.filter(order =>
+      !existingOrders.includes(order.No) &&
+      (!branch || order.USVT_ResponsibilityCenter === branch)
+    );
 
-  try {
-    const token = await getBcAccessToken();
+    const orderNos = filteredOrders.map(order => order.No);
+    if (orderNos.length === 0) return res.json([]); // ไม่มีรายการใหม่
 
-    const orderUrl = `https://api.businesscentral.dynamics.com/v2.0/${process.env.BC_TENANT_ID}/${process.env.BC_ENVIRONMENT}/ODataV4/Company('${process.env.BC_COMPANY_NAME}')/ServiceOrderList?$orderby=Order_Date desc&$filter=Status eq 'pending' and Order_Date ge ${startDate} and Order_Date le ${endDate}`;
+    // 4. แบ่ง batch แล้วดึง ServiceItemLines แยก
+    const orderChunks = chunkArray(orderNos, 30); // ปลอดภัยประมาณ 30 รายการต่อชุด
+    let allItems = [];
 
-    const itemUrl = `https://api.businesscentral.dynamics.com/v2.0/${process.env.BC_TENANT_ID}/${process.env.BC_ENVIRONMENT}/ODataV4/Company('${process.env.BC_COMPANY_NAME}')/ServiceItemLines`;
+    for (const chunk of orderChunks) {
+      const filter = buildDocumentNoFilter(chunk);
+      const itemUrl = `https://api.businesscentral.dynamics.com/v2.0/${process.env.BC_TENANT_ID}/${process.env.BC_ENVIRONMENT}/ODataV4/Company('${process.env.BC_COMPANY_NAME}')/ServiceItemLines?${filter}`;
 
-    const [orderRes, items, existingOrders] = await Promise.all([
-      axios.get(orderUrl, {
+      const itemRes = await axios.get(itemUrl, {
         headers: {
           Authorization: `Bearer ${token}`,
           Accept: 'application/json'
         }
-      }),
-      fetchAllServiceItemLines(itemUrl, token),
-      new Promise((resolve, reject) => {
-        db.query('SELECT insp_service_order FROM tbl_inspection_list', (err, results) => {
-          if (err) reject(err);
-          else resolve(results.map(r => r.insp_service_order));
-        });
-      })
-    ]);
+      });
 
-    const orders = orderRes.data.value;
-    const filteredOrders = orders.filter(order => !existingOrders.includes(order.No));
+      allItems = allItems.concat(itemRes.data.value);
+    }
+
+    // 5. รวมข้อมูล
     const joined = filteredOrders.map(order => {
-      const relatedItems = items.filter(item => item.Document_No === order.No);
+      const relatedItems = allItems.filter(item => item.Document_No === order.No);
       return {
         ...order,
-        Service_Item_No: relatedItems.length > 0 ? relatedItems[0].Service_Item_No : '',
-        Item_No: relatedItems.length > 0 ? relatedItems[0].Item_No : '',
-        serviceItems: relatedItems
+        Service_Item_No: relatedItems[0]?.Service_Item_No || '',
+        Item_No: relatedItems[0]?.Item_No || '',
+        // serviceItems: relatedItems // 👈 ถ้ายังไม่ต้องใช้เต็มชุด สามารถคอมเมนต์ไว้
       };
     });
 
@@ -104,6 +153,9 @@ app.post('/api/bc/data', async (req, res) => {
     res.status(500).json({ error: 'เกิดข้อผิดพลาดในการดึงข้อมูลจาก BC' });
   }
 });
+
+
+
 
 // 🔐 LOGIN
 app.post('/api/login', (req, res) => {
@@ -271,7 +323,7 @@ app.get('/api/Step1', (req, res) => {
     `SELECT i.*, tr.trp_service_order, tr.trp_motor_code, trp_customer 
     FROM tbl_inspection_list i
     LEFT JOIN form_test_report tr ON i.insp_no = tr.insp_no
-    WHERE (i.insp_station_now = 'Start' OR i.insp_station_prev = 'Start')
+    WHERE (i.insp_station_now = 'QA' OR i.insp_station_prev = 'QA')
     ORDER BY i.insp_created_at DESC`,
     (err, results) => {
       if (err) {
@@ -360,27 +412,31 @@ app.get("/api/inspection/:id", (req, res) => {
   const { id } = req.params;
 
   const sql = `
-    SELECT 
-      insp_id,
-      insp_no,
-      insp_customer_name,
-      insp_customer_no,
-      insp_sale_quote,
-      insp_service_order,
-      insp_service_type,
-      insp_document_date,
-      insp_status,
-      insp_created_at,
-      insp_motor_code,
-      insp_station_user,
-      insp_station_now,
-      insp_station_prev,
-      inspection_updated_at,
-      insp_incoming_date,
-      insp_final_date
-    FROM tbl_inspection_list
-    WHERE insp_no = ?
-  `;
+  SELECT 
+    i.insp_id,
+    i.insp_no,
+    i.insp_customer_name,
+    i.insp_customer_no,
+    i.insp_sale_quote,
+    i.insp_service_order,
+    i.insp_service_type,
+    i.insp_service_item,
+    i.insp_document_date,
+    i.insp_status,
+    i.insp_created_at,
+    i.insp_motor_code,
+    mt.motor_name, -- ✅ จากตาราง list_motor_type
+    i.insp_station_user,
+    i.insp_station_now,
+    i.insp_station_prev,
+    i.inspection_updated_at,
+    i.insp_incoming_date,
+    i.insp_final_date
+  FROM tbl_inspection_list i
+  LEFT JOIN list_motor_type mt ON i.insp_motor_code = mt.motor_code
+  WHERE i.insp_no = ?
+`;
+
 
   db.query(sql, [id], (err, results) => {
     if (err) {
@@ -1703,6 +1759,93 @@ app.get('/api/follow/status', (req, res) => {
     res.json({ is_following });
   });
 });
+
+
+/* 210768804 สถานะ timeline station */
+app.get('/api/timeline/station', (req, res) => {
+  const { insp_id } = req.query;
+
+  if (!insp_id) {
+    return res.status(400).json({ error: 'กรุณาระบุ insp_id' });
+  }
+
+  const stationSQL = `
+    SELECT 
+      s.*, 
+      u.name AS user_name,
+      u.lastname AS user_lastname,
+      u.user_photo
+    FROM tbl_inspection_stations s
+    LEFT JOIN u_user u ON s.user_id = u.user_key
+    WHERE s.insp_id = ?
+    ORDER BY s.station_timestamp ASC
+  `;
+
+  const startSQL = `
+    SELECT 
+      lpj_created_at, 
+      lpj_user_id,
+      u.name AS user_name,
+      u.lastname AS user_lastname,
+      u.user_photo
+    FROM logs_project l
+    LEFT JOIN u_user u ON l.lpj_user_id = u.user_key
+    WHERE lpj_project_id = ?
+    ORDER BY lpj_created_at ASC
+    LIMIT 1
+  `;
+
+  db.query(stationSQL, [insp_id], (err1, stations) => {
+    if (err1) {
+      console.error('DB error (stations):', err1);
+      return res.status(500).json({ error: 'ไม่สามารถดึง timeline ได้' });
+    }
+
+    db.query(startSQL, [insp_id], (err2, startRows) => {
+      if (err2) {
+        console.error('DB error (start):', err2);
+        return res.status(500).json({ error: 'ไม่สามารถดึง start timeline ได้' });
+      }
+
+      const timeline = [];
+
+      // ⬅️ เพิ่มจุดเริ่มต้น
+      if (startRows.length > 0) {
+        const start = startRows[0];
+        timeline.push({
+          station_name: 'Start',
+          station_status: 'Created',
+          station_note: null,
+          timestamp: start.lpj_created_at
+            ? dayjs(start.lpj_created_at).format('DD/MM/YYYY HH:mm')
+            : '',
+          done: true,
+          by: start.user_name ? `${start.user_name}` : null,
+          /*  by: start.user_name ? `${start.user_name} ${start.user_lastname}` : null, */
+          photo: start.user_photo || null,
+        });
+      }
+
+      // ➕ ต่อด้วย station จริง
+      const mapped = stations.map(row => ({
+        station_name: row.station_name,
+        station_status: row.station_status,
+        station_note: row.station_note,
+        timestamp: row.station_timestamp
+          ? dayjs(row.station_timestamp).format('DD/MM/YYYY HH:mm')
+          : '',
+        done: row.station_status !== 'In Progress',
+        by: row.user_name ? `${row.user_name}` : null,
+        /*  by: row.user_name ? `${row.user_name} ${row.user_lastname}` : null, */
+        photo: row.user_photo || null,
+      }));
+
+      res.json([...timeline, ...mapped]);
+    });
+  });
+});
+
+
 
 // ✅ Listen ทั้งเครือข่าย
 app.listen(port, '0.0.0.0', () => {
