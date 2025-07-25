@@ -8,7 +8,7 @@ const axios = require('axios'); // ✅ เพิ่ม axios
 const dayjs = require('dayjs');
 const path = require('path');
 const app = express();
-const port = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5000;
 
 //รูปภาพ test report
 const multer = require('multer');
@@ -316,19 +316,37 @@ app.get('/api/motors', (req, res) => {
     }
   );
 });
+function createStepEndpoint(path, stationList, label) {
+  app.get(path, (req, res) => {
+    const placeholders = stationList.map(() => '?').join(', '); // eg: ?, ?, ?
+    const sql = `
+      SELECT 
+        i.*, 
+        tr.trp_service_order, 
+        tr.trp_motor_code, 
+        tr.trp_customer, 
+        tr.trp_tag_no, 
+        tr.trp_team,
+        mt1.motor_name AS insp_motor_name,
+        mt2.motor_name AS trp_motor_name
+      FROM tbl_inspection_list i
+      LEFT JOIN form_test_report tr ON i.insp_no = tr.insp_no
+      LEFT JOIN list_motor_type mt1 ON i.insp_motor_code = mt1.motor_code
+      LEFT JOIN list_motor_type mt2 ON tr.trp_motor_code = mt2.motor_code
+      WHERE (
+        i.insp_station_now IN (${placeholders})
+        OR (
+          i.insp_station_prev IN (${placeholders})
+          AND i.insp_station_accept = '0'
+        )
+      )
+      ORDER BY i.insp_created_at DESC
+    `;
 
-/* 003-GET-QA */
-app.get('/api/Step1', (req, res) => {
-  db.query(
-    `SELECT i.*, tr.trp_service_order, tr.trp_motor_code, trp_customer 
-    FROM tbl_inspection_list i
-    LEFT JOIN form_test_report tr ON i.insp_no = tr.insp_no
-    WHERE (i.insp_station_now = 'QA' OR i.insp_station_prev = 'QA')
-    ORDER BY i.insp_created_at DESC`,
-    (err, results) => {
+    db.query(sql, [...stationList, ...stationList], (err, results) => {
       if (err) {
-        console.error('Query error:', err);
-        return res.status(500).json({ error: 'ไม่สามารถดึง Step1 ได้' });
+        console.error(`Query error for ${label}:`, err);
+        return res.status(500).json({ error: `ไม่สามารถดึง Step${label} ได้` });
       }
 
       const formatted = results.map(row => ({
@@ -342,11 +360,16 @@ app.get('/api/Step1', (req, res) => {
       }));
 
       res.json(formatted);
-    }
-  );
-});
+    });
+  });
+}
+// ใช้งาน DRY Function สำหรับแต่ละ Station
+createStepEndpoint('/api/StepQA', ['QA', 'QA final', 'QA appr'], 'QA');
+createStepEndpoint('/api/StepME', ['ME', 'ME Final'], 'ME');
+createStepEndpoint('/api/StepPlanning', ['PLANNING'], 'Planning');
+createStepEndpoint('/api/StepCS', ['CS', 'CS Prove'], 'CS');
 
-/* 004-station */
+/* 004-station 001 */
 app.post("/api/send_station001", (req, res) => {
   const { insp_id, next_station, user_id } = req.body;
 
@@ -355,6 +378,7 @@ app.post("/api/send_station001", (req, res) => {
     UPDATE tbl_inspection_list 
     SET insp_station_prev = insp_station_now, 
         insp_station_now = ?, 
+        insp_station_accept = '0',
         insp_status = 'In Progress', 
         inspection_updated_at = NOW() 
     WHERE insp_id = ?
@@ -381,7 +405,7 @@ app.post("/api/send_station001", (req, res) => {
 
     db.query(
       insertLogSql,
-      [insp_id, '001', next_station, 'In Progress', user_id],
+      [insp_id, '1', next_station, 'In Progress', user_id],
       (err2) => {
         if (err2) {
           console.error("Log insert error:", err2);
@@ -391,6 +415,68 @@ app.post("/api/send_station001", (req, res) => {
         res.json({ success: true });
       }
     );
+  });
+});
+
+/* 004-station 002 */
+app.post("/api/accept_station", (req, res) => {
+  const { insp_id, user_id } = req.body;
+
+  // 1. ดึงข้อมูลสถานีปัจจุบันก่อน
+  const getStationSql = `
+    SELECT insp_station_now 
+    FROM tbl_inspection_list 
+    WHERE insp_id = ?
+  `;
+
+  db.query(getStationSql, [insp_id], (err, results) => {
+    if (err || results.length === 0) {
+      console.error("Fetch station error:", err);
+      return res.status(500).json({ error: "ไม่พบข้อมูลสถานีหรือเกิดข้อผิดพลาด" });
+    }
+
+    const currentStation = results[0].insp_station_now;
+
+    // 2. อัปเดต inspection หลัก
+    const updateSql = `
+      UPDATE tbl_inspection_list 
+      SET insp_station_accept = '2', 
+          inspection_updated_at = NOW() 
+      WHERE insp_id = ?
+    `;
+
+    db.query(updateSql, [insp_id], (err2) => {
+      if (err2) {
+        console.error("Update error:", err2);
+        return res.status(500).json({ error: "ไม่สามารถอัปเดตสถานีได้" });
+      }
+
+      // 3. Insert log เข้า tbl_inspection_stations โดยใช้ currentStation
+      const insertLogSql = `
+        INSERT INTO tbl_inspection_stations (
+          insp_id,
+          station_step,
+          station_name,
+          station_status,
+          station_timestamp,
+          created_at,
+          user_id
+        ) VALUES (?, ?, ?, ?, NOW(), NOW(), ?)
+      `;
+
+      db.query(
+        insertLogSql,
+        [insp_id, '2', currentStation, 'In Progress', user_id],
+        (err3) => {
+          if (err3) {
+            console.error("Log insert error:", err3);
+            return res.status(500).json({ error: "บันทึก timeline ไม่สำเร็จ" });
+          }
+
+          res.json({ success: true });
+        }
+      );
+    });
   });
 });
 
@@ -413,28 +499,33 @@ app.get("/api/inspection/:id", (req, res) => {
 
   const sql = `
   SELECT 
-    i.insp_id,
-    i.insp_no,
-    i.insp_customer_name,
-    i.insp_customer_no,
-    i.insp_sale_quote,
-    i.insp_service_order,
-    i.insp_service_type,
-    i.insp_service_item,
-    i.insp_document_date,
-    i.insp_status,
-    i.insp_created_at,
-    i.insp_motor_code,
-    mt.motor_name, -- ✅ จากตาราง list_motor_type
-    i.insp_station_user,
-    i.insp_station_now,
-    i.insp_station_prev,
-    i.inspection_updated_at,
-    i.insp_incoming_date,
-    i.insp_final_date
-  FROM tbl_inspection_list i
-  LEFT JOIN list_motor_type mt ON i.insp_motor_code = mt.motor_code
-  WHERE i.insp_no = ?
+  i.insp_id,
+  i.insp_no,
+  i.insp_customer_name,
+  i.insp_customer_no,
+  i.insp_sale_quote,
+  i.insp_service_order,
+  i.insp_service_type,
+  i.insp_service_item,
+  i.insp_document_date,
+  i.insp_status,
+  i.insp_created_at,
+  i.insp_motor_code,
+  mt1.motor_name AS insp_motor_name,         -- ✅ motor จาก insp
+  i.insp_station_user,
+  i.insp_station_now,
+  i.insp_station_prev,
+  i.inspection_updated_at,
+  i.insp_incoming_date,
+  i.insp_final_date,
+  tr.trp_motor_code,
+  mt2.motor_name AS trp_motor_name           -- ✅ motor จาก test report
+FROM tbl_inspection_list i
+LEFT JOIN form_test_report tr ON i.insp_no = tr.insp_no
+LEFT JOIN list_motor_type mt1 ON i.insp_motor_code = mt1.motor_code
+LEFT JOIN list_motor_type mt2 ON tr.trp_motor_code = mt2.motor_code
+WHERE i.insp_no = ?
+
 `;
 
 
@@ -453,21 +544,48 @@ app.get("/api/inspection/:id", (req, res) => {
 });
 
 // ⬇️ FormTestReport
+
+
 app.get('/api/forms/FormTestReport/:insp_no', (req, res) => {
   const { insp_no } = req.params;
   db.query(`
-     SELECT * FROM tbl_inspection_list ins
-    LEFT JOIN form_test_report tr
-    ON ins.insp_no = tr.insp_no
+    SELECT 
+      ins.*, 
+      tr.*, 
+      updater.name AS updated_by_name,
+      creator.name AS created_by_name
+    FROM tbl_inspection_list ins
+    LEFT JOIN form_test_report tr ON ins.insp_no = tr.insp_no
+    LEFT JOIN u_user updater ON tr.updated_by = updater.user_key
+    LEFT JOIN u_user creator ON tr.created_by = creator.user_key
     WHERE ins.insp_no = ?
-    `, [insp_no], (err, rows) => {
+  `, [insp_no], (err, rows) => {
     if (err) {
       console.error("GET form_test_report error:", err);
       return res.status(500).json({ error: "Internal Server Error" });
     }
-    res.json(rows.length > 0 ? rows[0] : null);
+
+    if (rows.length === 0) return res.json(null);
+
+    const row = rows[0];
+
+    // ✅ แปลงวันที่
+    if (row.updated_at) {
+      row.updated_at = dayjs(row.updated_at).format('DD/MM/YYYY HH:mm');
+    }
+    if (row.insp_created_at) {
+      row.insp_created_at = dayjs(row.insp_created_at).format('DD/MM/YYYY HH:mm');
+    }
+
+    // ✅ ดักกรณีไม่มี updated_by → ใช้ created_by → ถ้าไม่มีอีก ใส่ "K/A"
+    if (!row.updated_by_name) {
+      row.updated_by_name = row.created_by_name || "K/A";
+    }
+
+    res.json(row);
   });
 });
+
 
 app.post('/api/forms/FormTestReport/:insp_no', (req, res) => {
   const { insp_no } = req.params;
@@ -515,6 +633,63 @@ app.post('/api/forms/FormTestReport/:insp_no', (req, res) => {
       return res.status(500).json({ error: "Internal Server Error" });
     }
 
+    const saveAndSendStation = () => {
+      if (payload.stationNow === 'Start' && payload.stationTo) {
+        // ✅ ดึง insp_id จากตาราง inspection
+        db.query("SELECT insp_id FROM tbl_inspection_list WHERE insp_no = ?", [insp_no], (errFind, result) => {
+          if (errFind || result.length === 0) {
+            console.error("หา insp_id ไม่เจอ:", errFind);
+            return res.status(500).json({ error: "ไม่พบข้อมูล insp_id" });
+          }
+
+          const insp_id = result[0].insp_id;
+
+          const stationPayload = {
+            insp_id: insp_id,
+            next_station: payload.stationTo,
+            user_id: user_id
+          };
+
+          // จากนั้นเขียน update + insert timeline ตามเดิม
+          db.query(`
+        UPDATE tbl_inspection_list 
+        SET insp_station_prev = insp_station_now, 
+            insp_station_now = ?, 
+            insp_status = 'In Progress', 
+            inspection_updated_at = NOW() 
+        WHERE insp_id = ?
+      `, [stationPayload.next_station, stationPayload.insp_id], (errUpdate) => {
+            if (errUpdate) {
+              console.error("Update error (station):", errUpdate);
+              return res.status(500).json({ error: "ไม่สามารถอัปเดตสถานีได้" });
+            }
+
+            db.query(`
+          INSERT INTO tbl_inspection_stations (
+            insp_id,
+            station_step,
+            station_name,
+            station_status,
+            station_timestamp,
+            created_at,
+            user_id
+          ) VALUES (?, ?, ?, ?, NOW(), NOW(), ?)
+        `, [stationPayload.insp_id, '001', stationPayload.next_station, 'In Progress', stationPayload.user_id], (errInsert) => {
+              if (errInsert) {
+                console.error("Log insert error (station):", errInsert);
+                return res.status(500).json({ error: "บันทึก timeline ไม่สำเร็จ" });
+              }
+
+              return res.json({ success: true });
+            });
+          });
+        });
+      } else {
+        return res.json({ success: true });
+      }
+    };
+
+
     if (existing.length > 0) {
       const updateData = {
         ...mapFields(payload),
@@ -526,7 +701,7 @@ app.post('/api/forms/FormTestReport/:insp_no', (req, res) => {
           console.error("POST form_testreport error (update):", err2);
           return res.status(500).json({ error: "Internal Server Error" });
         }
-        res.json({ success: true });
+        saveAndSendStation();
       });
     } else {
       const insertData = {
@@ -540,11 +715,12 @@ app.post('/api/forms/FormTestReport/:insp_no', (req, res) => {
           console.error("POST form_testreport error (insert):", err3);
           return res.status(500).json({ error: "Internal Server Error" });
         }
-        res.json({ success: true });
+        saveAndSendStation();
       });
     }
   });
 });
+
 
 app.post('/api/upload', upload.single('file'), async (req, res) => {
   try {
@@ -1828,6 +2004,7 @@ app.get('/api/timeline/station', (req, res) => {
 
       // ➕ ต่อด้วย station จริง
       const mapped = stations.map(row => ({
+        station_step: row.station_step,
         station_name: row.station_name,
         station_status: row.station_status,
         station_note: row.station_note,
@@ -1845,9 +2022,27 @@ app.get('/api/timeline/station', (req, res) => {
   });
 });
 
+// 2207681451 instrument and certificates
+app.get('/api/certificates', (req, res) => {
+  const branch = req.query.branch;
+  const sql = `
+    SELECT *
+    FROM list_certificate
+    WHERE lc_branch = ? AND lc_del = 0
+    ORDER BY lc_equipment_name ASC
+  `;
+  db.query(sql, [branch], (err, results) => {
+    if (err) return res.status(500).json({ error: err });
+    res.json(results);
+  });
+});
+
 
 
 // ✅ Listen ทั้งเครือข่าย
-app.listen(port, '0.0.0.0', () => {
+/* app.listen(port, '0.0.0.0', () => {
   console.log(`API เริ่มทำงานที่ http://0.0.0.0:${port}`);
 });
+ */
+
+app.listen(PORT, () => console.log('Server running on port', PORT));
