@@ -9,6 +9,7 @@ const dayjs = require('dayjs');
 const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 5000;
+const { swaggerUi, swaggerSpec } = require('./swagger');
 
 //รูปภาพ test report
 const multer = require('multer');
@@ -26,6 +27,9 @@ process.on('uncaughtException', err => {
 process.on('unhandledRejection', err => {
   console.error('Unhandled Rejection:', err);
 });
+
+// ✅ Swagger UI
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // ✅ เสิร์ฟไฟล์ภาพจาก public/img_upload
 app.use('/img', express.static(path.join(__dirname, 'public', 'img_upload')));
@@ -2037,6 +2041,50 @@ app.get('/api/certificates', (req, res) => {
   });
 });
 
+
+// 3072568832 team
+app.get('/api/teams', (req, res) => {
+  const branch = req.query.branch;
+  const sql = `
+    SELECT 
+      t.team_name
+    FROM 
+      list_teams t
+    WHERE t.team_branch = ?
+  `;
+
+  db.query(sql, [branch], (err, results) => {
+    if (err) return res.status(500).json({ error: err });
+    res.json(results);
+  });
+});
+
+// 3072568927 team/members
+app.get('/api/teams/members', (req, res) => {
+  const branch = req.query.branch;
+  const sql = `
+    SELECT 
+      t.team_name,
+      u.name,
+      u.lastname,
+      u.user_photo,
+      tm.tm_role,
+      t.team_color
+    FROM 
+      tbl_team_members tm
+    JOIN 
+      list_teams t ON tm.tm_team_id = t.team_id
+    JOIN 
+      u_user u ON tm.tm_user_id = u.user_key
+    WHERE t.team_branch = ?
+    ORDER BY t.team_name, tm.tm_role
+  `;
+
+  db.query(sql, [branch], (err, results) => {
+    if (err) return res.status(500).json({ error: err });
+    res.json(results);
+  });
+});
 
 
 // ✅ Listen ทั้งเครือข่าย
