@@ -49,7 +49,6 @@ app.get('/health', (req, res) => res.status(200).send("OK"));
 // 🔄 BC API - ใช้ axios
 const { getBcAccessToken } = require('./bcAuth');
 
-
 // 🔧 ช่วยสร้าง `$filter=Document_No eq 'SO-001' or ...`
 function buildDocumentNoFilter(orderNos = []) {
   if (!orderNos.length) return "";
@@ -156,10 +155,8 @@ app.post('/api/bc/data', async (req, res) => {
     console.error('BC API JOIN Error:', err.message || err);
     res.status(500).json({ error: 'เกิดข้อผิดพลาดในการดึงข้อมูลจาก BC' });
   }
+
 });
-
-
-
 
 // 🔐 LOGIN
 app.post('/api/login', (req, res) => {
@@ -226,7 +223,6 @@ app.post('/api/login', (req, res) => {
     }
   });
 });
-
 
 /* 001-start-POST-inspection */
 app.post('/api/inspection', (req, res) => {
@@ -320,6 +316,7 @@ app.get('/api/motors', (req, res) => {
     }
   );
 });
+
 function createStepEndpoint(path, stationList, label) {
   app.get(path, (req, res) => {
     const placeholders = stationList.map(() => '?').join(', '); // eg: ?, ?, ?
@@ -367,6 +364,7 @@ function createStepEndpoint(path, stationList, label) {
     });
   });
 }
+
 // ใช้งาน DRY Function สำหรับแต่ละ Station
 createStepEndpoint('/api/StepQA', ['QA', 'QA final', 'QA appr'], 'QA');
 createStepEndpoint('/api/StepME', ['ME', 'ME Final'], 'ME');
@@ -394,9 +392,9 @@ app.post("/api/send_station001", (req, res) => {
       return res.status(500).json({ error: "ไม่สามารถอัปเดตสถานีได้" });
     }
 
-    // 2. Insert log เข้า tbl_inspection_stations
+    // 2. Insert log เข้า logs_inspection_stations
     const insertLogSql = `
-      INSERT INTO tbl_inspection_stations (
+      INSERT INTO logs_inspection_stations (
         insp_id,
         station_step,
         station_name,
@@ -455,9 +453,9 @@ app.post("/api/accept_station", (req, res) => {
         return res.status(500).json({ error: "ไม่สามารถอัปเดตสถานีได้" });
       }
 
-      // 3. Insert log เข้า tbl_inspection_stations โดยใช้ currentStation
+      // 3. Insert log เข้า logs_inspection_stations โดยใช้ currentStation
       const insertLogSql = `
-        INSERT INTO tbl_inspection_stations (
+        INSERT INTO logs_inspection_stations (
           insp_id,
           station_step,
           station_name,
@@ -548,8 +546,6 @@ WHERE i.insp_no = ?
 });
 
 // ⬇️ FormTestReport
-
-
 app.get('/api/forms/FormTestReport/:insp_no', (req, res) => {
   const { insp_no } = req.params;
   db.query(`
@@ -589,7 +585,6 @@ app.get('/api/forms/FormTestReport/:insp_no', (req, res) => {
     res.json(row);
   });
 });
-
 
 app.post('/api/forms/FormTestReport/:insp_no', (req, res) => {
   const { insp_no } = req.params;
@@ -669,7 +664,7 @@ app.post('/api/forms/FormTestReport/:insp_no', (req, res) => {
             }
 
             db.query(`
-          INSERT INTO tbl_inspection_stations (
+          INSERT INTO logs_inspection_stations (
             insp_id,
             station_step,
             station_name,
@@ -724,7 +719,6 @@ app.post('/api/forms/FormTestReport/:insp_no', (req, res) => {
     }
   });
 });
-
 
 app.post('/api/upload', upload.single('file'), async (req, res) => {
   try {
@@ -1445,10 +1439,12 @@ app.post('/api/forms/FormCoreLossHotSpot/:insp_id', (req, res) => {
   const user_id = req.session?.user_id || 0;
 
   db.query("SELECT * FROM form_corelosshotspot WHERE insp_id = ?", [insp_id], (err, existing) => {
+
     if (err) {
       console.error("POST form_corelosshotspot error (select):", err);
       return res.status(500).json({ error: "Internal Server Error" });
     }
+
     if (existing.length > 0) {
       db.query("UPDATE form_corelosshotspot SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?", [payload, user_id, insp_id], (err2) => {
         if (err2) {
@@ -1640,9 +1636,9 @@ app.post('/api/forms/FormAttachments/:insp_id', (req, res) => {
 // ⬇️ FormPhotoManager
 app.get('/api/forms/FormPhotoManager/:insp_id', (req, res) => {
   const { insp_id } = req.params;
-  db.query("SELECT * FROM form_photomanager WHERE insp_id = ?", [insp_id], (err, rows) => {
+  db.query("SELECT * FROM form_photo_manager WHERE insp_id = ?", [insp_id], (err, rows) => {
     if (err) {
-      console.error("GET form_photomanager error:", err);
+      console.error("GET form_photo_manager error:", err);
       return res.status(500).json({ error: "Internal Server Error" });
     }
     res.json(rows.length > 0 ? rows[0] : null);
@@ -1654,23 +1650,23 @@ app.post('/api/forms/FormPhotoManager/:insp_id', (req, res) => {
   const payload = req.body;
   const user_id = req.session?.user_id || 0;
 
-  db.query("SELECT * FROM form_photomanager WHERE insp_id = ?", [insp_id], (err, existing) => {
+  db.query("SELECT * FROM form_photo_manager WHERE insp_id = ?", [insp_id], (err, existing) => {
     if (err) {
-      console.error("POST form_photomanager error (select):", err);
+      console.error("POST form_photo_manager error (select):", err);
       return res.status(500).json({ error: "Internal Server Error" });
     }
     if (existing.length > 0) {
-      db.query("UPDATE form_photomanager SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?", [payload, user_id, insp_id], (err2) => {
+      db.query("UPDATE form_photo_manager SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?", [payload, user_id, insp_id], (err2) => {
         if (err2) {
-          console.error("POST form_photomanager error (update):", err2);
+          console.error("POST form_photo_manager error (update):", err2);
           return res.status(500).json({ error: "Internal Server Error" });
         }
         res.json({ success: true });
       });
     } else {
-      db.query("INSERT INTO form_photomanager SET ?, insp_id=?, created_by=?, created_at=NOW()", [payload, insp_id, user_id], (err3) => {
+      db.query("INSERT INTO form_photo_manager SET ?, insp_id=?, created_by=?, created_at=NOW()", [payload, insp_id, user_id], (err3) => {
         if (err3) {
-          console.error("POST form_photomanager error (insert):", err3);
+          console.error("POST form_photo_manager error (insert):", err3);
           return res.status(500).json({ error: "Internal Server Error" });
         }
         res.json({ success: true });
@@ -1698,7 +1694,6 @@ app.get('/api/tagList', (req, res) => {
     res.json(results);
   });
 });
-
 
 /* 150768831-company-list */
 app.get('/company/list', (req, res) => {
@@ -1955,7 +1950,7 @@ app.get('/api/timeline/station', (req, res) => {
       u.name AS user_name,
       u.lastname AS user_lastname,
       u.user_photo
-    FROM tbl_inspection_stations s
+    FROM logs_inspection_stations s
     LEFT JOIN u_user u ON s.user_id = u.user_key
     WHERE s.insp_id = ?
     ORDER BY s.station_timestamp ASC
@@ -2041,7 +2036,6 @@ app.get('/api/certificates', (req, res) => {
   });
 });
 
-
 // 3072568832 team
 app.get('/api/teams', (req, res) => {
   const branch = req.query.branch;
@@ -2085,7 +2079,6 @@ app.get('/api/teams/members', (req, res) => {
     res.json(results);
   });
 });
-
 
 // ✅ Listen ทั้งเครือข่าย
 /* app.listen(port, '0.0.0.0', () => {
