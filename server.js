@@ -1896,6 +1896,56 @@ app.post('/api/upload-profile-image/:userId', upload.single('image'), async (req
     res.status(500).json({ error: 'Upload failed' });
   }
 });
+/* 1607681321 ระบบแจ้งเตือน การติดตามทั้งหมด พร้อม Pagination */
+app.get('/api/notifications/list/:userKey', (req, res) => {
+  const userKey = req.params.userKey;
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const offset = (page - 1) * limit;
+
+  const countSql = `
+    SELECT COUNT(*) AS total
+    FROM tbl_inspection_follow f
+    JOIN tbl_inspection_list i ON f.insp_id = i.insp_id
+    WHERE f.user_key = ? AND f.is_active = 1
+  `;
+
+  const dataSql = `
+    SELECT 
+      i.insp_id, i.insp_no, i.insp_service_order, i.insp_customer_name, 
+      i.inspection_updated_at, f.followed_at
+    FROM tbl_inspection_follow f
+    JOIN tbl_inspection_list i ON f.insp_id = i.insp_id
+    WHERE f.user_key = ? AND f.is_active = 1
+    ORDER BY f.followed_at DESC
+    LIMIT ? OFFSET ?
+  `;
+
+  db.query(countSql, [userKey], (err, countResult) => {
+    if (err) {
+      console.error("Error counting notifications:", err);
+      return res.status(500).json({ error: "Database error (count)" });
+    }
+
+    const total = countResult[0].total;
+
+    db.query(dataSql, [userKey, limit, offset], (err, results) => {
+      if (err) {
+        console.error("Error fetching notifications:", err);
+        return res.status(500).json({ error: "Database error (data)" });
+      }
+
+      res.json({
+        total,
+        page,
+        totalPages: Math.ceil(total / limit),
+        data: results,
+      });
+    });
+  });
+});
+
+
 
 /* 1607681321 ระบบแจ้งเตือน การติดตาม*/
 app.get('/api/notifications/:userKey', (req, res) => {
