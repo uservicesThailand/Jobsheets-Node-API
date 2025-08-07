@@ -10,6 +10,17 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 5000;
 const { swaggerUi, swaggerSpec } = require('./swagger');
+const http = require('http');
+
+const server = http.createServer(app);
+const { Server } = require('socket.io');
+const io = new Server(server, {
+  cors: {
+    origin: '*',
+    methods: ['GET', 'POST'],
+  }
+});
+app.set('io', io); // ให้ route ต่าง ๆ ใช้งานได้
 
 //รูปภาพ test report
 const multer = require('multer');
@@ -27,6 +38,40 @@ process.on('uncaughtException', err => {
 process.on('unhandledRejection', err => {
   console.error('Unhandled Rejection:', err);
 });
+
+
+io.on('connection', (socket) => {
+  socket.on('join', (userKey) => {
+    socket.join(userKey); // ✅ join ห้องเฉพาะตัว
+  });
+});
+
+const notifyFollowers = (insp_id) => {
+  const getFollowersSql = `
+    SELECT user_key
+    FROM tbl_inspection_follow
+    WHERE insp_id = ? AND is_active = 1
+  `;
+
+  db.query(getFollowersSql, [insp_id], (err, followers) => {
+    if (err || followers.length === 0) return;
+
+    const getDataSql = `
+      SELECT insp_id, insp_no, insp_service_order, insp_customer_name, inspection_updated_at
+      FROM tbl_inspection_list
+      WHERE insp_id = ?
+    `;
+
+    db.query(getDataSql, [insp_id], (err2, rows) => {
+      if (err2 || rows.length === 0) return;
+
+      const data = rows[0];
+      followers.forEach(({ user_key }) => {
+        io.to(user_key).emit('notification', data);
+      });
+    });
+  });
+};
 
 // ✅ Swagger UI
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
@@ -413,7 +458,7 @@ app.post("/api/send_station001", (req, res) => {
           console.error("Log insert error:", err2);
           return res.status(500).json({ error: "บันทึก timeline ไม่สำเร็จ" });
         }
-
+        notifyFollowers(insp_id);
         res.json({ success: true });
       }
     );
@@ -475,6 +520,7 @@ app.post("/api/accept_station", (req, res) => {
             return res.status(500).json({ error: "บันทึก timeline ไม่สำเร็จ" });
           }
 
+          notifyFollowers(insp_id);
           res.json({ success: true });
         }
       );
@@ -679,6 +725,7 @@ app.post('/api/forms/FormTestReport/:insp_no', (req, res) => {
                 return res.status(500).json({ error: "บันทึก timeline ไม่สำเร็จ" });
               }
 
+              notifyFollowers(stationPayload.insp_id);
               return res.json({ success: true });
             });
           });
@@ -793,7 +840,7 @@ app.get('/api/forms/FormMotorNameplate/:insp_id', (req, res) => {
     SELECT * FROM tbl_inspection_list ins    
     LEFT JOIN form_motor_nameplate mn
     ON ins.insp_id = mn.insp_id
-    WHERE insp_id = ?
+    WHERE ins.insp_id = ?
     `, [insp_id], (err, rows) => {
     if (err) {
       console.error("GET form_motor_nameplate error:", err);
@@ -808,23 +855,23 @@ app.post('/api/forms/FormMotorNameplate/:insp_id', (req, res) => {
   const payload = req.body;
   const user_id = req.session?.user_id || 0;
 
-  db.query("SELECT * FROM form_motornameplate WHERE insp_id = ?", [insp_id], (err, existing) => {
+  db.query("SELECT * FROM  form_motor_nameplate WHERE insp_id = ?", [insp_id], (err, existing) => {
     if (err) {
-      console.error("POST form_motornameplate error (select):", err);
+      console.error("POST  form_motor_nameplate error (select):", err);
       return res.status(500).json({ error: "Internal Server Error" });
     }
     if (existing.length > 0) {
-      db.query("UPDATE form_motornameplate SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?", [payload, user_id, insp_id], (err2) => {
+      db.query("UPDATE  form_motor_nameplate SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?", [payload, user_id, insp_id], (err2) => {
         if (err2) {
-          console.error("POST form_motornameplate error (update):", err2);
+          console.error("POST form_motor_nameplate error (update):", err2);
           return res.status(500).json({ error: "Internal Server Error" });
         }
         res.json({ success: true });
       });
     } else {
-      db.query("INSERT INTO form_motornameplate SET ?, insp_id=?, created_by=?, created_at=NOW()", [payload, insp_id, user_id], (err3) => {
+      db.query("INSERT INTO  form_motor_nameplate SET ?, insp_id=?, created_by=?, created_at=NOW()", [payload, insp_id, user_id], (err3) => {
         if (err3) {
-          console.error("POST form_motornameplate error (insert):", err3);
+          console.error("POST  form_motor_nameplate error (insert):", err3);
           return res.status(500).json({ error: "Internal Server Error" });
         }
         res.json({ success: true });
@@ -836,9 +883,9 @@ app.post('/api/forms/FormMotorNameplate/:insp_id', (req, res) => {
 // ⬇️ FormStaticTest
 app.get('/api/forms/FormStaticTest/:insp_id', (req, res) => {
   const { insp_id } = req.params;
-  db.query("SELECT * FROM form_statictest WHERE insp_id = ?", [insp_id], (err, rows) => {
+  db.query("SELECT * FROM form_static_test WHERE insp_id = ?", [insp_id], (err, rows) => {
     if (err) {
-      console.error("GET form_statictest error:", err);
+      console.error("GET form_static_test error:", err);
       return res.status(500).json({ error: "Internal Server Error" });
     }
     res.json(rows.length > 0 ? rows[0] : null);
@@ -850,23 +897,23 @@ app.post('/api/forms/FormStaticTest/:insp_id', (req, res) => {
   const payload = req.body;
   const user_id = req.session?.user_id || 0;
 
-  db.query("SELECT * FROM form_statictest WHERE insp_id = ?", [insp_id], (err, existing) => {
+  db.query("SELECT * FROM form_static_test WHERE insp_id = ?", [insp_id], (err, existing) => {
     if (err) {
-      console.error("POST form_statictest error (select):", err);
+      console.error("POST form_static_test error (select):", err);
       return res.status(500).json({ error: "Internal Server Error" });
     }
     if (existing.length > 0) {
-      db.query("UPDATE form_statictest SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?", [payload, user_id, insp_id], (err2) => {
+      db.query("UPDATE form_static_test SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?", [payload, user_id, insp_id], (err2) => {
         if (err2) {
-          console.error("POST form_statictest error (update):", err2);
+          console.error("POST form_static_test error (update):", err2);
           return res.status(500).json({ error: "Internal Server Error" });
         }
         res.json({ success: true });
       });
     } else {
-      db.query("INSERT INTO form_statictest SET ?, insp_id=?, created_by=?, created_at=NOW()", [payload, insp_id, user_id], (err3) => {
+      db.query("INSERT INTO form_static_test SET ?, insp_id=?, created_by=?, created_at=NOW()", [payload, insp_id, user_id], (err3) => {
         if (err3) {
-          console.error("POST form_statictest error (insert):", err3);
+          console.error("POST form_static_test error (insert):", err3);
           return res.status(500).json({ error: "Internal Server Error" });
         }
         res.json({ success: true });
@@ -878,9 +925,9 @@ app.post('/api/forms/FormStaticTest/:insp_id', (req, res) => {
 // ⬇️ FormEquipmentTest
 app.get('/api/forms/FormEquipmentTest/:insp_id', (req, res) => {
   const { insp_id } = req.params;
-  db.query("SELECT * FROM form_equipmenttest WHERE insp_id = ?", [insp_id], (err, rows) => {
+  db.query("SELECT * FROM form_equipment_test WHERE insp_id = ?", [insp_id], (err, rows) => {
     if (err) {
-      console.error("GET form_equipmenttest error:", err);
+      console.error("GET form_equipment_test error:", err);
       return res.status(500).json({ error: "Internal Server Error" });
     }
     res.json(rows.length > 0 ? rows[0] : null);
@@ -892,23 +939,23 @@ app.post('/api/forms/FormEquipmentTest/:insp_id', (req, res) => {
   const payload = req.body;
   const user_id = req.session?.user_id || 0;
 
-  db.query("SELECT * FROM form_equipmenttest WHERE insp_id = ?", [insp_id], (err, existing) => {
+  db.query("SELECT * FROM form_equipment_test WHERE insp_id = ?", [insp_id], (err, existing) => {
     if (err) {
-      console.error("POST form_equipmenttest error (select):", err);
+      console.error("POST form_equipment_test error (select):", err);
       return res.status(500).json({ error: "Internal Server Error" });
     }
     if (existing.length > 0) {
-      db.query("UPDATE form_equipmenttest SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?", [payload, user_id, insp_id], (err2) => {
+      db.query("UPDATE form_equipment_test SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?", [payload, user_id, insp_id], (err2) => {
         if (err2) {
-          console.error("POST form_equipmenttest error (update):", err2);
+          console.error("POST form_equipment_test error (update):", err2);
           return res.status(500).json({ error: "Internal Server Error" });
         }
         res.json({ success: true });
       });
     } else {
-      db.query("INSERT INTO form_equipmenttest SET ?, insp_id=?, created_by=?, created_at=NOW()", [payload, insp_id, user_id], (err3) => {
+      db.query("INSERT INTO form_equipment_test SET ?, insp_id=?, created_by=?, created_at=NOW()", [payload, insp_id, user_id], (err3) => {
         if (err3) {
-          console.error("POST form_equipmenttest error (insert):", err3);
+          console.error("POST form_equipment_test error (insert):", err3);
           return res.status(500).json({ error: "Internal Server Error" });
         }
         res.json({ success: true });
@@ -920,9 +967,9 @@ app.post('/api/forms/FormEquipmentTest/:insp_id', (req, res) => {
 // ⬇️ FormDynamicTest
 app.get('/api/forms/FormDynamicTest/:insp_id', (req, res) => {
   const { insp_id } = req.params;
-  db.query("SELECT * FROM form_dynamictest WHERE insp_id = ?", [insp_id], (err, rows) => {
+  db.query("SELECT * FROM form_dynamic_test WHERE insp_id = ?", [insp_id], (err, rows) => {
     if (err) {
-      console.error("GET form_dynamictest error:", err);
+      console.error("GET form_dynamic_test error:", err);
       return res.status(500).json({ error: "Internal Server Error" });
     }
     res.json(rows.length > 0 ? rows[0] : null);
@@ -934,23 +981,23 @@ app.post('/api/forms/FormDynamicTest/:insp_id', (req, res) => {
   const payload = req.body;
   const user_id = req.session?.user_id || 0;
 
-  db.query("SELECT * FROM form_dynamictest WHERE insp_id = ?", [insp_id], (err, existing) => {
+  db.query("SELECT * FROM form_dynamic_test WHERE insp_id = ?", [insp_id], (err, existing) => {
     if (err) {
-      console.error("POST form_dynamictest error (select):", err);
+      console.error("POST form_dynamic_test error (select):", err);
       return res.status(500).json({ error: "Internal Server Error" });
     }
     if (existing.length > 0) {
-      db.query("UPDATE form_dynamictest SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?", [payload, user_id, insp_id], (err2) => {
+      db.query("UPDATE form_dynamic_test SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?", [payload, user_id, insp_id], (err2) => {
         if (err2) {
-          console.error("POST form_dynamictest error (update):", err2);
+          console.error("POST form_dynamic_test error (update):", err2);
           return res.status(500).json({ error: "Internal Server Error" });
         }
         res.json({ success: true });
       });
     } else {
-      db.query("INSERT INTO form_dynamictest SET ?, insp_id=?, created_by=?, created_at=NOW()", [payload, insp_id, user_id], (err3) => {
+      db.query("INSERT INTO form_dynamic_test SET ?, insp_id=?, created_by=?, created_at=NOW()", [payload, insp_id, user_id], (err3) => {
         if (err3) {
-          console.error("POST form_dynamictest error (insert):", err3);
+          console.error("POST form_dynamic_test error (insert):", err3);
           return res.status(500).json({ error: "Internal Server Error" });
         }
         res.json({ success: true });
@@ -962,9 +1009,9 @@ app.post('/api/forms/FormDynamicTest/:insp_id', (req, res) => {
 // ⬇️ FormHousingShaft
 app.get('/api/forms/FormHousingShaft/:insp_id', (req, res) => {
   const { insp_id } = req.params;
-  db.query("SELECT * FROM form_housingshaft WHERE insp_id = ?", [insp_id], (err, rows) => {
+  db.query("SELECT * FROM form_housing_shaft WHERE insp_id = ?", [insp_id], (err, rows) => {
     if (err) {
-      console.error("GET form_housingshaft error:", err);
+      console.error("GET form_housing_shaft error:", err);
       return res.status(500).json({ error: "Internal Server Error" });
     }
     res.json(rows.length > 0 ? rows[0] : null);
@@ -976,23 +1023,23 @@ app.post('/api/forms/FormHousingShaft/:insp_id', (req, res) => {
   const payload = req.body;
   const user_id = req.session?.user_id || 0;
 
-  db.query("SELECT * FROM form_housingshaft WHERE insp_id = ?", [insp_id], (err, existing) => {
+  db.query("SELECT * FROM form_housing_shaft WHERE insp_id = ?", [insp_id], (err, existing) => {
     if (err) {
-      console.error("POST form_housingshaft error (select):", err);
+      console.error("POST form_housing_shaft error (select):", err);
       return res.status(500).json({ error: "Internal Server Error" });
     }
     if (existing.length > 0) {
-      db.query("UPDATE form_housingshaft SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?", [payload, user_id, insp_id], (err2) => {
+      db.query("UPDATE form_housing_shaft SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?", [payload, user_id, insp_id], (err2) => {
         if (err2) {
-          console.error("POST form_housingshaft error (update):", err2);
+          console.error("POST form_housing_shaft error (update):", err2);
           return res.status(500).json({ error: "Internal Server Error" });
         }
         res.json({ success: true });
       });
     } else {
-      db.query("INSERT INTO form_housingshaft SET ?, insp_id=?, created_by=?, created_at=NOW()", [payload, insp_id, user_id], (err3) => {
+      db.query("INSERT INTO form_housing_shaft SET ?, insp_id=?, created_by=?, created_at=NOW()", [payload, insp_id, user_id], (err3) => {
         if (err3) {
-          console.error("POST form_housingshaft error (insert):", err3);
+          console.error("POST form_housing_shaft error (insert):", err3);
           return res.status(500).json({ error: "Internal Server Error" });
         }
         res.json({ success: true });
@@ -1088,9 +1135,9 @@ app.post('/api/forms/FormBalance/:insp_id', (req, res) => {
 // ⬇️ FormElectricalServices
 app.get('/api/forms/FormElectricalServices/:insp_id', (req, res) => {
   const { insp_id } = req.params;
-  db.query("SELECT * FROM form_electricalservices WHERE insp_id = ?", [insp_id], (err, rows) => {
+  db.query("SELECT * FROM form_electrical_services WHERE insp_id = ?", [insp_id], (err, rows) => {
     if (err) {
-      console.error("GET form_electricalservices error:", err);
+      console.error("GET form_electrical_services error:", err);
       return res.status(500).json({ error: "Internal Server Error" });
     }
     res.json(rows.length > 0 ? rows[0] : null);
@@ -1102,23 +1149,23 @@ app.post('/api/forms/FormElectricalServices/:insp_id', (req, res) => {
   const payload = req.body;
   const user_id = req.session?.user_id || 0;
 
-  db.query("SELECT * FROM form_electricalservices WHERE insp_id = ?", [insp_id], (err, existing) => {
+  db.query("SELECT * FROM form_electrical_services WHERE insp_id = ?", [insp_id], (err, existing) => {
     if (err) {
-      console.error("POST form_electricalservices error (select):", err);
+      console.error("POST form_electrical_services error (select):", err);
       return res.status(500).json({ error: "Internal Server Error" });
     }
     if (existing.length > 0) {
-      db.query("UPDATE form_electricalservices SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?", [payload, user_id, insp_id], (err2) => {
+      db.query("UPDATE form_electrical_services SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?", [payload, user_id, insp_id], (err2) => {
         if (err2) {
-          console.error("POST form_electricalservices error (update):", err2);
+          console.error("POST form_electrical_services error (update):", err2);
           return res.status(500).json({ error: "Internal Server Error" });
         }
         res.json({ success: true });
       });
     } else {
-      db.query("INSERT INTO form_electricalservices SET ?, insp_id=?, created_by=?, created_at=NOW()", [payload, insp_id, user_id], (err3) => {
+      db.query("INSERT INTO form_electrical_services SET ?, insp_id=?, created_by=?, created_at=NOW()", [payload, insp_id, user_id], (err3) => {
         if (err3) {
-          console.error("POST form_electricalservices error (insert):", err3);
+          console.error("POST form_electrical_services error (insert):", err3);
           return res.status(500).json({ error: "Internal Server Error" });
         }
         res.json({ success: true });
@@ -1172,9 +1219,9 @@ app.post('/api/forms/FormInstruments/:insp_id', (req, res) => {
 // ⬇️ FormCoilBrakeTest
 app.get('/api/forms/FormCoilBrakeTest/:insp_id', (req, res) => {
   const { insp_id } = req.params;
-  db.query("SELECT * FROM form_coilbraketest WHERE insp_id = ?", [insp_id], (err, rows) => {
+  db.query("SELECT * FROM form_coil_brake_test WHERE insp_id = ?", [insp_id], (err, rows) => {
     if (err) {
-      console.error("GET form_coilbraketest error:", err);
+      console.error("GET form_coil_brake_test error:", err);
       return res.status(500).json({ error: "Internal Server Error" });
     }
     res.json(rows.length > 0 ? rows[0] : null);
@@ -1186,23 +1233,23 @@ app.post('/api/forms/FormCoilBrakeTest/:insp_id', (req, res) => {
   const payload = req.body;
   const user_id = req.session?.user_id || 0;
 
-  db.query("SELECT * FROM form_coilbraketest WHERE insp_id = ?", [insp_id], (err, existing) => {
+  db.query("SELECT * FROM form_coil_brake_test WHERE insp_id = ?", [insp_id], (err, existing) => {
     if (err) {
-      console.error("POST form_coilbraketest error (select):", err);
+      console.error("POST form_coil_brake_test error (select):", err);
       return res.status(500).json({ error: "Internal Server Error" });
     }
     if (existing.length > 0) {
-      db.query("UPDATE form_coilbraketest SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?", [payload, user_id, insp_id], (err2) => {
+      db.query("UPDATE form_coil_brake_test SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?", [payload, user_id, insp_id], (err2) => {
         if (err2) {
-          console.error("POST form_coilbraketest error (update):", err2);
+          console.error("POST form_coil_brake_test error (update):", err2);
           return res.status(500).json({ error: "Internal Server Error" });
         }
         res.json({ success: true });
       });
     } else {
-      db.query("INSERT INTO form_coilbraketest SET ?, insp_id=?, created_by=?, created_at=NOW()", [payload, insp_id, user_id], (err3) => {
+      db.query("INSERT INTO form_coil_brake_test SET ?, insp_id=?, created_by=?, created_at=NOW()", [payload, insp_id, user_id], (err3) => {
         if (err3) {
-          console.error("POST form_coilbraketest error (insert):", err3);
+          console.error("POST form_coil_brake_test error (insert):", err3);
           return res.status(500).json({ error: "Internal Server Error" });
         }
         res.json({ success: true });
@@ -1256,9 +1303,9 @@ app.post('/api/forms/FormApproval/:insp_id', (req, res) => {
 // ⬇️ FormMechanicalServices
 app.get('/api/forms/FormMechanicalServices/:insp_id', (req, res) => {
   const { insp_id } = req.params;
-  db.query("SELECT * FROM form_mechanicalservices WHERE insp_id = ?", [insp_id], (err, rows) => {
+  db.query("SELECT * FROM form_mechanical_services WHERE insp_id = ?", [insp_id], (err, rows) => {
     if (err) {
-      console.error("GET form_mechanicalservices error:", err);
+      console.error("GET form_mechanical_services error:", err);
       return res.status(500).json({ error: "Internal Server Error" });
     }
     res.json(rows.length > 0 ? rows[0] : null);
@@ -1270,23 +1317,23 @@ app.post('/api/forms/FormMechanicalServices/:insp_id', (req, res) => {
   const payload = req.body;
   const user_id = req.session?.user_id || 0;
 
-  db.query("SELECT * FROM form_mechanicalservices WHERE insp_id = ?", [insp_id], (err, existing) => {
+  db.query("SELECT * FROM form_mechanical_services WHERE insp_id = ?", [insp_id], (err, existing) => {
     if (err) {
-      console.error("POST form_mechanicalservices error (select):", err);
+      console.error("POST form_mechanical_services error (select):", err);
       return res.status(500).json({ error: "Internal Server Error" });
     }
     if (existing.length > 0) {
-      db.query("UPDATE form_mechanicalservices SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?", [payload, user_id, insp_id], (err2) => {
+      db.query("UPDATE form_mechanical_services SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?", [payload, user_id, insp_id], (err2) => {
         if (err2) {
-          console.error("POST form_mechanicalservices error (update):", err2);
+          console.error("POST form_mechanical_services error (update):", err2);
           return res.status(500).json({ error: "Internal Server Error" });
         }
         res.json({ success: true });
       });
     } else {
-      db.query("INSERT INTO form_mechanicalservices SET ?, insp_id=?, created_by=?, created_at=NOW()", [payload, insp_id, user_id], (err3) => {
+      db.query("INSERT INTO form_mechanical_services SET ?, insp_id=?, created_by=?, created_at=NOW()", [payload, insp_id, user_id], (err3) => {
         if (err3) {
-          console.error("POST form_mechanicalservices error (insert):", err3);
+          console.error("POST form_mechanical_services error (insert):", err3);
           return res.status(500).json({ error: "Internal Server Error" });
         }
         res.json({ success: true });
@@ -1298,9 +1345,9 @@ app.post('/api/forms/FormMechanicalServices/:insp_id', (req, res) => {
 // ⬇️ FormMechanicalInspectionData
 app.get('/api/forms/FormMechanicalInspectionData/:insp_id', (req, res) => {
   const { insp_id } = req.params;
-  db.query("SELECT * FROM form_mechanicalinspectiondata WHERE insp_id = ?", [insp_id], (err, rows) => {
+  db.query("SELECT * FROM form_mechanical_inspection_data WHERE insp_id = ?", [insp_id], (err, rows) => {
     if (err) {
-      console.error("GET form_mechanicalinspectiondata error:", err);
+      console.error("GET form_mechanical_inspection_data error:", err);
       return res.status(500).json({ error: "Internal Server Error" });
     }
     res.json(rows.length > 0 ? rows[0] : null);
@@ -1312,23 +1359,23 @@ app.post('/api/forms/FormMechanicalInspectionData/:insp_id', (req, res) => {
   const payload = req.body;
   const user_id = req.session?.user_id || 0;
 
-  db.query("SELECT * FROM form_mechanicalinspectiondata WHERE insp_id = ?", [insp_id], (err, existing) => {
+  db.query("SELECT * FROM form_mechanical_inspection_data WHERE insp_id = ?", [insp_id], (err, existing) => {
     if (err) {
-      console.error("POST form_mechanicalinspectiondata error (select):", err);
+      console.error("POST form_mechanical_inspection_data error (select):", err);
       return res.status(500).json({ error: "Internal Server Error" });
     }
     if (existing.length > 0) {
-      db.query("UPDATE form_mechanicalinspectiondata SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?", [payload, user_id, insp_id], (err2) => {
+      db.query("UPDATE form_mechanical_inspection_data SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?", [payload, user_id, insp_id], (err2) => {
         if (err2) {
-          console.error("POST form_mechanicalinspectiondata error (update):", err2);
+          console.error("POST form_mechanical_inspection_data error (update):", err2);
           return res.status(500).json({ error: "Internal Server Error" });
         }
         res.json({ success: true });
       });
     } else {
-      db.query("INSERT INTO form_mechanicalinspectiondata SET ?, insp_id=?, created_by=?, created_at=NOW()", [payload, insp_id, user_id], (err3) => {
+      db.query("INSERT INTO form_mechanical_inspection_data SET ?, insp_id=?, created_by=?, created_at=NOW()", [payload, insp_id, user_id], (err3) => {
         if (err3) {
-          console.error("POST form_mechanicalinspectiondata error (insert):", err3);
+          console.error("POST form_mechanical_inspection_data error (insert):", err3);
           return res.status(500).json({ error: "Internal Server Error" });
         }
         res.json({ success: true });
@@ -1340,9 +1387,9 @@ app.post('/api/forms/FormMechanicalInspectionData/:insp_id', (req, res) => {
 // ⬇️ FormLaserAlignment
 app.get('/api/forms/FormLaserAlignment/:insp_id', (req, res) => {
   const { insp_id } = req.params;
-  db.query("SELECT * FROM form_laseralignment WHERE insp_id = ?", [insp_id], (err, rows) => {
+  db.query("SELECT * FROM form_laser_alignment WHERE insp_id = ?", [insp_id], (err, rows) => {
     if (err) {
-      console.error("GET form_laseralignment error:", err);
+      console.error("GET form_laser_alignment error:", err);
       return res.status(500).json({ error: "Internal Server Error" });
     }
     res.json(rows.length > 0 ? rows[0] : null);
@@ -1354,23 +1401,23 @@ app.post('/api/forms/FormLaserAlignment/:insp_id', (req, res) => {
   const payload = req.body;
   const user_id = req.session?.user_id || 0;
 
-  db.query("SELECT * FROM form_laseralignment WHERE insp_id = ?", [insp_id], (err, existing) => {
+  db.query("SELECT * FROM form_laser_alignment WHERE insp_id = ?", [insp_id], (err, existing) => {
     if (err) {
-      console.error("POST form_laseralignment error (select):", err);
+      console.error("POST form_laser_alignment error (select):", err);
       return res.status(500).json({ error: "Internal Server Error" });
     }
     if (existing.length > 0) {
-      db.query("UPDATE form_laseralignment SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?", [payload, user_id, insp_id], (err2) => {
+      db.query("UPDATE form_laser_alignment SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?", [payload, user_id, insp_id], (err2) => {
         if (err2) {
-          console.error("POST form_laseralignment error (update):", err2);
+          console.error("POST form_laser_alignment error (update):", err2);
           return res.status(500).json({ error: "Internal Server Error" });
         }
         res.json({ success: true });
       });
     } else {
-      db.query("INSERT INTO form_laseralignment SET ?, insp_id=?, created_by=?, created_at=NOW()", [payload, insp_id, user_id], (err3) => {
+      db.query("INSERT INTO form_laser_alignment SET ?, insp_id=?, created_by=?, created_at=NOW()", [payload, insp_id, user_id], (err3) => {
         if (err3) {
-          console.error("POST form_laseralignment error (insert):", err3);
+          console.error("POST form_laser_alignment error (insert):", err3);
           return res.status(500).json({ error: "Internal Server Error" });
         }
         res.json({ success: true });
@@ -1382,9 +1429,9 @@ app.post('/api/forms/FormLaserAlignment/:insp_id', (req, res) => {
 // ⬇️ FormVibrationAfterInstalled
 app.get('/api/forms/FormVibrationAfterInstalled/:insp_id', (req, res) => {
   const { insp_id } = req.params;
-  db.query("SELECT * FROM form_vibrationafterinstalled WHERE insp_id = ?", [insp_id], (err, rows) => {
+  db.query("SELECT * FROM form_vibration_after_installed WHERE insp_id = ?", [insp_id], (err, rows) => {
     if (err) {
-      console.error("GET form_vibrationafterinstalled error:", err);
+      console.error("GET form_vibration_after_installed error:", err);
       return res.status(500).json({ error: "Internal Server Error" });
     }
     res.json(rows.length > 0 ? rows[0] : null);
@@ -1396,23 +1443,23 @@ app.post('/api/forms/FormVibrationAfterInstalled/:insp_id', (req, res) => {
   const payload = req.body;
   const user_id = req.session?.user_id || 0;
 
-  db.query("SELECT * FROM form_vibrationafterinstalled WHERE insp_id = ?", [insp_id], (err, existing) => {
+  db.query("SELECT * FROM form_vibration_after_installed WHERE insp_id = ?", [insp_id], (err, existing) => {
     if (err) {
-      console.error("POST form_vibrationafterinstalled error (select):", err);
+      console.error("POST form_vibration_after_installed error (select):", err);
       return res.status(500).json({ error: "Internal Server Error" });
     }
     if (existing.length > 0) {
-      db.query("UPDATE form_vibrationafterinstalled SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?", [payload, user_id, insp_id], (err2) => {
+      db.query("UPDATE form_vibration_after_installed SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?", [payload, user_id, insp_id], (err2) => {
         if (err2) {
-          console.error("POST form_vibrationafterinstalled error (update):", err2);
+          console.error("POST form_vibration_after_installed error (update):", err2);
           return res.status(500).json({ error: "Internal Server Error" });
         }
         res.json({ success: true });
       });
     } else {
-      db.query("INSERT INTO form_vibrationafterinstalled SET ?, insp_id=?, created_by=?, created_at=NOW()", [payload, insp_id, user_id], (err3) => {
+      db.query("INSERT INTO form_vibration_after_installed SET ?, insp_id=?, created_by=?, created_at=NOW()", [payload, insp_id, user_id], (err3) => {
         if (err3) {
-          console.error("POST form_vibrationafterinstalled error (insert):", err3);
+          console.error("POST form_vibration_after_installed error (insert):", err3);
           return res.status(500).json({ error: "Internal Server Error" });
         }
         res.json({ success: true });
@@ -1424,9 +1471,9 @@ app.post('/api/forms/FormVibrationAfterInstalled/:insp_id', (req, res) => {
 // ⬇️ FormCoreLossHotSpot
 app.get('/api/forms/FormCoreLossHotSpot/:insp_id', (req, res) => {
   const { insp_id } = req.params;
-  db.query("SELECT * FROM form_corelosshotspot WHERE insp_id = ?", [insp_id], (err, rows) => {
+  db.query("SELECT * FROM form_core_loss_hot_spot WHERE insp_id = ?", [insp_id], (err, rows) => {
     if (err) {
-      console.error("GET form_corelosshotspot error:", err);
+      console.error("GET form_core_loss_hot_spot error:", err);
       return res.status(500).json({ error: "Internal Server Error" });
     }
     res.json(rows.length > 0 ? rows[0] : null);
@@ -1438,25 +1485,25 @@ app.post('/api/forms/FormCoreLossHotSpot/:insp_id', (req, res) => {
   const payload = req.body;
   const user_id = req.session?.user_id || 0;
 
-  db.query("SELECT * FROM form_corelosshotspot WHERE insp_id = ?", [insp_id], (err, existing) => {
+  db.query("SELECT * FROM form_core_loss_hot_spot WHERE insp_id = ?", [insp_id], (err, existing) => {
 
     if (err) {
-      console.error("POST form_corelosshotspot error (select):", err);
+      console.error("POST form_core_loss_hot_spot error (select):", err);
       return res.status(500).json({ error: "Internal Server Error" });
     }
 
     if (existing.length > 0) {
-      db.query("UPDATE form_corelosshotspot SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?", [payload, user_id, insp_id], (err2) => {
+      db.query("UPDATE form_core_loss_hot_spot SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?", [payload, user_id, insp_id], (err2) => {
         if (err2) {
-          console.error("POST form_corelosshotspot error (update):", err2);
+          console.error("POST form_core_loss_hot_spot error (update):", err2);
           return res.status(500).json({ error: "Internal Server Error" });
         }
         res.json({ success: true });
       });
     } else {
-      db.query("INSERT INTO form_corelosshotspot SET ?, insp_id=?, created_by=?, created_at=NOW()", [payload, insp_id, user_id], (err3) => {
+      db.query("INSERT INTO form_core_loss_hot_spot SET ?, insp_id=?, created_by=?, created_at=NOW()", [payload, insp_id, user_id], (err3) => {
         if (err3) {
-          console.error("POST form_corelosshotspot error (insert):", err3);
+          console.error("POST form_core_loss_hot_spot error (insert):", err3);
           return res.status(500).json({ error: "Internal Server Error" });
         }
         res.json({ success: true });
@@ -1552,9 +1599,9 @@ app.post('/api/forms/FormMachine/:insp_id', (req, res) => {
 // ⬇️ FormPartData
 app.get('/api/forms/FormPartData/:insp_id', (req, res) => {
   const { insp_id } = req.params;
-  db.query("SELECT * FROM form_partdata WHERE insp_id = ?", [insp_id], (err, rows) => {
+  db.query("SELECT * FROM form_part_data WHERE insp_id = ?", [insp_id], (err, rows) => {
     if (err) {
-      console.error("GET form_partdata error:", err);
+      console.error("GET form_part_data error:", err);
       return res.status(500).json({ error: "Internal Server Error" });
     }
     res.json(rows.length > 0 ? rows[0] : null);
@@ -1566,21 +1613,21 @@ app.post('/api/forms/FormPartData/:insp_id', (req, res) => {
   const payload = req.body;
   const user_id = req.session?.user_id || 0;
 
-  db.query("SELECT * FROM form_partdata WHERE insp_id = ?", [insp_id], (err, existing) => {
+  db.query("SELECT * FROM form_part_data WHERE insp_id = ?", [insp_id], (err, existing) => {
     if (err) {
-      console.error("POST form_partdata error (select):", err);
+      console.error("POST form_part_data error (select):", err);
       return res.status(500).json({ error: "Internal Server Error" });
     }
     if (existing.length > 0) {
-      db.query("UPDATE form_partdata SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?", [payload, user_id, insp_id], (err2) => {
+      db.query("UPDATE form_part_data SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?", [payload, user_id, insp_id], (err2) => {
         if (err2) {
-          console.error("POST form_partdata error (update):", err2);
+          console.error("POST form_part_data error (update):", err2);
           return res.status(500).json({ error: "Internal Server Error" });
         }
         res.json({ success: true });
       });
     } else {
-      db.query("INSERT INTO form_partdata SET ?, insp_id=?, created_by=?, created_at=NOW()", [payload, insp_id, user_id], (err3) => {
+      db.query("INSERT INTO form_part_data SET ?, insp_id=?, created_by=?, created_at=NOW()", [payload, insp_id, user_id], (err3) => {
         if (err3) {
           console.error("POST form_partdata error (insert):", err3);
           return res.status(500).json({ error: "Internal Server Error" });
@@ -2086,4 +2133,4 @@ app.get('/api/teams/members', (req, res) => {
 });
  */
 
-app.listen(PORT, () => console.log('Server running on port', PORT));
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
