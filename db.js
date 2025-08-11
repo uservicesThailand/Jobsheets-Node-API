@@ -1,22 +1,24 @@
-require('dotenv').config();
+// db.js
 const mysql = require('mysql2');
+require('dotenv').config();
 
-const db = mysql.createConnection({
+
+const db = mysql.createPool({
   host: process.env.DB_HOST,
   user: process.env.DB_USERNAME,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_DATABASE,
+  connectionLimit: 10,
+  connectTimeout: 20000, // 20 วินาที
   ssl: {
-    rejectUnauthorized: false // สำหรับเริ่มต้น ลองเปิดเชื่อมต่อได้ก่อน
+    rejectUnauthorized: false
   }
 });
 
-db.connect((err) => {
-  if (err) {
-    console.error('เชื่อมต่อฐานข้อมูลล้มเหลว:', err);
-  } else {
-    console.log('เชื่อมต่อฐานข้อมูลสำเร็จ');
-  }
+// Optional: handle error globally
+db.on('error', (err) => {
+  console.error('Database error:', err.code);
 });
 
+// รองรับ callback
 module.exports = db;
