@@ -283,20 +283,34 @@ app.post('/api/login', (req, res) => {
     const user = results[0];
     const storedHash = user.password;
 
+    const handleLoginSuccess = () => {
+      // อัปเดตเวลาล็อกอินล่าสุด
+      db.query(
+        'UPDATE u_user SET u_last_login = NOW() WHERE user_key = ?',
+        [user.user_key],
+        (err2) => {
+          if (err2) console.error('Update last login error:', err2);
+        }
+      );
+
+      res.json({
+        user_key: user.user_key,
+        name: user.name,
+        lastname: user.lastname,
+        username: user.username,
+        user_class: user.user_class,
+        user_type: user.user_type,
+        branch_log: user.branch_log,
+        user_photo: user.user_photo,
+        u_role: user.u_role
+      });
+    };
+
     if (storedHash.startsWith('$2')) {
       bcrypt.compare(password, storedHash)
         .then((isMatch) => {
           if (!isMatch) return res.status(401).json({ error: 'รหัสผ่านไม่ถูกต้อง' });
-          res.json({
-            user_key: user.user_key,
-            name: user.name,
-            lastname: user.lastname,
-            username: user.username,
-            user_class: user.user_class,
-            user_type: user.user_type,
-            branch_log: user.branch_log,
-            user_photo: user.user_photo
-          });
+          handleLoginSuccess();
         })
         .catch((err2) => {
           console.error('Password check error:', err2);
@@ -306,17 +320,206 @@ app.post('/api/login', (req, res) => {
       const md5Hash = crypto.createHash('md5').update(password).digest('hex');
       const isMatch = (md5Hash === storedHash);
       if (!isMatch) return res.status(401).json({ error: 'รหัสผ่านไม่ถูกต้อง' });
-      res.json({
-        user_key: user.user_key,
-        name: user.name,
-        lastname: user.lastname,
-        username: user.username,
-        user_class: user.user_class,
-        user_type: user.user_type,
-        branch_log: user.branch_log,
-        user_photo: user.user_photo
-      });
+      handleLoginSuccess();
     }
+  });
+});
+//_______________________________________________________________________________
+// Logout Endpoint
+app.post('/api/logout', (req, res) => {
+  const { user_key } = req.body || {};
+
+  if (!user_key) {
+    return res.status(400).json({ error: 'ไม่พบ user_key' });
+  }
+
+  const sql = `UPDATE u_user SET u_last_logout = NOW() WHERE user_key = ?`;
+
+  db.query(sql, [user_key], (err, result) => {
+    if (err) {
+      console.error('Database error:', err);
+      return res.status(500).json({ error: 'Database error' });
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'ไม่พบผู้ใช้' });
+    }
+
+    res.json({ message: 'ออกจากระบบสำเร็จ' });
+  });
+});
+// ====== แทรกในไฟล์แอปหลัก (หลังจาก app.use(express.json()) และมีตัวแปร db แล้ว) ======
+
+// ✅ Middleware ตรวจสิทธิ์ admin/developer จาก X-User-Key
+function requireAdminOrDev(req, res, next) {
+  const adminKey = req.header('X-User-Key');
+  if (!adminKey) return res.status(401).json({ error: 'Unauthorized' });
+
+  const sql = `SELECT u_role FROM u_user WHERE user_key = ? AND user_status = 1`;
+  db.query(sql, [adminKey], (err, rows) => {
+    if (err) return res.status(500).json({ error: 'Database error' });
+    if (!rows.length) return res.status(401).json({ error: 'Unauthorized' });
+
+    const role = String(rows[0].u_role || '').toLowerCase();
+    if (role === 'admin' || role === 'developer') return next();
+    return res.status(403).json({ error: 'Forbidden' });
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ADMIN: ลิสต์ผู้ใช้ (ค้นหาได้ด้วย ?q=)
+// GET /api/admin/users
+app.get('/api/admin/users', requireAdminOrDev, (req, res) => {
+  const q = (req.query.q || '').trim();
+  const like = `%${q}%`;
+  const sql = `
+    SELECT 
+      user_key, name, lastname, username, user_photo, user_class, bed_view,
+      user_language, u_email, user_status, user_type, u_department,
+      branch_log, u_add_date, u_add_by, u_update_date, line_id, u_tel,
+      u_last_login, u_last_logout, u_role
+    FROM u_user
+    WHERE (? = '' 
+           OR username LIKE ? 
+           OR name LIKE ? 
+           OR lastname LIKE ?
+           OR u_email LIKE ?
+           OR branch_log LIKE ?)
+    ORDER BY (u_last_login IS NULL), u_last_login DESC, username ASC
+  `;
+  const params = [q, like, like, like, like, like];
+
+  db.query(sql, params, (err, rows) => {
+    if (err) {
+      console.error('Database error (/api/admin/users):', err.sqlMessage || err);
+      return res.status(500).json({ error: 'Database error' });
+    }
+    res.json(rows);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ADMIN: เพิ่มผู้ใช้ใหม่ (รหัสผ่านเข้ารหัสเป็น bcrypt เท่านั้น)
+// POST /api/admin/users
+app.post('/api/admin/users', requireAdminOrDev, async (req, res) => {
+  try {
+    const {
+      name, lastname, username, password,
+      user_photo = null, user_class = 0, bed_view = null,
+      user_language = null, u_email = null, user_status = 1,
+      user_type = null, u_department = null, branch_log = null,
+      u_add_by = null, line_id = null, u_tel = null, u_role = 'user'
+    } = req.body || {};
+
+    if (!username || !password || !name) {
+      return res.status(400).json({ error: 'กรอก name, username, password ให้ครบ' });
+    }
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'รหัสผ่านต้องอย่างน้อย 6 ตัวอักษร' });
+    }
+
+    // ห้าม username ซ้ำ
+    db.query(`SELECT user_key FROM u_user WHERE username = ? LIMIT 1`, [username], async (err, rows) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+      if (rows.length) return res.status(409).json({ error: 'username ซ้ำ' });
+
+      const salt = await bcrypt.genSalt(10);
+      const hash = await bcrypt.hash(password, salt);
+
+      const insertSql = `
+        INSERT INTO u_user
+        (name, lastname, username, password, user_photo, user_class, bed_view,
+         user_language, u_email, user_status, user_type, u_department, branch_log,
+         u_add_date, u_add_by, u_update_date, line_id, u_tel, u_role)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, NOW(), ?, ?, ?)
+      `;
+      const params = [
+        name || null, lastname || null, username, hash, user_photo,
+        +user_class || 0, bed_view, user_language, u_email, +user_status || 1,
+        user_type, u_department, branch_log, u_add_by, line_id, u_tel, u_role
+      ];
+
+      db.query(insertSql, params, (err2, result) => {
+        if (err2) return res.status(500).json({ error: 'Database error' });
+        res.status(201).json({ user_key: result.insertId });
+      });
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ADMIN: แก้ไขข้อมูลผู้ใช้/เปิดปิดการใช้งาน/เปลี่ยน role
+// PATCH /api/admin/users/:user_key
+app.patch('/api/admin/users/:user_key', requireAdminOrDev, (req, res) => {
+  const { user_key } = req.params;
+  const allowed = [
+    'name', 'lastname', 'user_photo', 'user_class', 'bed_view', 'user_language',
+    'u_email', 'user_status', 'user_type', 'u_department', 'branch_log',
+    'u_add_by', 'line_id', 'u_tel', 'u_role'
+  ];
+
+  const fields = [];
+  const params = [];
+  allowed.forEach((k) => {
+    if (Object.prototype.hasOwnProperty.call(req.body, k)) {
+      fields.push(`${k} = ?`);
+      params.push(req.body[k]);
+    }
+  });
+  if (!fields.length) return res.status(400).json({ error: 'No updatable fields' });
+
+  fields.push(`u_update_date = NOW()`);
+  const sql = `UPDATE u_user SET ${fields.join(', ')} WHERE user_key = ?`;
+  params.push(user_key);
+
+  db.query(sql, params, (err, result) => {
+    if (err) return res.status(500).json({ error: 'Database error' });
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'User not found' });
+    res.json({ message: 'updated' });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ADMIN: เปลี่ยนรหัสผ่าน (bcrypt)
+// PATCH /api/admin/users/:user_key/password
+app.patch('/api/admin/users/:user_key/password', requireAdminOrDev, async (req, res) => {
+  try {
+    const { user_key } = req.params;
+    const { new_password } = req.body || {};
+    if (!new_password || new_password.length < 6) {
+      return res.status(400).json({ error: 'new_password อย่างน้อย 6 ตัวอักษร' });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hash = await bcrypt.hash(new_password, salt);
+
+    db.query(
+      `UPDATE u_user SET password = ?, u_update_date = NOW() WHERE user_key = ?`,
+      [hash, user_key],
+      (err, result) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        if (result.affectedRows === 0) return res.status(404).json({ error: 'User not found' });
+        res.json({ message: 'password updated' });
+      }
+    );
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// (ตัวเลือก) ADMIN: ลบผู้ใช้
+// DELETE /api/admin/users/:user_key
+app.delete('/api/admin/users/:user_key', requireAdminOrDev, (req, res) => {
+  const { user_key } = req.params;
+  db.query(`DELETE FROM u_user WHERE user_key = ?`, [user_key], (err, result) => {
+    if (err) return res.status(500).json({ error: 'Database error' });
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'User not found' });
+    res.json({ message: 'deleted' });
   });
 });
 
