@@ -29,7 +29,7 @@ const allowedOrigins =
 app.use(
   cors({
     origin: allowedOrigins,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     credentials: true
   })
 );
@@ -419,13 +419,16 @@ app.get('/api/motors', (req, res) => {
 // DRY list endpoints
 function createStepEndpoint(path, stationList, label) {
   app.get(path, (req, res) => {
+    const { branch = '' } = req.query;
     const placeholders = stationList.map(() => '?').join(', ');
-    const sql = `
+
+    // ใช้ let เพราะจะมีการต่อสตริงเพิ่ม
+    let sql = `
       SELECT 
         i.*, 
         tr.trp_service_order, 
         tr.trp_motor_code, 
-        tr.trp_customer, 
+        tr.trp_customer AS trp_customer_name,
         tr.trp_tag_no, 
         tr.trp_team,
         mt1.motor_name AS insp_motor_name,
@@ -441,10 +444,20 @@ function createStepEndpoint(path, stationList, label) {
           AND i.insp_station_accept = '0'
         )
       )
-      ORDER BY i.insp_created_at DESC
     `;
 
-    db.query(sql, [...stationList, ...stationList], (err, results) => {
+    // ใช้ const ได้ เพราะเรา push (mutation) ไม่ได้ reassign ตัวแปร
+    const params = [...stationList, ...stationList];
+
+    // ใส่ branch filter หลังจบกลุ่ม WHERE หลัก
+    if (branch) {
+      sql += ` AND i.insp_branch = ?`;
+      params.push(branch);
+    }
+
+    sql += ` ORDER BY i.insp_created_at DESC`;
+
+    db.query(sql, params, (err, results) => {
       if (err) {
         console.error(`Query error for ${label}:`, err);
         return res.status(500).json({ error: `ไม่สามารถดึง Step${label} ได้` });
@@ -464,6 +477,7 @@ function createStepEndpoint(path, stationList, label) {
     });
   });
 }
+
 createStepEndpoint('/api/StepQA', ['QA', 'QA final', 'QA appr'], 'QA');
 createStepEndpoint('/api/StepME', ['ME', 'ME Final'], 'ME');
 createStepEndpoint('/api/StepPlanning', ['PLANNING'], 'Planning');
@@ -1719,31 +1733,60 @@ app.post('/api/forms/FormPhotoManager/:insp_id', (req, res) => {
 
 // Tag list
 app.get('/api/tagList', (req, res) => {
-  const sql = `
-    SELECT i.*, m.motor_name
-    FROM tbl_inspection_list i
-    LEFT JOIN list_motor_type m ON i.insp_motor_code = m.motor_code
-    WHERE m.is_active = '1'
+  const { branch = '' } = req.query;
+
+  // ใช้ WHERE 1=1 เพื่อให้ต่อเงื่อนไขง่าย
+  let sql = `
+    SELECT
+      i.*,
+      m.motor_name
+    FROM tbl_inspection_list AS i
+    LEFT JOIN list_motor_type AS m
+      ON i.insp_motor_code = m.motor_code
+      AND m.is_active = '1'
+    WHERE 1=1
+  `;
+
+  const params = [];
+
+  if (branch) {
+    sql += ` AND i.insp_branch = ?`;
+    params.push(branch);
+  }
+
+  sql += `
     ORDER BY COALESCE(i.inspection_updated_at, i.insp_created_at) DESC
     LIMIT 1000
   `;
-  db.query(sql, (err, results) => {
+
+  db.query(sql, params, (err, results) => {
     if (err) {
       console.error('Query error:', err);
       return res.status(500).json({ error: 'ไม่สามารถดึง tagList ได้' });
     }
-    res.json(results);
+    res.json(results || []);
   });
 });
 
+
 // Company list
 app.get('/company/list', (req, res) => {
-  const sql = `
+  const { branch = '' } = req.query; //  รับ branch จาก query string
+
+  let sql = `
     SELECT DISTINCT insp_customer_no, insp_customer_name
     FROM tbl_inspection_list
-    ORDER BY insp_customer_name
   `;
-  db.query(sql, (err, results) => {
+  const params = [];
+
+  if (branch) {
+    sql += ` WHERE insp_branch = ?`;
+    params.push(branch);
+  }
+
+  sql += ` ORDER BY insp_customer_name`;
+
+  db.query(sql, params, (err, results) => {
     if (err) {
       console.error('Query error:', err);
       return res.status(500).json({ error: 'ไม่สามารถดึง company list ได้' });
@@ -1751,6 +1794,7 @@ app.get('/company/list', (req, res) => {
     res.json(results);
   });
 });
+
 
 // Search SV
 app.post('/api/searchSV', (req, res) => {
@@ -1812,14 +1856,25 @@ app.post('/api/searchCustomer', (req, res) => {
   });
 });
 
-// Station counts
+// Station counts (filter by branch if provided)
 app.get('/api/station-counts', (req, res) => {
-  const sql = `
+  const { branch = '' } = req.query; // ✅ รับ branch จาก query string
+
+  let sql = `
     SELECT insp_station_now AS station, COUNT(*) AS count
     FROM tbl_inspection_list
-    GROUP BY insp_station_now
   `;
-  db.query(sql, (err, results) => {
+  const params = [];
+
+  // ✅ ถ้ามี branch ให้ filter
+  if (branch) {
+    sql += ` WHERE insp_branch = ?`;
+    params.push(branch);
+  }
+
+  sql += ` GROUP BY insp_station_now`;
+
+  db.query(sql, params, (err, results) => {
     if (err) {
       console.error('Query error:', err);
       return res.status(500).json({ error: 'ไม่สามารถดึงข้อมูลสถานีได้' });
@@ -1827,6 +1882,7 @@ app.get('/api/station-counts', (req, res) => {
     res.json(results);
   });
 });
+
 
 // User profile get/update
 app.get('/api/user/:id', (req, res) => {
@@ -2127,6 +2183,146 @@ app.get('/api/teams/members', (req, res) => {
   db.query(sql, [branch], (err, results) => {
     if (err) return res.status(500).json({ error: err });
     res.json(results);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ToDoList endpoints (ใช้ header: X-User-Key)
+function requireUserKey(req, res) {
+  const k = req.header('X-User-Key');
+  if (!k) {
+    res.status(401).json({ error: 'missing X-User-Key header' });
+    return null;
+  }
+  return String(k);
+}
+
+// GET /api/todolist  — รายการของ user นี้ (ไม่รวมที่ลบ)
+app.get('/api/todolist', (req, res) => {
+  try {
+    const userKey = req.get('X-User-Key') || req.query.user_key || req.body?.user_key;
+    if (!userKey) return res.json([]); // ❗️ไม่เจอคีย์ → ส่งว่าง แทน 400/500
+
+    const sql = `
+      SELECT
+        todo_id AS id, title, note, allDay,
+        DATE_FORMAT(\`date\`, '%Y-%m-%d') AS \`date\`,
+        TIME_FORMAT(\`time\`, '%H:%i:%s') AS \`time\`,
+        status, created_at, updated_at
+      FROM todolist
+      WHERE user_key_add = ? AND is_deleted = 0
+      ORDER BY (\`date\` IS NULL), \`date\`,
+               (\`time\` IS NULL), \`time\`
+    `;
+    db.query(sql, [String(userKey)], (err, rows) => {
+      if (err) {
+        console.error('GET /api/todolist error:', err);
+        return res.json([]); // ❗️ง่ายสุด: DB พลาด ก็ส่งว่าง (ชั่วคราว)
+      }
+      res.json(Array.isArray(rows) ? rows : []);
+    });
+  } catch (e) {
+    console.error('GET /api/todolist fatal:', e);
+    res.json([]); // ❗️กันตกทุกกรณี
+  }
+});
+
+
+
+// POST /api/todolist  — สร้างใหม่
+app.post('/api/todolist', (req, res) => {
+  const userKey = requireUserKey(req, res); if (!userKey) return;
+
+  const { title, note, date, time, allDay } = req.body || {};
+  if (!title || !String(title).trim()) {
+    return res.status(400).json({ error: 'กรุณากรอก Title' });
+  }
+  const sql = `
+    INSERT INTO todolist (title, note, date, time, status, user_key_add, allDay)
+    VALUES (?, ?, ?, ?, 'pending', ?, ?)
+  `;
+  db.query(sql, [title.trim(), note || null, date || null, time || null, userKey, allDay], (err, result) => {
+    if (err) return res.status(500).json({ error: 'Database error' });
+    res.json({
+      id: result.insertId,
+      title: title.trim(),
+      note: note || null,
+      date: date || null,
+      time: time || null,
+      status: 'pending'
+    });
+  });
+});
+
+// PUT /api/todolist/:id  — แก้ไข
+app.put('/api/todolist/:id', (req, res) => {
+  const userKey = requireUserKey(req, res); if (!userKey) return;
+
+  const id = parseInt(req.params.id, 10);
+  const { title, note, date, time, allDay } = req.body || {};
+  if (!id) return res.status(400).json({ error: 'invalid id' });
+  if (!title || !String(title).trim()) {
+    return res.status(400).json({ error: 'กรุณากรอก Title' });
+  }
+
+  const sql = `
+    UPDATE todolist
+    SET title = ?, note = ?, date = ?, time = ?,  allDay = ?
+    WHERE todo_id = ? AND user_key_add = ? AND is_deleted = 0
+  `;
+  db.query(sql, [title.trim(), note || null, date || null, time || null, allDay, id, userKey], (err, result) => {
+    if (err) return res.status(500).json({ error: 'Database error' });
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'ไม่พบรายการ หรือไม่มีสิทธิ์' });
+
+    res.json({
+      id,
+      title: title.trim(),
+      note: note || null,
+      date: date || null,
+      time: time || null
+    });
+  });
+});
+
+// PATCH /api/todolist/:id/status  — เปลี่ยนสถานะ (pending/done)
+app.patch('/api/todolist/:id/status', (req, res) => {
+  const userKey = requireUserKey(req, res); if (!userKey) return;
+
+  const id = parseInt(req.params.id, 10);
+  const { status } = req.body || {};
+  if (!id) return res.status(400).json({ error: 'invalid id' });
+  if (!['pending', 'done'].includes(status)) {
+    return res.status(400).json({ error: 'invalid status' });
+  }
+
+  const sql = `
+    UPDATE todolist
+    SET status = ?
+    WHERE todo_id = ? AND user_key_add = ? AND is_deleted = 0
+  `;
+  db.query(sql, [status, id, userKey], (err, result) => {
+    if (err) return res.status(500).json({ error: 'Database error' });
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'ไม่พบรายการ หรือไม่มีสิทธิ์' });
+    res.json({ id, status });
+  });
+});
+
+// DELETE /api/todolist/:id  — ลบแบบ soft delete
+app.delete('/api/todolist/:id', (req, res) => {
+  const userKey = requireUserKey(req, res); if (!userKey) return;
+
+  const id = parseInt(req.params.id, 10);
+  if (!id) return res.status(400).json({ error: 'invalid id' });
+
+  const sql = `
+    UPDATE todolist
+    SET is_deleted = 1
+    WHERE todo_id = ? AND user_key_add = ?
+  `;
+  db.query(sql, [id, userKey], (err, result) => {
+    if (err) return res.status(500).json({ error: 'Database error' });
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'ไม่พบรายการ หรือไม่มีสิทธิ์' });
+    res.json({ id, deleted: true });
   });
 });
 
