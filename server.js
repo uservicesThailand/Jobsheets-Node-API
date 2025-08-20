@@ -24,7 +24,7 @@ app.use(express.json());
 // CORS: ใช้โดเมนจริงจาก ENV (คอมมาคั่นได้), dev fallback เป็น localhost
 const allowedOrigins =
   (process.env.FRONTEND_ORIGIN && process.env.FRONTEND_ORIGIN.split(',').map(s => s.trim())) ||
-  ['http://localhost:5173', 'http://localhost:3000', 'http://192.168.102.103:5173', 'https://icy-grass-0f0a0e810.2.azurestaticapps.net'];
+  ['http://localhost:5173', 'http://localhost:3000', 'http://192.168.112.50:5173', 'http://192.168.102.103:5173', 'https://icy-grass-0f0a0e810.2.azurestaticapps.net'];
 
 app.use(
   cors({
@@ -302,7 +302,8 @@ app.post('/api/login', (req, res) => {
         user_type: user.user_type,
         branch_log: user.branch_log,
         user_photo: user.user_photo,
-        u_role: user.u_role
+        u_role: user.u_role,
+        user_language: user.user_language
       });
     };
 
@@ -2090,26 +2091,41 @@ app.get('/api/station-counts', (req, res) => {
 // User profile get/update
 app.get('/api/user/:id', (req, res) => {
   const userId = req.params.id;
-  const sql = `SELECT user_key, name, lastname, u_tel, line_id, u_email, user_photo, user_type FROM u_user WHERE user_key = ?`;
+  const sql = `SELECT user_key, name, lastname, u_tel, line_id, u_email, user_photo, user_type, user_language FROM u_user WHERE user_key = ?`;
   db.query(sql, [userId], (err, results) => {
     if (err) return res.status(500).json({ error: 'ไม่สามารถดึงข้อมูลผู้ใช้ได้' });
     if (results.length === 0) return res.status(404).json({ error: 'ไม่พบผู้ใช้' });
     res.json(results[0]);
   });
 });
+
 app.put('/api/user/:id', (req, res) => {
   const userId = req.params.id;
-  const { name, lastname, u_email, u_tel, lineId, user_photo } = req.body;
+  const { name, lastname, u_email, u_tel, lineId, user_photo, user_language } = req.body;
+
   const sql = `
     UPDATE u_user 
-    SET name = ?, lastname = ?, u_email = ?, u_tel = ?, line_id = ?, user_photo = ?, u_update_date = NOW()
+    SET name = ?, 
+        lastname = ?, 
+        u_email = ?, 
+        u_tel = ?, 
+        line_id = ?, 
+        user_photo = ?, 
+        user_language = ?,
+        u_update_date = NOW()
     WHERE user_key = ?
   `;
-  db.query(sql, [name, lastname, u_email, u_tel, lineId, user_photo || null, userId], (err) => {
-    if (err) return res.status(500).json({ error: 'อัปเดตข้อมูลไม่สำเร็จ' });
-    res.json({ message: 'อัปเดตข้อมูลสำเร็จ' });
-  });
+
+  db.query(
+    sql,
+    [name, lastname, u_email, u_tel, lineId, user_photo || null, user_language, userId],
+    (err) => {
+      if (err) return res.status(500).json({ error: 'อัปเดตข้อมูลไม่สำเร็จ' });
+      res.json({ message: 'อัปเดตข้อมูลสำเร็จ' });
+    }
+  );
 });
+
 
 // Upload profile image
 app.post('/api/upload-profile-image/:userId', upload.single('image'), async (req, res) => {
