@@ -23,7 +23,5 @@ dist-ssr
 *.sln
 *.sw?
 
-# Environment variables
-.env
-.env.*          
+        
 # ป้องกันทุกไฟล์เช่น .env.local, .env.production
