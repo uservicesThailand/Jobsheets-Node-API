@@ -24,7 +24,7 @@ app.use(express.json());
 // CORS: ใช้โดเมนจริงจาก ENV (คอมมาคั่นได้), dev fallback เป็น localhost
 const allowedOrigins =
   (process.env.FRONTEND_ORIGIN && process.env.FRONTEND_ORIGIN.split(',').map(s => s.trim())) ||
-  ['http://localhost:5173', 'http://localhost:3000', 'http://192.168.112.50:5173', 'http://192.168.102.103:5173', 'https://icy-grass-0f0a0e810.2.azurestaticapps.net'];
+  ['http://localhost:5173', 'http://localhost:3000', 'http://192.168.112.5:5173', 'http://192.168.102.104:5173', 'https://icy-grass-0f0a0e810.2.azurestaticapps.net'];
 
 app.use(
   cors({
@@ -33,6 +33,61 @@ app.use(
     credentials: true
   })
 );
+/* ดึง print */
+/**
+ * GET /api/report/inspection/:insp_no
+ * ดึงข้อมูลรายงานตาม Inspection No
+ */
+app.get('/inspection/:insp_no', (req, res) => {
+  const { insp_no } = req.params;
+  if (!insp_no) {
+    return res.status(400).json({ error: 'missing insp_no' });
+  }
+
+  const sql = `
+    SELECT 
+      t.insp_id,
+      t.insp_no,
+      t.insp_customer_no,
+      t.insp_customer_name,
+      t.insp_sale_quote,
+      t.insp_service_order,
+      t.insp_service_item,
+      t.insp_service_type,
+      t.insp_status,
+      t.insp_created_at,
+      t.insp_motor_code,
+      t.insp_priority,
+      t.insp_station_user,
+      t.insp_station_now,
+      t.insp_station_accept,
+      t.insp_station_prev,
+      t.insp_document_date,
+      t.inspection_updated_at,
+      t.insp_incoming_date,
+      t.insp_final_date,
+      t.insp_branch,
+      t.insp_urgent,
+      u.name       AS station_user_name,
+      u.lastname   AS station_user_lastname
+    FROM tbl_inspection_list AS t
+    LEFT JOIN u_user AS u 
+      ON u.user_key = t.insp_station_user   -- ถ้า column นี้ไม่ใช่ user_key ให้ปรับตามจริง
+    WHERE t.insp_no = ?
+    LIMIT 1
+  `;
+
+  db.query(sql, [insp_no], (err, rows) => {
+    if (err) {
+      console.error('GET report/inspection by insp_no error:', err);
+      return res.status(500).json({ error: 'Internal Server Error' });
+    }
+    if (!rows || rows.length === 0) {
+      return res.status(404).json({ error: 'not found' });
+    }
+    return res.json(rows[0]);
+  });
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HTTP server + Socket.IO
@@ -127,6 +182,7 @@ function chunkArray(array, size) {
 // Swagger & Static
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use('/img', express.static(path.join(__dirname, 'public', 'img_upload')));
+app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));
 
 // Health
 app.get('/', (req, res) => {
@@ -1090,50 +1146,54 @@ function withUserId(req) {
   return req.body?.userKey || req.session?.user_id || 0;
 }
 
-// FormMotorNameplate
-app.get('/api/forms/FormMotorNameplate/:insp_id', (req, res) => {
-  const { insp_id } = req.params;
-  db.query(`
-    SELECT * FROM tbl_inspection_list ins    
-    LEFT JOIN form_motor_nameplate mn
-    ON ins.insp_id = mn.insp_id
-    WHERE ins.insp_id = ?
-    `, [insp_id], (err, rows) => {
+// ─────────────────────────────────────────────────────────────────────────────
+// FormMotorNameplate (insert ใหม่เสมอ + GET ดึงแถวล่าสุด ด้วย insp_no)
+app.get('/api/forms/FormMotorNameplate/:insp_no', (req, res) => {
+  const { insp_no } = req.params;
+  if (!insp_no) return res.status(400).json({ error: 'missing insp_no' });
+
+  const sql = `
+  SELECT fmn.*, u.name, u.lastname
+  FROM form_motor_nameplate AS fmn
+  LEFT JOIN u_user AS u ON fmn.created_by = u.user_key
+  WHERE fmn.insp_no = ?
+  ORDER BY COALESCE(fmn.updated_at, fmn.created_at) DESC, fmn.mnp_id DESC
+  LIMIT 1
+`;
+  db.query(sql, [insp_no], (err, rows) => {
     if (err) {
       console.error('GET form_motor_nameplate error:', err);
       return res.status(500).json({ error: 'Internal Server Error' });
     }
-    res.json(rows.length > 0 ? rows[0] : null);
+    res.json(rows.length ? rows[0] : null);
   });
 });
-app.post('/api/forms/FormMotorNameplate/:insp_id', (req, res) => {
-  const { insp_id } = req.params;
-  const payload = req.body;
-  const user_id = withUserId(req);
-  db.query('SELECT * FROM  form_motor_nameplate WHERE insp_id = ?', [insp_id], (err, existing) => {
+
+app.post('/api/forms/FormMotorNameplate/:insp_no', (req, res) => {
+  const { insp_no } = req.params;
+  if (!insp_no) return res.status(400).json({ error: 'missing insp_no' });
+
+  const payload = req.body || {};
+  const user_id = req.headers['user_key'];
+
+  const insertData = {
+    ...payload, // คาดว่าเป็นฟิลด์ fmn_*
+    insp_no,
+    created_by: user_id,
+    updated_by: user_id,
+    created_at: new Date(),
+    updated_at: new Date(),
+  };
+
+  db.query('INSERT INTO form_motor_nameplate SET ?', [insertData], (err, result) => {
     if (err) {
-      console.error('POST  form_motor_nameplate error (select):', err);
+      console.error('POST form_motor_nameplate error (insert):', err);
       return res.status(500).json({ error: 'Internal Server Error' });
     }
-    if (existing.length > 0) {
-      db.query('UPDATE  form_motor_nameplate SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?', [payload, user_id, insp_id], (err2) => {
-        if (err2) {
-          console.error('POST form_motor_nameplate error (update):', err2);
-          return res.status(500).json({ error: 'Internal Server Error' });
-        }
-        res.json({ success: true });
-      });
-    } else {
-      db.query('INSERT INTO  form_motor_nameplate SET ?, insp_id=?, created_by=?, created_at=NOW()', [payload, insp_id, user_id], (err3) => {
-        if (err3) {
-          console.error('POST  form_motor_nameplate error (insert):', err3);
-          return res.status(500).json({ error: 'Internal Server Error' });
-        }
-        res.json({ success: true });
-      });
-    }
+    res.status(201).json({ success: true, mnp_id: result.insertId });
   });
 });
+
 
 // FormStaticTest
 app.get('/api/forms/FormStaticTest/:insp_id', (req, res) => {
@@ -1418,14 +1478,24 @@ app.post('/api/forms/FormElectricalServices/:insp_id', (req, res) => {
 // FormInstruments
 app.get('/api/forms/FormInstruments/:insp_id', (req, res) => {
   const { insp_id } = req.params;
-  db.query('SELECT * FROM form_instruments WHERE insp_id = ?', [insp_id], (err, rows) => {
+  const sql = `
+    SELECT fi.*, u.name, u.lastname, lc.lc_equipment_name, lc.lc_model, lc.lc_no
+    FROM form_instruments AS fi
+    LEFT JOIN u_user AS u ON fi.created_by = u.user_key
+    LEFT JOIN list_certificate AS lc ON fi.ins_lc_id = lc.lc_id
+    WHERE fi.insp_id = ? AND fi.is_deleted = 0
+    ORDER BY COALESCE(fi.updated_at, fi.created_at) DESC, fi.ins_id DESC
+  `;
+  db.query(sql, [insp_id], (err, rows) => {
     if (err) {
       console.error('GET form_instruments error:', err);
       return res.status(500).json({ error: 'Internal Server Error' });
     }
-    res.json(rows.length > 0 ? rows[0] : null);
+    res.json(rows || []);
   });
 });
+
+
 app.post('/api/forms/FormInstruments/:insp_id', (req, res) => {
   const { insp_id } = req.params;
   const payload = req.body;
@@ -1495,41 +1565,227 @@ app.post('/api/forms/FormCoilBrakeTest/:insp_id', (req, res) => {
   });
 });
 
-// FormApproval
-app.get('/api/forms/FormApproval/:insp_id', (req, res) => {
-  const { insp_id } = req.params;
-  db.query('SELECT * FROM form_approval WHERE insp_id = ?', [insp_id], (err, rows) => {
+
+// helper: เซฟ dataURL -> ไฟล์ แล้วคืน URL
+function saveDataUrl(dataUrl, filenameBase) {
+  if (!dataUrl || typeof dataUrl !== 'string') return null;
+  const m = dataUrl.match(/^data:(image\/[\w+.-]+);base64,([A-Za-z0-9+/=]+)$/);
+  if (!m) return null;
+  const mime = m[1]; const b64 = m[2];
+  const ext = (mime.split('/')[1] || 'png').toLowerCase();
+  const dir = path.join(process.cwd(), 'public', 'uploads', 'signatures');
+  fs.mkdirSync(dir, { recursive: true });
+  const fname = `${filenameBase}.${ext}`;
+  fs.writeFileSync(path.join(dir, fname), Buffer.from(b64, 'base64'));
+  // ปรับ path ตาม static you serve
+  return `/uploads/signatures/${fname}`;
+}
+
+const toIso = (v) => (v ? new Date(v).toISOString() : null);
+const emptyToNull = (v) => (v === '' ? null : v);
+
+/** GET: ดึงแถวล่าสุดของฟอร์มลายเซ็นตาม insp_no */
+app.get('/api/forms/FormApproval/:insp_no', (req, res) => {
+  const { insp_no } = req.params;
+  if (!insp_no) return res.status(400).json({ error: 'missing insp_no' });
+
+  const sql = `
+    SELECT *
+    FROM form_approval
+    WHERE insp_no = ? AND is_deleted = 0
+    ORDER BY updated_at DESC, created_at DESC, apr_id DESC
+    LIMIT 1
+  `;
+
+  const toIso = (v) => (v ? new Date(v).toISOString() : null); // ✅ ส่งเป็น ISO string
+
+  db.query(sql, [insp_no], (err, rows) => {
     if (err) {
       console.error('GET form_approval error:', err);
       return res.status(500).json({ error: 'Internal Server Error' });
     }
-    res.json(rows.length > 0 ? rows[0] : null);
+    if (!rows.length) return res.json(null);
+
+    const r = rows[0];
+    const out = {
+      // อิงกับฟอร์มลายเซ็นฝั่งหน้าเว็บ
+      incoming_name: r.incoming_name ?? null,
+      incoming_date: toIso(r.incoming_date),
+      incoming_sign: r.incoming_sign_url ?? null,
+
+      final_name: r.final_name ?? null,
+      final_date: toIso(r.final_date),
+      final_sign: r.final_sign_url ?? null,
+
+      mech_name: r.mech_name ?? null,
+      mech_date: toIso(r.mech_date),
+      mech_sign: r.mech_sign_url ?? null,
+
+      approve_name: r.approve_name ?? null,
+      approve_date: toIso(r.approve_date),          // ✅ เติมให้ครบ
+      approve_sign: r.approve_sign_url ?? null,
+
+      // context ของเอกสาร
+      insp_no: r.insp_no,
+      insp_sv: r.insp_sv ?? null,
+
+      // meta สำหรับโชว์/ล็อกการแก้ไข
+      meta: {
+        apr_id: r.apr_id,
+        created_at: toIso(r.created_at),
+        updated_at: toIso(r.updated_at),
+        created_by: r.created_by ?? null,
+        updated_by: r.updated_by ?? null,
+      },
+    };
+
+    return res.json(out);
   });
 });
-app.post('/api/forms/FormApproval/:insp_id', (req, res) => {
-  const { insp_id } = req.params;
-  const payload = req.body;
-  const user_id = withUserId(req);
-  db.query('SELECT * FROM form_approval WHERE insp_id = ?', [insp_id], (err, existing) => {
+
+
+/** POST: สร้าง/อัปเดตฟอร์มลายเซ็นตาม insp_no (แถวเดียวต่องาน) */
+app.post('/api/forms/FormApproval/:insp_no', (req, res) => {
+  const { insp_no } = req.params;
+  const userKey = req.headers['user_key'] || req.headers['x-user-key'];
+  if (!insp_no) return res.status(400).json({ error: 'missing insp_no' });
+  if (!userKey) return res.status(400).json({ error: 'missing user_key' });
+
+  const p = req.body || {};
+  const nowTag = Date.now();
+
+  // สร้าง URL ของลายเซ็น (ถ้ามาเป็น base64 จะถูกแปลง)
+  const toUrl = (val, tag) => {
+    if (!val) return null;
+    if (typeof val === 'string' && val.startsWith('data:image/')) {
+      return saveDataUrl(val, `${insp_no}-${tag}-${nowTag}`);
+    }
+    // เป็น URL อยู่แล้ว (http, https, หรือ path เริ่มด้วย /)
+    if (/^(https?:)?\/\//.test(val) || (typeof val === 'string' && val.startsWith('/'))) {
+      return val;
+    }
+    return null;
+  };
+
+  // เตรียมค่าวางลงตาราง ('' => NULL)
+  const row = {
+    insp_no,
+    insp_sv: emptyToNull(p.insp_sv),
+
+    incoming_name: emptyToNull(p.incoming_name),
+    incoming_date: p.incoming_date ? new Date(p.incoming_date) : null,
+    incoming_sign_url: toUrl(p.incoming_sign, 'incoming'),
+
+    final_name: emptyToNull(p.final_name),
+    final_date: p.final_date ? new Date(p.final_date) : null,
+    final_sign_url: toUrl(p.final_sign, 'final'),
+
+    mech_name: emptyToNull(p.mech_name),
+    mech_date: p.mech_date ? new Date(p.mech_date) : null,
+    mech_sign_url: toUrl(p.mech_sign, 'mech'),
+
+    approve_name: emptyToNull(p.approve_name),
+    approve_date: p.approve_date ? new Date(p.approve_date) : null,
+    approve_sign_url: toUrl(p.approve_sign, 'approve'),
+
+    updated_by: userKey,
+  };
+
+  // หาแถวล่าสุดของงานนี้
+  const sqlFind = `
+    SELECT apr_id
+    FROM form_approval
+    WHERE insp_no = ? AND is_deleted = 0
+    ORDER BY updated_at DESC, created_at DESC, apr_id DESC
+    LIMIT 1
+  `;
+
+  db.query(sqlFind, [insp_no], (err, rows) => {
     if (err) {
-      console.error('POST form_approval error (select):', err);
+      console.error('POST form_approval find error:', err);
       return res.status(500).json({ error: 'Internal Server Error' });
     }
-    if (existing.length > 0) {
-      db.query('UPDATE form_approval SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?', [payload, user_id, insp_id], (err2) => {
-        if (err2) {
-          console.error('POST form_approval error (update):', err2);
+
+    if (!rows.length) {
+      // INSERT (ครั้งแรกของงานนี้)
+      const insertData = { ...row, created_by: userKey };
+      const fields = Object.keys(insertData);
+      const placeholders = fields.map(() => '?').join(',');
+      const sqlIns = `INSERT INTO form_approval (${fields.join(',')}) VALUES (${placeholders})`;
+      db.query(sqlIns, fields.map(k => insertData[k]), (e2, r2) => {
+        if (e2) {
+          console.error('POST form_approval insert error:', e2);
           return res.status(500).json({ error: 'Internal Server Error' });
         }
-        res.json({ success: true });
+        // ดึงกลับไปให้ฟรอนต์
+        db.query('SELECT * FROM form_approval WHERE apr_id = ?', [r2.insertId], (e3, r3) => {
+          if (e3 || !r3?.length) return res.json(null);
+          const x = r3[0];
+          return res.json({
+            incoming_name: x.incoming_name,
+            incoming_date: toIso(x.incoming_date),
+            incoming_sign: x.incoming_sign_url,
+            final_name: x.final_name,
+            final_date: toIso(x.final_date),
+            final_sign: x.final_sign_url,
+            mech_name: x.mech_name,
+            mech_date: toIso(x.mech_date),
+            mech_sign: x.mech_sign_url,
+            approve_name: x.approve_name,
+            approve_date: toIso(x.approve_date),
+            approve_sign: x.approve_sign_url,
+            insp_no: x.insp_no,
+            insp_sv: x.insp_sv,
+            meta: {
+              apr_id: x.apr_id,
+              created_at: toIso(x.created_at),
+              updated_at: toIso(x.updated_at),
+              created_by: x.created_by ?? null,
+              updated_by: x.updated_by ?? null,
+            },
+          });
+        });
       });
     } else {
-      db.query('INSERT INTO form_approval SET ?, insp_id=?, created_by=?, created_at=NOW()', [payload, insp_id, user_id], (err3) => {
-        if (err3) {
-          console.error('POST form_approval error (insert):', err3);
+      // UPDATE (แก้ไขแถวล่าสุด)
+      const apr_id = rows[0].apr_id;
+
+      // หมายเหตุ: ถ้าไม่อยากล้างรูปเมื่อฟรอนต์ส่งค่าว่าง ให้ใช้ตรรกะเฉพาะเจาะจงที่นี่
+      const fields = Object.keys(row).map(k => `${k} = ?`).join(', ');
+      const sqlUpd = `UPDATE form_approval SET ${fields}, updated_at = CURRENT_TIMESTAMP WHERE apr_id = ?`;
+
+      db.query(sqlUpd, [...Object.keys(row).map(k => row[k]), apr_id], (e2) => {
+        if (e2) {
+          console.error('POST form_approval update error:', e2);
           return res.status(500).json({ error: 'Internal Server Error' });
         }
-        res.json({ success: true });
+        db.query('SELECT * FROM form_approval WHERE apr_id = ?', [apr_id], (e3, r3) => {
+          if (e3 || !r3?.length) return res.json(null);
+          const x = r3[0];
+          return res.json({
+            incoming_name: x.incoming_name,
+            incoming_date: toIso(x.incoming_date),
+            incoming_sign: x.incoming_sign_url,
+            final_name: x.final_name,
+            final_date: toIso(x.final_date),
+            final_sign: x.final_sign_url,
+            mech_name: x.mech_name,
+            mech_date: toIso(x.mech_date),
+            mech_sign: x.mech_sign_url,
+            approve_name: x.approve_name,
+            approve_date: toIso(x.approve_date),
+            approve_sign: x.approve_sign_url,
+            insp_no: x.insp_no,
+            insp_sv: x.insp_sv,
+            meta: {
+              apr_id: x.apr_id,
+              created_at: toIso(x.created_at),
+              updated_at: toIso(x.updated_at),
+              created_by: x.created_by ?? null,
+              updated_by: x.updated_by ?? null,
+            },
+          });
+        });
       });
     }
   });
@@ -2350,21 +2606,40 @@ app.get('/api/timeline/station', (req, res) => {
   });
 });
 
-// Certificates / Teams
+// Certificates
 app.get('/api/certificates', (req, res) => {
   const branch = req.query.branch;
+  if (!branch) return res.status(400).json({ error: 'missing branch' });
+
   const sql = `
-    SELECT *
-    FROM list_certificate
-    WHERE lc_branch = ? AND lc_del = 0
-    ORDER BY lc_equipment_name ASC
+    SELECT lc.*
+    FROM list_certificate lc
+    WHERE lc.lc_branch = ?
+      AND lc.lc_del = 0
+      AND NOT EXISTS (
+        SELECT 1
+        FROM list_certificate x
+        WHERE x.lc_branch = lc.lc_branch
+          AND x.lc_del = 0
+          AND x.lc_serial = lc.lc_serial
+          AND (
+            x.lc_date_created > lc.lc_date_created
+            OR (x.lc_date_created = lc.lc_date_created AND x.lc_id > lc.lc_id)
+          )
+      )
+    ORDER BY lc.lc_equipment_name ASC, lc.lc_date_created DESC, lc.lc_id DESC
   `;
-  db.query(sql, [branch], (err, results) => {
-    if (err) return res.status(500).json({ error: err });
-    res.json(results);
+
+  db.query(sql, [branch], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.code || err.message });
+    res.json(rows);
   });
 });
 
+
+
+
+// Teams
 app.get('/api/teams', (req, res) => {
   const branch = req.query.branch;
   const sql = `
