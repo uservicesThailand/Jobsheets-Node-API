@@ -2791,6 +2791,92 @@ app.delete('/api/todolist/:id', (req, res) => {
 
 
 /* ระบบPM-form */
+app.post('/api/login2', (req, res) => {
+  const { username, password, branch } = req.body || {};
+
+  if (!username || !password || !branch) {
+    return res.status(400).json({ error: 'กรุณากรอกข้อมูลให้ครบถ้วน' });
+  }
+
+  const sql = `
+    SELECT * FROM u_user 
+    WHERE username = ? 
+      AND user_status = 1
+  `;
+
+  db3.query(sql, [username], (err, results) => {
+    if (err) return res.status(500).json({ error: 'Database error' });
+    if (results.length === 0) return res.status(401).json({ error: 'ไม่พบผู้ใช้' });
+
+    const user = results[0];
+    const storedHash = user.password;
+
+    const handleLoginSuccess = () => {
+      // อัปเดตเวลาล็อกอินล่าสุด
+      db3.query(
+        'UPDATE u_user SET u_last_login = NOW() WHERE user_key = ?',
+        [user.user_key],
+        (err2) => {
+          if (err2) console.error('Update last login error:', err2);
+        }
+      );
+
+      res.json({
+        user_key: user.user_key,
+        name: user.name,
+        lastname: user.lastname,
+        username: user.username,
+        user_class: user.user_class,
+        user_type: user.user_type,
+        branch_log: user.branch_log,
+        user_photo: user.user_photo,
+        u_role: user.u_role,
+        user_language: user.user_language
+      });
+    };
+
+    if (storedHash.startsWith('$2')) {
+      bcrypt.compare(password, storedHash)
+        .then((isMatch) => {
+          if (!isMatch) return res.status(401).json({ error: 'รหัสผ่านไม่ถูกต้อง' });
+          handleLoginSuccess();
+        })
+        .catch((err2) => {
+          console.error('Password check error:', err2);
+          res.status(500).json({ error: 'Server error' });
+        });
+    } else {
+      const md5Hash = crypto.createHash('md5').update(password).digest('hex');
+      const isMatch = (md5Hash === storedHash);
+      if (!isMatch) return res.status(401).json({ error: 'รหัสผ่านไม่ถูกต้อง' });
+      handleLoginSuccess();
+    }
+  });
+});
+
+// Logout Endpoint
+app.post('/api/logout2', (req, res) => {
+  const { user_key } = req.body || {};
+
+  if (!user_key) {
+    return res.status(400).json({ error: 'ไม่พบ user_key' });
+  }
+
+  const sql = `UPDATE u_user SET u_last_logout = NOW() WHERE user_key = ?`;
+
+  db3.query(sql, [user_key], (err, result) => {
+    if (err) {
+      console.error('Database error:', err);
+      return res.status(500).json({ error: 'Database error' });
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'ไม่พบผู้ใช้' });
+    }
+
+    res.json({ message: 'ออกจากระบบสำเร็จ' });
+  });
+});
 
 // บันทึกหรืออัพเดทจำนวนฟอร์ม
 app.post('/api/forms/scm-number', (req, res) => {
