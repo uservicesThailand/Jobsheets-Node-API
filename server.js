@@ -5,7 +5,7 @@ const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const express = require('express');
 const cors = require('cors');
-const db = require('./db');
+const { db, db2, db3 } = require('./db');
 const axios = require('axios');
 const dayjs = require('dayjs');
 const path = require('path');
@@ -24,7 +24,7 @@ app.use(express.json());
 // CORS: ใช้โดเมนจริงจาก ENV (คอมมาคั่นได้), dev fallback เป็น localhost
 const allowedOrigins =
   (process.env.FRONTEND_ORIGIN && process.env.FRONTEND_ORIGIN.split(',').map(s => s.trim())) ||
-  ['http://localhost:5173', 'http://localhost:3000', 'http://192.168.112.5:5173', 'http://192.168.102.104:5173', 'https://icy-grass-0f0a0e810.2.azurestaticapps.net', 'https://pm-form-usvt.azurewebsites.net'];
+  ['http://localhost:5173', 'http://localhost:3000', 'http://192.168.102.106:5173', 'http://192.168.112.11:5173', 'https://icy-grass-0f0a0e810.2.azurestaticapps.net', 'http://192.168.112.24:5174'];
 
 app.use(
   cors({
@@ -33,11 +33,13 @@ app.use(
     credentials: true
   })
 );
+
 /* ดึง print */
 /**
  * GET /api/report/inspection/:insp_no
  * ดึงข้อมูลรายงานตาม Inspection No
  */
+
 app.get('/inspection/:insp_no', (req, res) => {
   const { insp_no } = req.params;
   if (!insp_no) {
@@ -137,15 +139,23 @@ io.on('connection', (socket) => {
 const multer = require('multer');
 const sharp = require('sharp');
 const fs = require('fs');
-
+// กำหนด storage สำหรับ multer (เก็บไฟล์ชั่วคราว)
+const storage = multer.memoryStorage();
 const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024 // จำกัด 10MB
+  },
   fileFilter: (req, file, cb) => {
-    if (!/^image\/(jpe?g|png|webp)$/i.test(file.mimetype)) {
-      return cb(new Error('Only image files are allowed'));
+    const allowedTypes = /jpeg|jpg|png|webp/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error('รองรับเฉพาะไฟล์รูปภาพ (JPEG, PNG, WebP)'));
     }
-    cb(null, true);
   }
 });
 
@@ -317,70 +327,7 @@ app.post('/api/bc/data', async (req, res) => {
   }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// LOGIN
-app.post('/api/login', (req, res) => {
-  const { username, password, branch } = req.body || {};
 
-  if (!username || !password || !branch) {
-    return res.status(400).json({ error: 'กรุณากรอกข้อมูลให้ครบถ้วน' });
-  }
-
-  const sql = `
-    SELECT * FROM u_user 
-    WHERE username = ? 
-      AND user_status = 1
-  `;
-
-  db.query(sql, [username], (err, results) => {
-    if (err) return res.status(500).json({ error: 'Database error' });
-    if (results.length === 0) return res.status(401).json({ error: 'ไม่พบผู้ใช้' });
-
-    const user = results[0];
-    const storedHash = user.password;
-
-    const handleLoginSuccess = () => {
-      // อัปเดตเวลาล็อกอินล่าสุด
-      db.query(
-        'UPDATE u_user SET u_last_login = NOW() WHERE user_key = ?',
-        [user.user_key],
-        (err2) => {
-          if (err2) console.error('Update last login error:', err2);
-        }
-      );
-
-      res.json({
-        user_key: user.user_key,
-        name: user.name,
-        lastname: user.lastname,
-        username: user.username,
-        user_class: user.user_class,
-        user_type: user.user_type,
-        branch_log: user.branch_log,
-        user_photo: user.user_photo,
-        u_role: user.u_role,
-        user_language: user.user_language
-      });
-    };
-
-    if (storedHash.startsWith('$2')) {
-      bcrypt.compare(password, storedHash)
-        .then((isMatch) => {
-          if (!isMatch) return res.status(401).json({ error: 'รหัสผ่านไม่ถูกต้อง' });
-          handleLoginSuccess();
-        })
-        .catch((err2) => {
-          console.error('Password check error:', err2);
-          res.status(500).json({ error: 'Server error' });
-        });
-    } else {
-      const md5Hash = crypto.createHash('md5').update(password).digest('hex');
-      const isMatch = (md5Hash === storedHash);
-      if (!isMatch) return res.status(401).json({ error: 'รหัสผ่านไม่ถูกต้อง' });
-      handleLoginSuccess();
-    }
-  });
-});
 //_______________________________________________________________________________
 // Logout Endpoint
 app.post('/api/logout', (req, res) => {
@@ -738,10 +685,11 @@ function createStepEndpoint(path, stationList, label) {
   });
 }
 
-createStepEndpoint('/api/StepQA', ['QA', 'QA final', 'QA appr'], 'QA');
+createStepEndpoint('/api/StepQA', ['QA BLANK', 'QA Incoming', 'QA final', 'QA appr'], 'QA Incomming');
 createStepEndpoint('/api/StepME', ['ME', 'ME Final'], 'ME');
 createStepEndpoint('/api/StepPlanning', ['PLANNING'], 'Planning');
 createStepEndpoint('/api/StepCS', ['CS', 'CS Prove'], 'CS');
+createStepEndpoint('/api/StepQC', ['QC Incoming', 'QC Final'], 'QC Incoming');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Stations
@@ -1079,7 +1027,7 @@ app.post('/api/forms/FormTestReport/:insp_no', (req, res) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Upload endpoints
-app.post('/api/upload', upload.single('file'), async (req, res) => {
+app.post('/api/upload2', upload.single('file'), async (req, res) => {
   try {
     const { inspNo } = req.body;
     if (!inspNo || !req.file) {
@@ -1115,7 +1063,7 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
   }
 });
 
-app.delete('/api/upload', (req, res) => {
+app.delete('/api/upload2', (req, res) => {
   const { filename, inspNo } = req.body;
   const filePath = path.join(__dirname, 'public', 'img_upload', filename);
 
@@ -2191,23 +2139,43 @@ app.post('/api/forms/FormPhotoManager/:insp_id', (req, res) => {
   });
 });
 
-// Tag list
+// Tag list (prefer trp_motor_code from latest form_test_report when exists)
 app.get('/api/tagList', (req, res) => {
   const { branch = '' } = req.query;
 
-  // ใช้ WHERE 1=1 เพื่อให้ต่อเงื่อนไขง่าย
+  const params = [];
   let sql = `
     SELECT
       i.*,
-      m.motor_name
+      m.motor_name,
+      COALESCE(t.trp_motor_code, i.insp_motor_code) AS effective_motor_code
     FROM tbl_inspection_list AS i
+    /* เลือก form_test_report แถวล่าสุดต่อ insp_no แบบ MySQL 5.7 friendly */
+    LEFT JOIN (
+      SELECT f.*
+      FROM form_test_report f
+      INNER JOIN (
+        SELECT
+          insp_no,
+          MAX(CONCAT(
+            DATE_FORMAT(COALESCE(updated_at, created_at), '%Y-%m-%d %H:%i:%s'),
+            LPAD(trp_id, 10, '0')
+          )) AS max_key
+        FROM form_test_report
+        GROUP BY insp_no
+      ) g
+        ON g.insp_no = f.insp_no
+       AND CONCAT(
+            DATE_FORMAT(COALESCE(f.updated_at, f.created_at), '%Y-%m-%d %H:%i:%s'),
+            LPAD(f.trp_id, 10, '0')
+          ) = g.max_key
+    ) AS t
+      ON t.insp_no = i.insp_no
     LEFT JOIN list_motor_type AS m
-      ON i.insp_motor_code = m.motor_code
-      AND m.is_active = '1'
+      ON m.motor_code = COALESCE(t.trp_motor_code, i.insp_motor_code)
+     AND m.is_active = '1'
     WHERE 1=1
   `;
-
-  const params = [];
 
   if (branch) {
     sql += ` AND i.insp_branch = ?`;
@@ -2227,6 +2195,7 @@ app.get('/api/tagList', (req, res) => {
     res.json(results || []);
   });
 });
+
 
 
 // Company list
@@ -2819,6 +2788,1763 @@ app.delete('/api/todolist/:id', (req, res) => {
     res.json({ id, deleted: true });
   });
 });
+
+
+/* ระบบPM-form */
+
+// บันทึกหรืออัพเดทจำนวนฟอร์ม
+app.post('/api/forms/scm-number', (req, res) => {
+  const { insp_no, number } = req.body;
+
+  // Validate input
+  if (!insp_no || number === undefined || number === null) {
+    return res.status(400).json({
+      error: 'กรุณาระบุ insp_no และ number'
+    });
+  }
+
+  // ตรวจสอบว่ามีข้อมูลอยู่แล้วหรือไม่
+  const checkSql = 'SELECT scm_num_id FROM form_scm_number WHERE insp_no = ?';
+
+  db3.query(checkSql, [insp_no], (err, results) => {
+    if (err) {
+      console.error('Check error:', err);
+      return res.status(500).json({ error: 'ไม่สามารถตรวจสอบข้อมูลได้' });
+    }
+
+    if (results.length > 0) {
+      // อัพเดทข้อมูลเดิม
+      const updateSql = `
+        UPDATE form_scm_number 
+        SET number = ?, 
+            created_date = NOW() 
+        WHERE insp_no = ?
+      `;
+
+      db3.query(updateSql, [number, insp_no], (err2) => {
+        if (err2) {
+          console.error('Update error:', err2);
+          return res.status(500).json({ error: 'ไม่สามารถอัปเดตข้อมูลได้' });
+        }
+
+        res.json({
+          success: true,
+          message: 'อัปเดตจำนวนฟอร์มสำเร็จ',
+          action: 'updated'
+        });
+      });
+    } else {
+      // สร้างข้อมูลใหม่
+      const insertSql = `
+        INSERT INTO form_scm_number (number, insp_no, created_date) 
+        VALUES (?, ?, NOW())
+      `;
+
+      db3.query(insertSql, [number, insp_no], (err2, result) => {
+        if (err2) {
+          console.error('Insert error:', err2);
+          return res.status(500).json({ error: 'ไม่สามารถบันทึกข้อมูลได้' });
+        }
+
+        res.json({
+          success: true,
+          message: 'บันทึกจำนวนฟอร์มสำเร็จ',
+          action: 'created',
+          id: result.insertId
+        });
+      });
+    }
+  });
+});
+
+// ดึงข้อมูลจำนวนฟอร์ม
+app.get('/api/forms/scm-number/:insp_no', (req, res) => {
+  const { insp_no } = req.params;
+
+  const sql = 'SELECT * FROM form_scm_number WHERE insp_no = ?';
+
+  db3.query(sql, [insp_no], (err, results) => {
+    if (err) {
+      console.error('Get error:', err);
+      return res.status(500).json({ error: 'ไม่สามารถดึงข้อมูลได้' });
+    }
+
+    if (results.length === 0) {
+      return res.json({ data: null });
+    }
+
+    res.json({ data: results[0] });
+  });
+});
+
+// ดึงข้อมูล form_scm_inspection_headers ตาม insp_no
+app.get('/api/forms/form_scm_inspection_headers/:insp_no', (req, res) => {
+  const { insp_no } = req.params;
+
+  const sql = `
+    SELECT 
+      tag_no,
+      created_at,
+      updated_at
+    FROM form_scm_inspection_headers
+    WHERE insp_no = ? 
+    ORDER BY created_at DESC
+  `;
+
+  db3.query(sql, [insp_no], (err, results) => {
+    if (err) {
+      console.error('Get driven equipment error:', err);
+      return res.status(500).json({
+        success: false,
+        error: 'ไม่สามารถดึงข้อมูลได้',
+        message: err.message
+      });
+    }
+
+    // ถ้าไม่มีข้อมูล
+    if (results.length === 0) {
+      return res.json({
+        success: true,
+        data: [],
+        count: 0,
+        message: 'ไม่พบข้อมูล'
+      });
+    }
+
+    // ส่งข้อมูลกลับ
+    res.json({
+      success: true,
+      data: results,
+      count: results.length,
+      insp_no: insp_no
+    });
+  });
+});
+/* -----------------------------------------------------------------------------
+การ จัดการรูปภาพ 
+*/
+// สร้างโฟลเดอร์สำหรับเก็บรูป
+const UPLOAD_DIR = path.join(__dirname, 'uploads');
+fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+
+
+// Mock Database (ในโปรเจคจริงใช้ MySQL, PostgreSQL, MongoDB ฯลฯ)
+const imageDatabase = [];
+
+// 1. Endpoint สำหรับอัพโหลดไฟล์และบีบอัด
+app.post('/api/upload', upload.single('image'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'กรุณาเลือกไฟล์รูปภาพ' });
+    }
+
+    const timestamp = Date.now();
+    const randomStr = Math.random().toString(36).substring(2, 8);
+    const ext = path.extname(req.file.originalname).toLowerCase();
+
+    // ใช้นามสกุลเดิมหรือแปลงเป็น .jpg
+    const filename = `${timestamp}-${randomStr}.jpg`;
+    const filepath = path.join(UPLOAD_DIR, filename);
+
+    // บีบอัดเป็น JPEG (ได้ผลจริง)
+    await sharp(req.file.buffer)
+      .resize(1920, 1920, { // จำกัดขนาดสูงสุด (optional)
+        fit: 'inside',
+        withoutEnlargement: true
+      })
+      .jpeg({
+        quality: 80,        // 🎯 ลดคุณภาพ 20% = ไฟล์เล็กลง 50-70%
+        progressive: true,  // โหลดเร็วขึ้น
+        mozjpeg: true      // บีบอัดดีกว่า
+      })
+      .toFile(filepath);
+
+    // เช็คขนาดไฟล์ที่บันทึก
+    const stats = await fs.promises.stat(filepath);
+    const compressionRatio = ((1 - stats.size / req.file.size) * 100).toFixed(1);
+
+    res.json({
+      success: true,
+      message: 'อัพโหลดสำเร็จ',
+      data: {
+        filename: filename,
+        path: `/uploads/${filename}`,
+        originalName: req.file.originalname,
+        originalSize: req.file.size,
+        compressedSize: stats.size,
+        savedSpace: `${compressionRatio}%`
+      }
+    });
+
+  } catch (error) {
+    console.error('Upload error:', error);
+    res.status(500).json({
+      error: 'เกิดข้อผิดพลาดในการอัพโหลด',
+      details: error.message
+    });
+  }
+});
+
+// 2. Endpoint สำหรับบันทึกโปรเจคลงฐานข้อมูล
+app.post('/api/form-scm-images', async (req, res) => {
+  try {
+    const {
+      inspNo,
+      inspSV,
+      before_image_1_path,
+      before_image_2_path,
+      before_image_3_path,
+      after_image_1_path,
+      after_image_2_path,
+      after_image_3_path
+    } = req.body;
+
+    if (!inspNo || !inspSV) {
+      return res.status(400).json({ error: 'กรุณาระบุ inspNo และ inspSV' });
+    }
+
+    if (!before_image_1_path && !before_image_2_path && !before_image_3_path &&
+      !after_image_1_path && !after_image_2_path && !after_image_3_path) {
+      return res.status(400).json({ error: 'กรุณาอัพโหลดรูปภาพอย่างน้อย 1 รูป' });
+    }
+
+    // ตรวจสอบว่ามี record อยู่แล้วหรือไม่
+    const checkQuery = 'SELECT id FROM form_scm_images WHERE insp_no = ? AND insp_sv = ?';
+    const [existing] = await db3.promise().execute(checkQuery, [inspNo, inspSV]);
+
+    let result;
+
+    if (existing.length > 0) {
+      // Update record ที่มีอยู่
+      const updateQuery = `
+        UPDATE form_scm_images 
+        SET 
+          before_image_1_path = ?,
+          before_image_2_path = ?,
+          before_image_3_path = ?,
+          after_image_1_path = ?,
+          after_image_2_path = ?,
+          after_image_3_path = ?
+        WHERE insp_no = ? AND insp_sv = ?
+      `;
+
+      [result] = await db3.promise().execute(updateQuery, [
+        before_image_1_path,
+        before_image_2_path,
+        before_image_3_path,
+        after_image_1_path,
+        after_image_2_path,
+        after_image_3_path,
+        inspNo,
+        inspSV
+      ]);
+
+      res.json({
+        success: true,
+        message: 'อัปเดตข้อมูลสำเร็จ',
+        data: {
+          id: existing[0].id,
+          inspNo,
+          inspSV,
+          action: 'updated'
+        }
+      });
+
+    } else {
+      // Insert record ใหม่
+      const insertQuery = `
+        INSERT INTO form_scm_images 
+        (insp_no, insp_sv, before_image_1_path, before_image_2_path, before_image_3_path, 
+         after_image_1_path, after_image_2_path, after_image_3_path, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
+      `;
+
+      [result] = await db3.promise().execute(insertQuery, [
+        inspNo,
+        inspSV,
+        before_image_1_path,
+        before_image_2_path,
+        before_image_3_path,
+        after_image_1_path,
+        after_image_2_path,
+        after_image_3_path
+      ]);
+
+      res.json({
+        success: true,
+        message: 'บันทึกโปรเจคสำเร็จ',
+        data: {
+          id: result.insertId,
+          inspNo,
+          inspSV,
+          action: 'created'
+        }
+      });
+    }
+
+  } catch (error) {
+    console.error('Save project error:', error);
+    res.status(500).json({
+      error: 'เกิดข้อผิดพลาดในการบันทึกข้อมูล',
+      details: error.message
+    });
+  }
+});
+
+// API สำหรับบันทึกรูปภาพหลายรูป
+app.post('/api/save-images-location', async (req, res) => {
+  try {
+    const {
+      inspNo,
+      inspSV,
+      userKey,
+      customerName,
+      customerNo,
+      imagePaths,
+      location
+    } = req.body;
+
+    if (!inspNo || !inspSV) {
+      return res.status(400).json({ error: 'กรุณาระบุ inspNo และ inspSV' });
+    }
+
+    if (!imagePaths || imagePaths.length === 0) {
+      return res.status(400).json({ error: 'กรุณาระบุ imagePaths' });
+    }
+
+    const insertedIds = [];
+
+    // Insert แต่ละรูป
+    for (const imagePath of imagePaths) {
+      const insertQuery = `
+        INSERT INTO images_location 
+        (insp_no, insp_sv, user_key, customer_name, customer_no, image_path, location, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+      `;
+
+      const [result] = await db3.promise().execute(insertQuery, [
+        inspNo,
+        inspSV,
+        userKey,
+        customerName,
+        customerNo,
+        imagePath,
+        location || 'SCM'
+      ]);
+
+      insertedIds.push(result.insertId);
+    }
+
+    res.json({
+      success: true,
+      message: 'บันทึกรูปภาพสำเร็จ',
+      data: {
+        count: insertedIds.length,
+        ids: insertedIds,
+        inspNo,
+        inspSV
+      }
+    });
+
+  } catch (error) {
+    console.error('Save images error:', error);
+    res.status(500).json({
+      error: 'เกิดข้อผิดพลาดในการบันทึกข้อมูล',
+      details: error.message
+    });
+  }
+});
+
+// API สำหรับบันทึก/อัปเดต description ของรูปภาพ
+app.put('/api/update-image-description', async (req, res) => {
+  try {
+    const { id, description } = req.body;
+
+    if (!id) {
+      return res.status(400).json({ error: 'กรุณาระบุ id ของรูปภาพ' });
+    }
+
+    const updateQuery = `
+      UPDATE images_location 
+      SET img_description = ?, updatedAt = NOW()
+      WHERE id = ?
+    `;
+
+    const [result] = await db3.promise().execute(updateQuery, [
+      description || null,
+      id
+    ]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'ไม่พบรูปภาพที่ต้องการอัปเดต' });
+    }
+
+    res.json({
+      success: true,
+      message: 'บันทึก description สำเร็จ',
+      data: {
+        id,
+        description
+      }
+    });
+
+  } catch (error) {
+    console.error('Update description error:', error);
+    res.status(500).json({
+      error: 'เกิดข้อผิดพลาดในการบันทึก description',
+      details: error.message
+    });
+  }
+});
+
+// API สำหรับอัพเดทรูปภาพเป็น del = 1 (soft delete)
+app.put('/api/update-image-location/del', async (req, res) => {
+  try {
+    console.log('Request body:', req.body); // 🔍 Debug ดูข้อมูลที่รับ
+
+    const { id } = req.body;
+
+    if (!id) {
+      console.log('Error: No ID provided'); // 🔍 Debug
+      return res.status(400).json({
+        success: false,
+        error: 'กรุณาระบุ ID ของรูปภาพ'
+      });
+    }
+
+    // ตรวจสอบว่ามีรูปภาพนี้อยู่ในระบบหรือไม่
+    const checkQuery = 'SELECT * FROM images_location WHERE id = ?';
+    const [existing] = await db3.promise().execute(checkQuery, [id]);
+
+    console.log('Found images:', existing.length); // 🔍 Debug
+
+    if (existing.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'ไม่พบรูปภาพที่ต้องการอัพเดท'
+      });
+    }
+
+    // อัพเดท del = 1
+    const updateQuery = `
+      UPDATE images_location 
+      SET del = 1, updatedAt = NOW()
+      WHERE id = ?
+    `;
+
+    const [updateResult] = await db3.promise().execute(updateQuery, [id]);
+    console.log('Update result:', updateResult); // 🔍 Debug
+
+    // ดึงข้อมูลที่อัพเดทแล้ว
+    const [updated] = await db3.promise().execute(
+      'SELECT * FROM images_location WHERE id = ?',
+      [id]
+    );
+
+    res.json({
+      success: true,
+      message: 'ลบรูปภาพสำเร็จ (soft delete)',
+      data: updated[0]
+    });
+
+  } catch (error) {
+    console.error('Update image error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'เกิดข้อผิดพลาดในการอัพเดทข้อมูล',
+      details: error.message
+    });
+  }
+});
+
+// ========================================
+// API 1: กู้คืนรูปภาพทีละรูป (del = 0)
+// ========================================
+app.put('/api/restore-image', async (req, res) => {
+  try {
+    console.log('📥 Request body:', req.body);
+
+    const { id } = req.body;
+
+    // ตรวจสอบ input
+    if (!id) {
+      console.log('❌ Error: No ID provided');
+      return res.status(400).json({
+        success: false,
+        error: 'กรุณาระบุ ID ของรูปภาพ'
+      });
+    }
+
+    // ตรวจสอบว่ามีรูปภาพนี้อยู่ในระบบและถูกลบหรือไม่
+    const checkQuery = 'SELECT * FROM images_location WHERE id = ? AND del = 1';
+    const [existing] = await db3.promise().execute(checkQuery, [id]);
+
+    console.log('🔍 Found deleted images:', existing.length);
+
+    if (existing.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'ไม่พบรูปภาพที่ถูกลบ'
+      });
+    }
+
+    // อัพเดท del = 0 (กู้คืน)
+    const updateQuery = `
+      UPDATE images_location 
+      SET del = 0, updatedAt = NOW()
+      WHERE id = ?
+    `;
+
+    const [updateResult] = await db3.promise().execute(updateQuery, [id]);
+    console.log('✅ Update result:', updateResult);
+
+    // ดึงข้อมูลที่อัพเดทแล้ว
+    const [updated] = await db3.promise().execute(
+      'SELECT * FROM images_location WHERE id = ?',
+      [id]
+    );
+
+    res.json({
+      success: true,
+      message: 'กู้คืนรูปภาพสำเร็จ',
+      data: updated[0]
+    });
+
+  } catch (error) {
+    console.error('❌ Restore image error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'เกิดข้อผิดพลาดในการกู้คืนข้อมูล',
+      details: error.message
+    });
+  }
+});
+
+// ========================================
+// API 2: กู้คืนรูปภาพทั้งหมดของ insp_no (del = 0)
+// ========================================
+app.put('/api/restore-all-images', async (req, res) => {
+  try {
+    console.log('📥 Request body:', req.body);
+
+    const { inspNo } = req.body;
+
+    // ตรวจสอบ input
+    if (!inspNo) {
+      console.log('❌ Error: No inspNo provided');
+      return res.status(400).json({
+        success: false,
+        error: 'กรุณาระบุ Inspection Number'
+      });
+    }
+
+    // ตรวจสอบว่ามีรูปภาพที่ถูกลบหรือไม่
+    const checkQuery = 'SELECT * FROM images_location WHERE insp_no = ? AND del = 1';
+    const [deletedImages] = await db3.promise().execute(checkQuery, [inspNo]);
+
+    console.log(`🔍 Found ${deletedImages.length} deleted images for inspNo: ${inspNo}`);
+
+    if (deletedImages.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'ไม่พบรูปภาพที่ถูกลบสำหรับ Inspection Number นี้'
+      });
+    }
+
+    // อัพเดท del = 0 สำหรับทุกรูปของ insp_no นี้
+    const updateQuery = `
+      UPDATE images_location 
+      SET del = 0, updatedAt = NOW()
+      WHERE insp_no = ? AND del = 1
+    `;
+
+    const [updateResult] = await db3.promise().execute(updateQuery, [inspNo]);
+    console.log(`✅ Restored ${updateResult.affectedRows} images`);
+
+    res.json({
+      success: true,
+      message: `กู้คืนรูปภาพทั้งหมดสำเร็จ`,
+      data: {
+        restoredCount: updateResult.affectedRows,
+        inspNo: inspNo
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Restore all images error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'เกิดข้อผิดพลาดในการกู้คืนข้อมูล',
+      details: error.message
+    });
+  }
+});
+
+
+// API สำหรับดึงรูปภาพที่ถูกลบ (del = 1)
+app.get('/api/deleted-images/:inspNo', async (req, res) => {
+  try {
+    const { inspNo } = req.params;
+
+    const query = `
+      SELECT * FROM images_location 
+      WHERE insp_no = ? AND del = 1
+      ORDER BY createdAt DESC
+    `;
+
+    const [deletedImages] = await db3.promise().execute(query, [inspNo]);
+
+    res.json({
+      success: true,
+      data: deletedImages,
+      count: deletedImages.length
+    });
+
+  } catch (error) {
+    console.error('Get deleted images error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'เกิดข้อผิดพลาดในการดึงข้อมูล',
+      details: error.message
+    });
+  }
+});
+
+// 3. Endpoint สำหรับดึงข้อมูลโปรเจคตาม inspNo และ inspSV
+// Endpoint สำหรับดึงข้อมูลรูปภาพ SCM ตาม inspNo
+app.get('/api/forms/FormScmImage/:inspNo', async (req, res) => {
+  try {
+    const { inspNo } = req.params;
+    const { location } = req.query;
+
+    if (!inspNo) {
+      return res.status(400).json({
+        success: false,
+        error: 'กรุณาระบุ inspNo'
+      });
+    }
+
+    // สร้าง query แบบ dynamic ตาม location
+    let query = `
+      SELECT * FROM images_location 
+      WHERE insp_no = ?
+    `;
+    let params = [inspNo];
+
+    // เช็คว่า location มีค่าและไม่ใช่ string ว่าง
+    if (location && location.trim() !== '') {
+      // ถ้ามี location ให้กรองเฉพาะ location นั้น
+      query += ` AND location = ?`;
+      params.push(location.trim());
+    } else {
+      // ถ้าไม่มี location ให้ดึงทั้ง SCM และ SCMHeader
+      query += ` AND (location = 'SCM' OR location = 'SCMHeader')`;
+    }
+
+    query += ` ORDER BY created_at ASC`;
+
+    // ✅ แก้ตรงนี้ - ใช้ params แทน [inspNo]
+    const [rows] = await db3.promise().execute(query, params);
+
+    if (rows.length === 0) {
+      return res.json({
+        success: true,
+        data: null, // เปลี่ยนเป็น null เพื่อให้เช็คง่ายในหน้าบ้าน
+        message: 'ไม่พบข้อมูลรูปภาพ'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: rows
+    });
+
+  } catch (error) {
+    console.error('Get SCM images error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'เกิดข้อผิดพลาดในการดึงข้อมูล',
+      details: error.message
+    });
+  }
+});
+
+// 4. Endpoint สำหรับดึงรายการโปรเจคทั้งหมด
+app.get('/api/form-scm-images', async (req, res) => {
+  try {
+    const query = 'SELECT * FROM form_scm_images ORDER BY created_at DESC';
+    const [rows] = await db3.promise().execute(query);
+
+    res.json({
+      success: true,
+      data: rows
+    });
+
+  } catch (error) {
+    console.error('Get projects error:', error);
+    res.status(500).json({
+      error: 'เกิดข้อผิดพลาดในการดึงข้อมูล',
+      details: error.message
+    });
+  }
+});
+
+// 4. เสิร์ฟไฟล์รูปภาพ (static files)
+app.use('/uploads', express.static(UPLOAD_DIR));
+
+// 5. Endpoint สำหรับลบโปรเจค
+app.delete('/api/form-scm-images/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // ดึงข้อมูลรูปภาพก่อนลบเพื่อลบไฟล์
+    const selectQuery = 'SELECT * FROM form_scm_images WHERE id = ?';
+    const [rows] = await db3.promise().execute(selectQuery, [id]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'ไม่พบข้อมูล'
+      });
+    }
+
+    const project = rows[0];
+
+    // ลบไฟล์รูปภาพ
+    const imagePaths = [
+      project.before_image_1_path,
+      project.before_image_2_path,
+      project.before_image_3_path,
+      project.after_image_1_path,
+      project.after_image_2_path,
+      project.after_image_3_path
+    ];
+
+    imagePaths.forEach(imagePath => {
+      if (imagePath) {
+        const filename = imagePath.replace('/uploads/', '');
+        const filepath = path.join(UPLOAD_DIR, filename);
+        if (fs.existsSync(filepath)) {
+          fs.unlinkSync(filepath);
+        }
+      }
+    });
+
+    // ลบข้อมูลจากฐานข้อมูล
+    const deleteQuery = 'DELETE FROM form_scm_images WHERE id = ?';
+    await db3.promise().execute(deleteQuery, [id]);
+
+    res.json({
+      success: true,
+      message: 'ลบข้อมูลสำเร็จ'
+    });
+
+  } catch (error) {
+    console.error('Delete project error:', error);
+    res.status(500).json({
+      error: 'เกิดข้อผิดพลาดในการลบข้อมูล',
+      details: error.message
+    });
+  }
+});
+
+// API สำหรับลบไฟล์รูปภาพ
+app.delete('/api/delete-image', async (req, res) => {
+  try {
+    const { path: imagePath } = req.body;
+
+    if (!imagePath) {
+      return res.status(400).json({
+        success: false,
+        message: 'ไม่พบ path ของรูปภาพ'
+      });
+    }
+
+    // แปลง path เป็น filename
+    const filename = imagePath.replace('/uploads/', '');
+    const filepath = path.join(UPLOAD_DIR, filename);
+
+    // ตรวจสอบว่าไฟล์มีอยู่จริง
+    if (fs.existsSync(filepath)) {
+      // ลบไฟล์
+      fs.unlinkSync(filepath);
+
+      res.json({
+        success: true,
+        message: 'ลบไฟล์สำเร็จ'
+      });
+    } else {
+      res.json({
+        success: true,
+        message: 'ไม่พบไฟล์ (อาจถูกลบไปแล้ว)'
+      });
+    }
+
+  } catch (error) {
+    console.error('Delete image error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'เกิดข้อผิดพลาดในการลบไฟล์',
+      details: error.message
+    });
+  }
+});
+
+
+// Tag list (prefer trp_motor_code from latest form_test_report when exists)
+app.get('/api/formList', (req, res) => {
+
+  const { branch = '', year } = req.query;
+  console.log('branch:' + branch);
+  console.log('year:' + year);
+
+  const params = [];
+  let sql = `
+    SELECT
+      i.id AS insp_id,
+      i.mt_id AS insp_no,
+      i.customer AS insp_customer_name,
+      i.sq AS insp_sale_quote,
+      i.sv AS insp_service_order,
+      i.incoming_date AS insp_created_at,
+      f.form_name AS motor_name
+    FROM u_inspection AS i
+    LEFT JOIN u_form AS f
+      ON f.form_type = i.type_form
+     WHERE 1=1
+    AND i.del = 0
+    AND i.cancel = 0
+  `;
+
+  if (branch) {
+    // ตัดตัว U ออกจาก branch (เช่น 'URY' -> 'RY')
+    const branchCode = branch.startsWith('U') ? branch.substring(1) : branch;
+    // เทียบกับ 2 ตัวแรกของ mt_id
+    sql += ` AND LEFT(i.mt_id, 2) = ?`;
+    params.push(branchCode);
+  }
+
+  if (year) {
+    sql += ` AND YEAR(i.incoming_date) = ?`;
+    params.push(year);
+  }
+
+  sql += `
+    ORDER BY i.last_update DESC
+    LIMIT 10000
+  `;
+
+  db2.query(sql, params, (err, results) => {
+    if (err) {
+      console.error('Query error:', err);
+      return res.status(500).json({ error: 'ไม่สามารถดึง tagList ได้' });
+    }
+    res.json(results || []);
+  });
+});
+
+/* ฟอร์ม  FormSquirrelCageMotor.jsx*/
+// POST: บันทึกฟอร์ม Squirrel Cage Motor ทั้งหมด
+// ฟังก์ชันช่วยแปลง callback -> Promise
+
+function queryAsync(connection, sql, params) {
+  return new Promise((resolve, reject) => {
+    connection.query(sql, params, (err, results) => {
+      if (err) return reject(err);
+      resolve(results);
+    });
+  });
+}
+
+app.get('/api/forms/FormSquirrelCageMotor/:insp_no', async (req, res) => {
+  try {
+
+    const { insp_no } = req.params;
+
+    if (!insp_no) {
+      return res.status(400).json({ success: false, error: 'insp_no is required' });
+    }
+
+    const sqlMain = `
+      SELECT ih.*, fmn.*, de.*, gi.*, rt.*, lt.*, tsb.*, st.*
+      FROM form_scm_inspection_headers ih
+      LEFT JOIN form_motor_nameplate fmn ON ih.insp_no = fmn.insp_no
+      LEFT JOIN form_scm_driven_equipment de ON ih.insp_no = de.insp_no
+      LEFT JOIN form_scm_general_info gi ON ih.insp_no = gi.insp_no
+      LEFT JOIN form_scm_resistance_tests rt ON ih.insp_no = rt.insp_no
+      LEFT JOIN form_scm_inductance_tests lt ON ih.insp_no = lt.insp_no
+      LEFT JOIN form_scm_temp_sensors_bearing tsb ON ih.insp_no = tsb.insp_no
+      LEFT JOIN form_scm_standstill_test st ON ih.insp_no = st.insp_no
+      WHERE ih.insp_no = ?
+    `;
+
+    // ใช้ Promise.all กับฟังก์ชันที่ return Promise
+    const [mainData, generalChecks, insulationTests, heaters, tempSensorsStator] = await Promise.all([
+      queryAsync(db3, sqlMain, [insp_no]),
+      queryAsync(db3, 'SELECT * FROM form_scm_general_checks WHERE insp_no = ? ORDER BY scm_gc_id', [insp_no]),
+      queryAsync(db3, 'SELECT * FROM form_scm_insulation_tests WHERE insp_no = ? ORDER BY scm_it_id', [insp_no]),
+      queryAsync(db3, 'SELECT * FROM form_scm_heaters WHERE insp_no = ? ORDER BY scm_h_unit_no', [insp_no]),
+      queryAsync(db3, 'SELECT * FROM form_scm_temp_sensors_stator WHERE insp_no = ? ORDER BY scm_tss_element_no', [insp_no])
+    ]);
+
+    if (mainData.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Inspection not found',
+        insp_no
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        ...mainData[0],
+        generalChecks: generalChecks || [],
+        insulationTests: insulationTests || [],
+        heaters: heaters || [],
+        tempSensorsStator: tempSensorsStator || [],
+        updated_at: mainData[0].updated_at || mainData[0].created_at
+      }
+    });
+
+  } catch (error) {
+    console.error('Error in /api/scm/inspection-complete:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// POST endpoint แก้ไข
+// ฟังก์ชันช่วยแปลง callback -> Promise
+function queryAsync(connection, sql, params) {
+  return new Promise((resolve, reject) => {
+    connection.query(sql, params, (err, results) => {
+      if (err) return reject(err);
+      resolve(results);
+    });
+  });
+}
+
+// Helper function: แปลงค่าว่างเป็น NULL และจัดการวันที่
+const toNullIfEmpty = (value) => {
+  if (value === '' || value === undefined || value === null) return null;
+
+  // ตรวจสอบว่าเป็น Date object
+  if (value instanceof Date && !isNaN(value.getTime())) {
+    return formatDate(value);
+  }
+
+  // ตรวจสอบว่าเป็น ISO 8601 string (2025-09-29T17:00:00.000Z)
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value)) {
+    const dateValue = new Date(value);
+    if (!isNaN(dateValue.getTime())) {
+      return formatDate(dateValue);
+    }
+  }
+
+  return value;
+};
+
+// ฟังก์ชันแปลงวันที่เป็น yyyy-mm-dd
+const formatDate = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+app.post('/api/scm/inspection-save', async (req, res) => {
+  let connection;
+
+  try {
+    connection = await new Promise((resolve, reject) => {
+      db3.getConnection((err, conn) => {
+        if (err) return reject(err);
+        resolve(conn);
+      });
+    });
+
+    await new Promise((resolve, reject) => {
+      connection.beginTransaction((err) => {
+        if (err) return reject(err);
+        resolve();
+      });
+    });
+
+    const {
+      insp_no,
+      insp_sv,
+      created_by,
+      updated_by,
+      header,
+      motorNameplate,
+      drivenEquipment,
+      generalInfo,
+      generalChecks,
+      insulationTests,
+      resistanceTests,
+      inductanceTests,
+      tempSensorsBearing,
+      heaters,
+      tempSensorsStator,
+      standstillTest
+    } = req.body;
+
+    if (!insp_no) {
+      await new Promise(resolve => connection.rollback(() => resolve()));
+      return res.status(400).json({ success: false, error: 'insp_no is required' });
+    }
+
+    // ========================================
+    // 1. ตรวจสอบ tbl_inspection_list
+    // ========================================
+    const inspectionList = await queryAsync(
+      connection,
+      'SELECT insp_id FROM tbl_inspection_list WHERE insp_no = ?',
+      [insp_no]
+    );
+
+    if (inspectionList.length === 0) {
+      const insertResult = await queryAsync(
+        connection,
+        'INSERT INTO tbl_inspection_list (insp_no, insp_service_order, insp_customer_no, insp_customer_name, insp_created_at) VALUES (?, ?, ?, ?, NOW())',
+        [
+          insp_no,
+          toNullIfEmpty(insp_sv),
+          toNullIfEmpty(header?.customer_no),
+          toNullIfEmpty(header?.customer_name)
+        ]
+      );
+
+      // เพิ่มการตรวจสอบว่า INSERT สำเร็จ
+      if (!insertResult.affectedRows || insertResult.affectedRows === 0) {
+        throw new Error('Failed to insert into tbl_inspection_list');
+      }
+
+      console.log('Inserted insp_no:', insp_no, 'Insert ID:', insertResult.insertId);
+    }
+    // ========================================
+    // 2. Inspection Headers
+    // ========================================
+    const existingHeader = await queryAsync(
+      connection,
+      'SELECT scm_ih_id FROM form_scm_inspection_headers WHERE insp_no = ?',
+      [insp_no]
+    );
+
+    // กำหนดค่า default สำหรับ overall_status
+    const overallStatus = header?.overall_status || 'N';
+
+    if (existingHeader.length === 0) {
+      await queryAsync(connection, `
+        INSERT INTO form_scm_inspection_headers 
+        (insp_no, insp_sv, customer_name, job_no, inspection_date, attention, 
+         tag_no, equipment_name, conclusion, recommendation, overall_status,
+         inspector_name, inspector_signature, inspection_completed_date, created_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [
+        insp_no,
+        toNullIfEmpty(insp_sv),
+        toNullIfEmpty(header?.customer_name),
+        toNullIfEmpty(header?.job_no),
+        toNullIfEmpty(header?.inspection_date),
+        toNullIfEmpty(header?.attention),
+        toNullIfEmpty(header?.tag_no),
+        toNullIfEmpty(header?.equipment_name),
+        toNullIfEmpty(header?.conclusion),
+        toNullIfEmpty(header?.recommendation),
+        overallStatus,
+        toNullIfEmpty(header?.inspector_name),
+        toNullIfEmpty(header?.inspector_signature),
+        toNullIfEmpty(header?.inspection_completed_date),
+        created_by
+      ]);
+    } else {
+      await queryAsync(connection, `
+        UPDATE form_scm_inspection_headers 
+        SET customer_name = ?, job_no = ?, inspection_date = ?, attention = ?,
+            tag_no = ?, equipment_name = ?, conclusion = ?, recommendation = ?,
+            overall_status = ?, inspector_name = ?, inspector_signature = ?,
+            inspection_completed_date = ?, updated_by = ?, updated_at = NOW()
+        WHERE insp_no = ?
+      `, [
+        toNullIfEmpty(header?.customer_name),
+        toNullIfEmpty(header?.job_no),
+        toNullIfEmpty(header?.inspection_date),
+        toNullIfEmpty(header?.attention),
+        toNullIfEmpty(header?.tag_no),
+        toNullIfEmpty(header?.equipment_name),
+        toNullIfEmpty(header?.conclusion),
+        toNullIfEmpty(header?.recommendation),
+        overallStatus,
+        toNullIfEmpty(header?.inspector_name),
+        toNullIfEmpty(header?.inspector_signature),
+        toNullIfEmpty(header?.inspection_completed_date),
+        updated_by,
+        insp_no
+      ]);
+    }
+
+    // ========================================
+    // 3. Motor Nameplate
+    // ========================================
+    if (motorNameplate) {
+      const existingNameplate = await queryAsync(
+        connection,
+        'SELECT mnp_id FROM form_motor_nameplate WHERE insp_no = ?',
+        [insp_no]
+      );
+
+      if (existingNameplate.length === 0) {
+        await queryAsync(connection, `
+          INSERT INTO form_motor_nameplate 
+          (insp_no, insp_sv, fmn_manufacture, fmn_model, fmn_type, fmn_ser_no,
+           fmn_frame, fmn_power, fmn_power_unit, fmn_speed, fmn_speed_unit,
+           fmn_voltage, fmn_current, fmn_frequency, fmn_insulation_class,
+           fmn_design, fmn_temp_rise_class, fmn_duty, fmn_cos_phi,
+           fmn_ip, fmn_sf, fmn_de_bearing, fmn_nde_bearing, fmn_note, created_by)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [
+          insp_no,
+          toNullIfEmpty(insp_sv),
+          toNullIfEmpty(motorNameplate.manufacture),
+          toNullIfEmpty(motorNameplate.model),
+          toNullIfEmpty(motorNameplate.type),
+          toNullIfEmpty(motorNameplate.ser_no),
+          toNullIfEmpty(motorNameplate.frame),
+          toNullIfEmpty(motorNameplate.power),
+          motorNameplate.power_unit || 'kW',
+          toNullIfEmpty(motorNameplate.speed),
+          motorNameplate.speed_unit || 'RPM',
+          toNullIfEmpty(motorNameplate.voltage),
+          toNullIfEmpty(motorNameplate.current),
+          toNullIfEmpty(motorNameplate.frequency),
+          toNullIfEmpty(motorNameplate.insulation_class),
+          toNullIfEmpty(motorNameplate.design),
+          toNullIfEmpty(motorNameplate.temp_rise_class),
+          toNullIfEmpty(motorNameplate.duty),
+          toNullIfEmpty(motorNameplate.cos_phi),
+          toNullIfEmpty(motorNameplate.ip),
+          toNullIfEmpty(motorNameplate.sf),
+          toNullIfEmpty(motorNameplate.de_bearing),
+          toNullIfEmpty(motorNameplate.nde_bearing),
+          toNullIfEmpty(motorNameplate.note),
+          created_by
+        ]);
+      } else {
+        await queryAsync(connection, `
+          UPDATE form_motor_nameplate 
+          SET fmn_manufacture = ?, fmn_model = ?, fmn_type = ?, fmn_ser_no = ?,
+              fmn_frame = ?, fmn_power = ?, fmn_power_unit = ?, fmn_speed = ?,
+              fmn_speed_unit = ?, fmn_voltage = ?, fmn_current = ?, fmn_frequency = ?,
+              fmn_insulation_class = ?, fmn_design = ?, fmn_temp_rise_class = ?,
+              fmn_duty = ?, fmn_cos_phi = ?, fmn_ip = ?, fmn_sf = ?,
+              fmn_de_bearing = ?, fmn_nde_bearing = ?, fmn_note = ?, updated_by = ?,
+              updated_at = NOW()
+          WHERE insp_no = ?
+        `, [
+          toNullIfEmpty(motorNameplate.manufacture),
+          toNullIfEmpty(motorNameplate.model),
+          toNullIfEmpty(motorNameplate.type),
+          toNullIfEmpty(motorNameplate.ser_no),
+          toNullIfEmpty(motorNameplate.frame),
+          toNullIfEmpty(motorNameplate.power),
+          motorNameplate.power_unit || 'kW',
+          toNullIfEmpty(motorNameplate.speed),
+          motorNameplate.speed_unit || 'RPM',
+          toNullIfEmpty(motorNameplate.voltage),
+          toNullIfEmpty(motorNameplate.current),
+          toNullIfEmpty(motorNameplate.frequency),
+          toNullIfEmpty(motorNameplate.insulation_class),
+          toNullIfEmpty(motorNameplate.design),
+          toNullIfEmpty(motorNameplate.temp_rise_class),
+          toNullIfEmpty(motorNameplate.duty),
+          toNullIfEmpty(motorNameplate.cos_phi),
+          toNullIfEmpty(motorNameplate.ip),
+          toNullIfEmpty(motorNameplate.sf),
+          toNullIfEmpty(motorNameplate.de_bearing),
+          toNullIfEmpty(motorNameplate.nde_bearing),
+          toNullIfEmpty(motorNameplate.note),
+          updated_by,
+          insp_no
+        ]);
+      }
+    }
+
+    // ========================================
+    // 4. Driven Equipment
+    // ========================================
+    if (drivenEquipment) {
+      const existingDriven = await queryAsync(
+        connection,
+        'SELECT scm_de_id FROM form_scm_driven_equipment WHERE insp_no = ?',
+        [insp_no]
+      );
+
+      if (existingDriven.length === 0) {
+        await queryAsync(connection, `
+          INSERT INTO form_scm_driven_equipment 
+          (insp_no, scm_de_equipment_type, scm_de_manufactory, scm_de_tag_no,
+           scm_de_speed, scm_de_speed_unit, scm_de_de_bearing, scm_de_nde_bearing, created_by)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [
+          insp_no,
+          toNullIfEmpty(drivenEquipment.equipment_type),
+          toNullIfEmpty(drivenEquipment.manufactory),
+          toNullIfEmpty(drivenEquipment.tag_no),
+          toNullIfEmpty(drivenEquipment.speed),
+          drivenEquipment.speed_unit || 'RPM',
+          toNullIfEmpty(drivenEquipment.de_bearing),
+          toNullIfEmpty(drivenEquipment.nde_bearing),
+          created_by
+        ]);
+      } else {
+        await queryAsync(connection, `
+          UPDATE form_scm_driven_equipment 
+          SET scm_de_equipment_type = ?, scm_de_manufactory = ?, scm_de_tag_no = ?,
+              scm_de_speed = ?, scm_de_speed_unit = ?, scm_de_de_bearing = ?,
+              scm_de_nde_bearing = ?, updated_by = ?, updated_at = NOW()
+          WHERE insp_no = ?
+        `, [
+          toNullIfEmpty(drivenEquipment.equipment_type),
+          toNullIfEmpty(drivenEquipment.manufactory),
+          toNullIfEmpty(drivenEquipment.tag_no),
+          toNullIfEmpty(drivenEquipment.speed),
+          drivenEquipment.speed_unit || 'RPM',
+          toNullIfEmpty(drivenEquipment.de_bearing),
+          toNullIfEmpty(drivenEquipment.nde_bearing),
+          updated_by,
+          insp_no
+        ]);
+      }
+    }
+
+    // ========================================
+    // 5. General Info
+    // ========================================
+    if (generalInfo) {
+      const existingGI = await queryAsync(
+        connection,
+        'SELECT scm_gi_id FROM form_scm_general_info WHERE insp_no = ?',
+        [insp_no]
+      );
+
+      if (existingGI.length === 0) {
+        await queryAsync(connection, `
+          INSERT INTO form_scm_general_info 
+          (insp_no, scm_gi_motor_type_mv, scm_gi_motor_type_lv, scm_gi_motor_type_special,
+           scm_gi_mounting_flange, scm_gi_mounting_foot, scm_gi_connection_coupling,
+           scm_gi_connection_gearbox, scm_gi_connection_vbelt, created_by)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [
+          insp_no,
+          generalInfo.motor_type_mv ? 1 : 0,
+          generalInfo.motor_type_lv ? 1 : 0,
+          generalInfo.motor_type_special ? 1 : 0,
+          generalInfo.mounting_flange ? 1 : 0,
+          generalInfo.mounting_foot ? 1 : 0,
+          generalInfo.connection_coupling ? 1 : 0,
+          generalInfo.connection_gearbox ? 1 : 0,
+          generalInfo.connection_vbelt ? 1 : 0,
+          created_by
+        ]);
+      } else {
+        await queryAsync(connection, `
+          UPDATE form_scm_general_info 
+          SET scm_gi_motor_type_mv = ?, scm_gi_motor_type_lv = ?, scm_gi_motor_type_special = ?,
+              scm_gi_mounting_flange = ?, scm_gi_mounting_foot = ?, scm_gi_connection_coupling = ?,
+              scm_gi_connection_gearbox = ?, scm_gi_connection_vbelt = ?, updated_by = ?, updated_at = NOW()
+          WHERE insp_no = ?
+        `, [
+          generalInfo.motor_type_mv ? 1 : 0,
+          generalInfo.motor_type_lv ? 1 : 0,
+          generalInfo.motor_type_special ? 1 : 0,
+          generalInfo.mounting_flange ? 1 : 0,
+          generalInfo.mounting_foot ? 1 : 0,
+          generalInfo.connection_coupling ? 1 : 0,
+          generalInfo.connection_gearbox ? 1 : 0,
+          generalInfo.connection_vbelt ? 1 : 0,
+          updated_by,
+          insp_no
+        ]);
+      }
+    }
+
+    // ========================================
+    // 6. General Checks (DELETE then INSERT)
+    // ========================================
+    if (generalChecks && generalChecks.length > 0) {
+      await queryAsync(connection, 'DELETE FROM form_scm_general_checks WHERE insp_no = ?', [insp_no]);
+
+      for (const check of generalChecks) {
+        await queryAsync(connection, `
+          INSERT INTO form_scm_general_checks 
+          (insp_no, scm_gc_check_item, scm_gc_status, scm_gc_remarks, created_by)
+          VALUES (?, ?, ?, ?, ?)
+        `, [
+          insp_no,
+          toNullIfEmpty(check.check_item),
+          check.status || null,
+          toNullIfEmpty(check.remarks),
+          created_by
+        ]);
+      }
+    }
+
+    // ========================================
+    // 6. Standstill Test
+    // ========================================
+    if (standstillTest) {
+      const existingST = await queryAsync(
+        connection,
+        'SELECT scm_st_id FROM form_scm_standstill_test WHERE insp_no = ?',
+        [insp_no]
+      );
+
+      if (existingST.length === 0) {
+        await queryAsync(connection, `
+      INSERT INTO form_scm_standstill_test 
+      (insp_no, scm_st_application, scm_st_not_application, 
+       scm_st_winding_include_cable, scm_st_winding_exclude_cable, created_by)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `, [
+          insp_no,
+          standstillTest.application ? 1 : 0,
+          standstillTest.not_application ? 1 : 0,
+          standstillTest.winding_include_cable ? 1 : 0,
+          standstillTest.winding_exclude_cable ? 1 : 0,
+          created_by
+        ]);
+      } else {
+        await queryAsync(connection, `
+      UPDATE form_scm_standstill_test 
+      SET scm_st_application = ?, scm_st_not_application = ?,
+          scm_st_winding_include_cable = ?, scm_st_winding_exclude_cable = ?,
+          updated_by = ?, updated_at = NOW()
+      WHERE insp_no = ?
+    `, [
+          standstillTest.application ? 1 : 0,
+          standstillTest.not_application ? 1 : 0,
+          standstillTest.winding_include_cable ? 1 : 0,
+          standstillTest.winding_exclude_cable ? 1 : 0,
+          updated_by,
+          insp_no
+        ]);
+      }
+    }
+    // ========================================
+    // 7. Insulation Tests (DELETE then INSERT)
+    // ========================================
+    if (insulationTests && insulationTests.length > 0) {
+      await queryAsync(connection, 'DELETE FROM form_scm_insulation_tests WHERE insp_no = ?', [insp_no]);
+
+      for (const test of insulationTests) {
+        await queryAsync(connection, `
+          INSERT INTO form_scm_insulation_tests 
+          (insp_no, scm_it_test_voltage, scm_it_phase_marking, scm_it_resistance_1min_c,
+           scm_it_resistance_1min_40c, scm_it_resistance_10min_c, scm_it_resistance_10min_40c,
+           scm_it_polarization_index, scm_it_winding_temp, scm_it_note, created_by)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [
+          insp_no,
+          toNullIfEmpty(test.test_voltage),
+          toNullIfEmpty(test.phase_marking),
+          toNullIfEmpty(test.resistance_1min_c),
+          toNullIfEmpty(test.resistance_1min_40c),
+          toNullIfEmpty(test.resistance_10min_c),
+          toNullIfEmpty(test.resistance_10min_40c),
+          toNullIfEmpty(test.polarization_index),
+          toNullIfEmpty(test.winding_temp),
+          toNullIfEmpty(test.note),
+          created_by
+        ]);
+      }
+    }
+
+    // ========================================
+    // 8. Resistance Tests
+    // ========================================
+    if (resistanceTests) {
+      const existingRT = await queryAsync(
+        connection,
+        'SELECT scm_rt_id FROM form_scm_resistance_tests WHERE insp_no = ?',
+        [insp_no]
+      );
+
+      if (existingRT.length === 0) {
+        await queryAsync(connection, `
+          INSERT INTO form_scm_resistance_tests 
+          (insp_no, scm_rt_test_unit, scm_rt_resistance_uv, scm_rt_resistance_uw,
+           scm_rt_resistance_vw, scm_rt_result_status, created_by)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `, [
+          insp_no,
+          resistanceTests.test_unit || 'Ω',
+          toNullIfEmpty(resistanceTests.resistance_uv),
+          toNullIfEmpty(resistanceTests.resistance_uw),
+          toNullIfEmpty(resistanceTests.resistance_vw),
+          resistanceTests.result_status || null,
+          created_by
+        ]);
+      } else {
+        await queryAsync(connection, `
+          UPDATE form_scm_resistance_tests 
+          SET scm_rt_test_unit = ?, scm_rt_resistance_uv = ?, scm_rt_resistance_uw = ?,
+              scm_rt_resistance_vw = ?, scm_rt_result_status = ?, updated_by = ?, updated_at = NOW()
+          WHERE insp_no = ?
+        `, [
+          resistanceTests.test_unit || 'Ω',
+          toNullIfEmpty(resistanceTests.resistance_uv),
+          toNullIfEmpty(resistanceTests.resistance_uw),
+          toNullIfEmpty(resistanceTests.resistance_vw),
+          resistanceTests.result_status || null,
+          updated_by,
+          insp_no
+        ]);
+      }
+    }
+
+    // ========================================
+    // 9. Inductance Tests
+    // ========================================
+    if (inductanceTests) {
+      const existingLT = await queryAsync(
+        connection,
+        'SELECT scm_lt_id FROM form_scm_inductance_tests WHERE insp_no = ?',
+        [insp_no]
+      );
+
+      if (existingLT.length === 0) {
+        await queryAsync(connection, `
+          INSERT INTO form_scm_inductance_tests 
+          (insp_no, scm_lt_test_unit, scm_lt_inductance_uv, scm_lt_inductance_uw,
+           scm_lt_inductance_vw, scm_lt_result_status, created_by)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `, [
+          insp_no,
+          inductanceTests.test_unit || 'H',
+          toNullIfEmpty(inductanceTests.inductance_uv),
+          toNullIfEmpty(inductanceTests.inductance_uw),
+          toNullIfEmpty(inductanceTests.inductance_vw),
+          inductanceTests.result_status || null,
+          created_by
+        ]);
+      } else {
+        await queryAsync(connection, `
+          UPDATE form_scm_inductance_tests 
+          SET scm_lt_test_unit = ?, scm_lt_inductance_uv = ?, scm_lt_inductance_uw = ?,
+              scm_lt_inductance_vw = ?, scm_lt_result_status = ?, updated_by = ?, updated_at = NOW()
+          WHERE insp_no = ?
+        `, [
+          inductanceTests.test_unit || 'H',
+          toNullIfEmpty(inductanceTests.inductance_uv),
+          toNullIfEmpty(inductanceTests.inductance_uw),
+          toNullIfEmpty(inductanceTests.inductance_vw),
+          inductanceTests.result_status || null,
+          updated_by,
+          insp_no
+        ]);
+      }
+    }
+
+    // ========================================
+    // 10. Temperature Sensors Bearing
+    // ========================================
+    if (tempSensorsBearing) {
+      const existingTSB = await queryAsync(
+        connection,
+        'SELECT scm_tsb_id FROM form_scm_temp_sensors_bearing WHERE insp_no = ?',
+        [insp_no]
+      );
+
+      if (existingTSB.length === 0) {
+        await queryAsync(connection, `
+          INSERT INTO form_scm_temp_sensors_bearing 
+          (insp_no, scm_tsb_de_connection_no1, scm_tsb_de_connection_no2, scm_tsb_de_resistance,
+           scm_tsb_nde_connection_no1, scm_tsb_nde_connection_no2, scm_tsb_nde_resistance,
+           scm_tsb_sensor_type, scm_tsb_result_status, created_by)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [
+          insp_no,
+          toNullIfEmpty(tempSensorsBearing.de_connection_no1),
+          toNullIfEmpty(tempSensorsBearing.de_connection_no2),
+          toNullIfEmpty(tempSensorsBearing.de_resistance),
+          toNullIfEmpty(tempSensorsBearing.nde_connection_no1),
+          toNullIfEmpty(tempSensorsBearing.nde_connection_no2),
+          toNullIfEmpty(tempSensorsBearing.nde_resistance),
+          toNullIfEmpty(tempSensorsBearing.sensor_type),
+          tempSensorsBearing.result_status || null,
+          created_by
+        ]);
+      } else {
+        await queryAsync(connection, `
+          UPDATE form_scm_temp_sensors_bearing 
+          SET scm_tsb_de_connection_no1 = ?, scm_tsb_de_connection_no2 = ?, scm_tsb_de_resistance = ?,
+              scm_tsb_nde_connection_no1 = ?, scm_tsb_nde_connection_no2 = ?, scm_tsb_nde_resistance = ?,
+              scm_tsb_sensor_type = ?, scm_tsb_result_status = ?, updated_by = ?, updated_at = NOW()
+          WHERE insp_no = ?
+        `, [
+          toNullIfEmpty(tempSensorsBearing.de_connection_no1),
+          toNullIfEmpty(tempSensorsBearing.de_connection_no2),
+          toNullIfEmpty(tempSensorsBearing.de_resistance),
+          toNullIfEmpty(tempSensorsBearing.nde_connection_no1),
+          toNullIfEmpty(tempSensorsBearing.nde_connection_no2),
+          toNullIfEmpty(tempSensorsBearing.nde_resistance),
+          toNullIfEmpty(tempSensorsBearing.sensor_type),
+          tempSensorsBearing.result_status || null,
+          updated_by,
+          insp_no
+        ]);
+      }
+    }
+
+    // ========================================
+    // 11. Heaters (DELETE then INSERT)
+    // ========================================
+    if (heaters && heaters.length > 0) {
+      await queryAsync(connection, 'DELETE FROM form_scm_heaters WHERE insp_no = ?', [insp_no]);
+
+      for (const heater of heaters) {
+        await queryAsync(connection, `
+          INSERT INTO form_scm_heaters 
+          (insp_no, scm_h_unit_no, scm_h_connection_no1, scm_h_connection_no2, scm_h_resistance, created_by)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `, [
+          insp_no,
+          heater.unit_no,
+          toNullIfEmpty(heater.connection_no1),
+          toNullIfEmpty(heater.connection_no2),
+          toNullIfEmpty(heater.resistance),
+          created_by
+        ]);
+      }
+    }
+
+    // ========================================
+    // 12. Temperature Sensors Stator (DELETE then INSERT)
+    // ========================================
+    if (tempSensorsStator && tempSensorsStator.length > 0) {
+      await queryAsync(connection, 'DELETE FROM form_scm_temp_sensors_stator WHERE insp_no = ?', [insp_no]);
+
+      for (const sensor of tempSensorsStator) {
+        await queryAsync(connection, `
+          INSERT INTO form_scm_temp_sensors_stator 
+          (insp_no, scm_tss_element_no, scm_tss_connection_no1, scm_tss_connection_no2,
+           scm_tss_resistance, scm_tss_sensor_type, scm_tss_result_status, created_by)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `, [
+          insp_no,
+          sensor.element_no,
+          toNullIfEmpty(sensor.connection_no1),
+          toNullIfEmpty(sensor.connection_no2),
+          toNullIfEmpty(sensor.resistance),
+          toNullIfEmpty(sensor.sensor_type),
+          sensor.result_status || null,
+          created_by
+        ]);
+      }
+    }
+
+    await new Promise((resolve, reject) => {
+      connection.commit((err) => {
+        if (err) return reject(err);
+        resolve();
+      });
+    });
+
+    res.json({
+      success: true,
+      message: 'Inspection saved successfully',
+      insp_no
+    });
+
+  } catch (error) {
+    if (connection) {
+      await new Promise(resolve => connection.rollback(() => resolve()));
+    }
+    console.error('Error in /api/scm/inspection-save:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+/* ---------------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------------- */
+/* ----------------------------------------------------------------- ด้านล่างคืออันเก่า */
+/* ดึง print */
+/**
+ * GET /api/report/inspection/:insp_no
+ * ดึงข้อมูลรายงานตาม Inspection No
+ */
+app.get('/api/inspectionPM/:id', (req, res) => {
+  const { id } = req.params;
+
+  const sql = `
+   SELECT
+      i.id AS inspID,
+      i.entityid AS insp_customer_no,
+      i.mt_id AS insp_no,
+      i.jobno AS insp_jobNo,
+      i.attention AS insp_attention,
+      i.mt_id AS insp_no,
+      i.customer AS insp_customer_name,
+      i.sq AS insp_sale_quote,
+      i.sv AS insp_service_order,
+      i.incoming_date AS insp_document_date,
+      f.form_name AS insp_motor_name
+    FROM u_inspection AS i
+    LEFT JOIN u_form AS f
+      ON f.form_type = i.type_form
+WHERE i.mt_id = ?
+`;
+
+  db2.query(sql, [id], (err, results) => {
+    if (err) {
+      console.error('Database error:', err);
+      return res.status(500).json({ error: 'เกิดข้อผิดพลาดในการเชื่อมต่อฐานข้อมูล' });
+    }
+    if (results.length === 0) {
+      return res.status(404).json({ error: 'ไม่พบข้อมูลใบงานนี้' });
+    }
+    res.json(results[0]);
+  });
+});
+
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Global process error logs
+process.on('uncaughtException', err => {
+  console.error('Uncaught Exception:', err);
+});
+process.on('unhandledRejection', err => {
+  console.error('Unhandled Rejection:', err);
+});
+
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Swagger & Static
+app.use('/img', express.static(path.join(__dirname, 'public', 'img_upload')));
+app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));
+
+// Health
+app.get('/', (req, res) => {
+  res.json({
+    service: 'Inspection Management API',
+    version: '1.0.0',
+    status: 'running',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString()
+  });
+});
+app.get('/health', (req, res) => res.status(200).send('OK'));
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LOGIN
+app.post('/api/login', (req, res) => {
+  const { username, password, branch } = req.body || {};
+
+  if (!username || !password || !branch) {
+    return res.status(400).json({ error: 'กรุณากรอกข้อมูลให้ครบถ้วน' });
+  }
+
+  const sql = `
+    SELECT * FROM u_user 
+    WHERE username = ? 
+      AND user_status = 1
+  `;
+
+  db2.query(sql, [username], (err, results) => {
+    if (err) return res.status(500).json({ error: 'Database error' });
+    if (results.length === 0) return res.status(401).json({ error: 'ไม่พบผู้ใช้' });
+
+    const user = results[0];
+    const storedHash = user.pass2 && user.pass2.startsWith('$2') ? user.pass2 : user.password;
+
+    const handleLoginSuccess = () => {
+      db2.query(
+        'UPDATE u_user SET u_last_login = NOW() WHERE user_key = ?',
+        [user.user_key],
+        (err2) => {
+          if (err2) console.error('Update last login error:', err2);
+        }
+      );
+
+      res.json({
+        user_key: user.user_key,
+        name: user.name,
+        lastname: user.lastname,
+        username: user.username,
+        user_class: user.user_class,
+        user_type: user.user_type,
+        branch_log: user.branch_log,
+        user_photo: user.user_photo,
+        user_language: user.user_language,
+        bed_view: user.bed_view,
+        system_font_size: user.system_font_size,
+        email: user.email,
+        department: user.department,
+        api_token: user.api_token
+      });
+    };
+
+    // รองรับ bcrypt (pass2) และ md5 (password)
+    if (storedHash && storedHash.startsWith('$2')) {
+      bcrypt.compare(password, storedHash)
+        .then((isMatch) => {
+          if (!isMatch) return res.status(401).json({ error: 'รหัสผ่านไม่ถูกต้อง' });
+          handleLoginSuccess();
+        })
+        .catch((err2) => {
+          console.error('Password check error:', err2);
+          res.status(500).json({ error: 'Server error' });
+        });
+    } else {
+      const md5Hash = crypto.createHash('md5').update(password).digest('hex');
+      const isMatch = (md5Hash === storedHash);
+      if (!isMatch) return res.status(401).json({ error: 'รหัสผ่านไม่ถูกต้อง' });
+      handleLoginSuccess();
+    }
+  });
+});
+
+//_______________________________________________________________________________
+// Logout Endpoint
+/* app.post('/api/logout', (req, res) => {
+  const { user_key } = req.body || {};
+
+  if (!user_key) {
+    return res.status(400).json({ error: 'ไม่พบ user_key' });
+  }
+
+  const sql = `UPDATE u_user SET u_last_logout = NOW() WHERE user_key = ?`;
+
+  db3.query(sql, [user_key], (err, result) => {
+    if (err) {
+      console.error('Database error:', err);
+      return res.status(500).json({ error: 'Database error' });
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'ไม่พบผู้ใช้' });
+    }
+
+    res.json({ message: 'ออกจากระบบสำเร็จ' });
+  });
+}); */
+/* ระบบPM-form */
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Listen
