@@ -24,7 +24,7 @@ app.use(express.json());
 // CORS: ใช้โดเมนจริงจาก ENV (คอมมาคั่นได้), dev fallback เป็น localhost
 const allowedOrigins =
   (process.env.FRONTEND_ORIGIN && process.env.FRONTEND_ORIGIN.split(',').map(s => s.trim())) ||
-  ['http://localhost:5173', 'http://localhost:3000', 'http://192.168.102.106:5173', 'http://192.168.112.11:5173', 'https://icy-grass-0f0a0e810.2.azurestaticapps.net', 'http://192.168.112.24:5174'];
+  ['http://localhost:5173', 'http://localhost:3000', 'http://192.168.102.106:5173', 'https://pm-form-usvt.azurewebsites.net', 'https://icy-grass-0f0a0e810.2.azurestaticapps.net', 'http://192.168.112.24:5174'];
 
 app.use(
   cors({
