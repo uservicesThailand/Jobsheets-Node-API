@@ -1142,7 +1142,6 @@ app.post('/api/forms/FormMotorNameplate/:insp_no', (req, res) => {
   });
 });
 
-
 // FormStaticTest
 app.get('/api/forms/FormStaticTest/:insp_id', (req, res) => {
   const { insp_id } = req.params;
@@ -1443,7 +1442,6 @@ app.get('/api/forms/FormInstruments/:insp_id', (req, res) => {
   });
 });
 
-
 app.post('/api/forms/FormInstruments/:insp_id', (req, res) => {
   const { insp_id } = req.params;
   const payload = req.body;
@@ -1512,7 +1510,6 @@ app.post('/api/forms/FormCoilBrakeTest/:insp_id', (req, res) => {
     }
   });
 });
-
 
 // helper: เซฟ dataURL -> ไฟล์ แล้วคืน URL
 function saveDataUrl(dataUrl, filenameBase) {
@@ -1590,7 +1587,6 @@ app.get('/api/forms/FormApproval/:insp_no', (req, res) => {
     return res.json(out);
   });
 });
-
 
 /** POST: สร้าง/อัปเดตฟอร์มลายเซ็นตาม insp_no (แถวเดียวต่องาน) */
 app.post('/api/forms/FormApproval/:insp_no', (req, res) => {
@@ -2110,6 +2106,7 @@ app.get('/api/forms/FormPhotoManager/:insp_id', (req, res) => {
     res.json(rows.length > 0 ? rows[0] : null);
   });
 });
+
 app.post('/api/forms/FormPhotoManager/:insp_id', (req, res) => {
   const { insp_id } = req.params;
   const payload = req.body;
@@ -2196,8 +2193,6 @@ app.get('/api/tagList', (req, res) => {
   });
 });
 
-
-
 // Company list
 app.get('/company/list', (req, res) => {
   const { branch = '' } = req.query; //  รับ branch จาก query string
@@ -2223,7 +2218,6 @@ app.get('/company/list', (req, res) => {
     res.json(results);
   });
 });
-
 
 // Search SV
 app.post('/api/searchSV', (req, res) => {
@@ -2312,7 +2306,6 @@ app.get('/api/station-counts', (req, res) => {
   });
 });
 
-
 // User profile get/update
 app.get('/api/user/:id', (req, res) => {
   const userId = req.params.id;
@@ -2350,7 +2343,6 @@ app.put('/api/user/:id', (req, res) => {
     }
   );
 });
-
 
 // Upload profile image
 app.post('/api/upload-profile-image/:userId', upload.single('image'), async (req, res) => {
@@ -2605,9 +2597,6 @@ app.get('/api/certificates', (req, res) => {
   });
 });
 
-
-
-
 // Teams
 app.get('/api/teams', (req, res) => {
   const branch = req.query.branch;
@@ -2689,8 +2678,6 @@ app.get('/api/todolist', (req, res) => {
     res.json([]); // ❗️กันตกทุกกรณี
   }
 });
-
-
 
 // POST /api/todolist  — สร้างใหม่
 app.post('/api/todolist', (req, res) => {
@@ -2788,7 +2775,6 @@ app.delete('/api/todolist/:id', (req, res) => {
     res.json({ id, deleted: true });
   });
 });
-
 
 /* ระบบPM-form */
 app.post('/api/login2', (req, res) => {
@@ -3006,8 +2992,9 @@ app.get('/api/forms/form_scm_inspection_headers/:insp_no', (req, res) => {
     });
   });
 });
+
 /* -----------------------------------------------------------------------------
-การ จัดการรูปภาพ 
+การจัดการรูปภาพ 
 */
 // สร้างโฟลเดอร์สำหรับเก็บรูป
 const UPLOAD_DIR = path.join(__dirname, 'uploads');
@@ -4267,7 +4254,7 @@ app.post('/api/scm/inspection-save', async (req, res) => {
           VALUES (?, ?, ?, ?, ?, ?, ?)
         `, [
           insp_no,
-          resistanceTests.test_unit || 'Ω',
+          resistanceTests.test_unit || '',
           toNullIfEmpty(resistanceTests.resistance_uv),
           toNullIfEmpty(resistanceTests.resistance_uw),
           toNullIfEmpty(resistanceTests.resistance_vw),
@@ -4281,7 +4268,7 @@ app.post('/api/scm/inspection-save', async (req, res) => {
               scm_rt_resistance_vw = ?, scm_rt_result_status = ?, updated_by = ?, updated_at = NOW()
           WHERE insp_no = ?
         `, [
-          resistanceTests.test_unit || 'Ω',
+          resistanceTests.test_unit || '',
           toNullIfEmpty(resistanceTests.resistance_uv),
           toNullIfEmpty(resistanceTests.resistance_uw),
           toNullIfEmpty(resistanceTests.resistance_vw),
@@ -4310,7 +4297,7 @@ app.post('/api/scm/inspection-save', async (req, res) => {
           VALUES (?, ?, ?, ?, ?, ?, ?)
         `, [
           insp_no,
-          inductanceTests.test_unit || 'H',
+          inductanceTests.test_unit || '',
           toNullIfEmpty(inductanceTests.inductance_uv),
           toNullIfEmpty(inductanceTests.inductance_uw),
           toNullIfEmpty(inductanceTests.inductance_vw),
@@ -4324,7 +4311,7 @@ app.post('/api/scm/inspection-save', async (req, res) => {
               scm_lt_inductance_vw = ?, scm_lt_result_status = ?, updated_by = ?, updated_at = NOW()
           WHERE insp_no = ?
         `, [
-          inductanceTests.test_unit || 'H',
+          inductanceTests.test_unit || '',
           toNullIfEmpty(inductanceTests.inductance_uv),
           toNullIfEmpty(inductanceTests.inductance_uw),
           toNullIfEmpty(inductanceTests.inductance_vw),
