@@ -24,7 +24,7 @@ app.use(express.json());
 // CORS: ใช้โดเมนจริงจาก ENV (คอมมาคั่นได้), dev fallback เป็น localhost
 const allowedOrigins =
   (process.env.FRONTEND_ORIGIN && process.env.FRONTEND_ORIGIN.split(',').map(s => s.trim())) ||
-  ['http://localhost:5173', 'http://localhost:3000', 'http://192.168.102.106:5173', 'https://pm-form-usvt.azurewebsites.net', 'https://icy-grass-0f0a0e810.2.azurestaticapps.net', 'http://192.168.112.24:5174'];
+  ['http://localhost:5173', 'http://localhost:3000', 'http://192.168.102.106:5173', 'https://pm-form-usvt.azurewebsites.net', 'https://icy-grass-0f0a0e810.2.azurestaticapps.net', 'http://192.168.102.106:5174'];
 
 app.use(
   cors({
@@ -2106,7 +2106,6 @@ app.get('/api/forms/FormPhotoManager/:insp_id', (req, res) => {
     res.json(rows.length > 0 ? rows[0] : null);
   });
 });
-
 app.post('/api/forms/FormPhotoManager/:insp_id', (req, res) => {
   const { insp_id } = req.params;
   const payload = req.body;
@@ -3453,7 +3452,6 @@ app.put('/api/restore-all-images', async (req, res) => {
   }
 });
 
-
 // API สำหรับดึงรูปภาพที่ถูกลบ (del = 1)
 app.get('/api/deleted-images/:inspNo', async (req, res) => {
   try {
@@ -3662,7 +3660,6 @@ app.delete('/api/delete-image', async (req, res) => {
     });
   }
 });
-
 
 // Tag list (prefer trp_motor_code from latest form_test_report when exists)
 app.get('/api/formList', (req, res) => {
@@ -4539,7 +4536,7 @@ app.post('/api/login', (req, res) => {
       AND user_status = 1
   `;
 
-  db2.query(sql, [username], (err, results) => {
+  db.query(sql, [username], (err, results) => {
     if (err) return res.status(500).json({ error: 'Database error' });
     if (results.length === 0) return res.status(401).json({ error: 'ไม่พบผู้ใช้' });
 
@@ -4547,7 +4544,7 @@ app.post('/api/login', (req, res) => {
     const storedHash = user.pass2 && user.pass2.startsWith('$2') ? user.pass2 : user.password;
 
     const handleLoginSuccess = () => {
-      db2.query(
+      db.query(
         'UPDATE u_user SET u_last_login = NOW() WHERE user_key = ?',
         [user.user_key],
         (err2) => {
