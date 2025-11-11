@@ -1,5 +1,4 @@
 // server.js
-
 /* require('dotenv').config(); */
 const crypto = require('crypto');
 const bcrypt = require('bcrypt');
@@ -22,9 +21,7 @@ const { swaggerUi, swaggerSpec } = require('./swagger');
 app.use(express.json());
 
 // CORS: ใช้โดเมนจริงจาก ENV (คอมมาคั่นได้), dev fallback เป็น localhost
-const allowedOrigins =
-  (process.env.FRONTEND_ORIGIN && process.env.FRONTEND_ORIGIN.split(',').map(s => s.trim())) ||
-  ['http://localhost:5173', 'http://localhost:3000', 'http://192.168.102.106:5173', 'https://pm-form-usvt.azurewebsites.net', 'https://icy-grass-0f0a0e810.2.azurestaticapps.net', 'http://192.168.102.106:5174'];
+const allowedOrigins = process.env.FRONTEND_ORIGIN?.split(',').map(s => s.trim()) || [];
 
 app.use(
   cors({
@@ -36,9 +33,9 @@ app.use(
 
 /* ดึง print */
 /**
- * GET /api/report/inspection/:insp_no
- * ดึงข้อมูลรายงานตาม Inspection No
- */
+* GET /api/report/inspection/:insp_no
+* ดึงข้อมูลรายงานตาม Inspection No
+*/
 
 app.get('/inspection/:insp_no', (req, res) => {
   const { insp_no } = req.params;
@@ -327,7 +324,6 @@ app.post('/api/bc/data', async (req, res) => {
   }
 });
 
-
 //_______________________________________________________________________________
 // Logout Endpoint
 app.post('/api/logout', (req, res) => {
@@ -509,6 +505,7 @@ app.patch('/api/admin/users/:user_key/password', requireAdminOrDev, async (req, 
         res.json({ message: 'password updated' });
       }
     );
+
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'Server error' });
@@ -662,7 +659,7 @@ function createStepEndpoint(path, stationList, label) {
       params.push(branch);
     }
 
-    sql += ` ORDER BY i.insp_created_at DESC`;
+    sql += ` ORDER BY i.insp_created_at DESC, i.inspection_updated_at DESC`;
 
     db.query(sql, params, (err, results) => {
       if (err) {
@@ -4566,7 +4563,8 @@ app.post('/api/login', (req, res) => {
         system_font_size: user.system_font_size,
         email: user.email,
         department: user.department,
-        api_token: user.api_token
+        api_token: user.api_token,
+        u_role: user.u_role,
       });
     };
 
