@@ -123,7 +123,7 @@ io.on('connection', (socket) => {
     if (!userKey) return;
     const room = `user:${String(userKey)}`;
     socket.join(room);
-    console.log(`[WS] ${socket.id} joined ${room}`);
+    /* console.log(`[WS] ${socket.id} joined ${room}`); */
   });
 
   socket.on('disconnect', (reason) => {
@@ -161,6 +161,7 @@ const upload = multer({
 process.on('uncaughtException', err => {
   console.error('Uncaught Exception:', err);
 });
+
 process.on('unhandledRejection', err => {
   console.error('Unhandled Rejection:', err);
 });
@@ -201,6 +202,7 @@ app.get('/', (req, res) => {
     timestamp: new Date().toISOString()
   });
 });
+
 app.get('/health', (req, res) => res.status(200).send('OK'));
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -688,10 +690,11 @@ createStepEndpoint('/api/StepPlanning', ['PLANNING'], 'Planning');
 createStepEndpoint('/api/StepCS', ['CS', 'CS Prove'], 'CS');
 createStepEndpoint('/api/StepQC', ['QC Incoming', 'QC Final'], 'QC Incoming');
 
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Stations
 app.post('/api/send_station001', (req, res) => {
-  const { insp_id, next_station, user_id } = req.body;
+  const { insp_id, insp_no, next_station, user_id } = req.body;
 
   const updateSql = `
     UPDATE tbl_inspection_list 
@@ -712,18 +715,19 @@ app.post('/api/send_station001', (req, res) => {
     const insertLogSql = `
       INSERT INTO logs_inspection_stations (
         insp_id,
+        insp_no,
         station_step,
         station_name,
         station_status,
         station_timestamp,
         created_at,
         user_id
-      ) VALUES (?, ?, ?, ?, NOW(), NOW(), ?)
+      ) VALUES (?, ?, ?, ?, ?, NOW(), NOW(), ?)
     `;
 
     db.query(
       insertLogSql,
-      [insp_id, '1', next_station, 'In Progress', user_id],
+      [insp_id, insp_no, '1', next_station, 'รอรับงาน', user_id],
       (err2) => {
         if (err2) {
           console.error('Log insert error:', err2);
@@ -737,7 +741,7 @@ app.post('/api/send_station001', (req, res) => {
 });
 
 app.post('/api/accept_station', (req, res) => {
-  const { insp_id, user_id } = req.body;
+  const { insp_no, insp_id, user_id } = req.body;
 
   const getStationSql = `
     SELECT insp_station_now 
@@ -769,18 +773,19 @@ app.post('/api/accept_station', (req, res) => {
       const insertLogSql = `
         INSERT INTO logs_inspection_stations (
           insp_id,
+          insp_no,
           station_step,
           station_name,
           station_status,
           station_timestamp,
           created_at,
           user_id
-        ) VALUES (?, ?, ?, ?, NOW(), NOW(), ?)
+        ) VALUES (?, ?, ?, ?, ?, NOW(), NOW(), ?)
       `;
 
       db.query(
         insertLogSql,
-        [insp_id, '2', currentStation, 'In Progress', user_id],
+        [insp_id, insp_no, '2', currentStation, 'รับงานแล้ว', user_id],
         (err3) => {
           if (err3) {
             console.error('Log insert error:', err3);
@@ -964,15 +969,16 @@ app.post('/api/forms/FormTestReport/:insp_no', (req, res) => {
                 `
                 INSERT INTO logs_inspection_stations (
                   insp_id,
+                  insp_no,
                   station_step,
                   station_name,
                   station_status,
                   station_timestamp,
                   created_at,
                   user_id
-                ) VALUES (?, ?, ?, ?, NOW(), NOW(), ?)
+                ) VALUES (?, ?, ?, ?, ?, NOW(), NOW(), ?)
                 `,
-                [insp_id, '001', payload.stationTo, 'In Progress', user_id],
+                [insp_id, insp_no, '1', payload.stationTo, 'Start Job', user_id],
                 (errInsert) => {
                   if (errInsert) {
                     console.error('Log insert error (station):', errInsert);
@@ -1150,6 +1156,7 @@ app.get('/api/forms/FormStaticTest/:insp_id', (req, res) => {
     res.json(rows.length > 0 ? rows[0] : null);
   });
 });
+
 app.post('/api/forms/FormStaticTest/:insp_id', (req, res) => {
   const { insp_id } = req.params;
   const payload = req.body;
@@ -1190,6 +1197,7 @@ app.get('/api/forms/FormEquipmentTest/:insp_id', (req, res) => {
     res.json(rows.length > 0 ? rows[0] : null);
   });
 });
+
 app.post('/api/forms/FormEquipmentTest/:insp_id', (req, res) => {
   const { insp_id } = req.params;
   const payload = req.body;
@@ -3658,9 +3666,8 @@ app.delete('/api/delete-image', async (req, res) => {
   }
 });
 
-// Tag list (prefer trp_motor_code from latest form_test_report when exists)
+// Endpoint เดิม - ส่งเฉพาะ has_row = 0
 app.get('/api/formList', (req, res) => {
-
   const { branch = '', year } = req.query;
   console.log('branch:' + branch);
   console.log('year:' + year);
@@ -3678,15 +3685,12 @@ app.get('/api/formList', (req, res) => {
     FROM u_inspection AS i
     LEFT JOIN u_form AS f
       ON f.form_type = i.type_form
-     WHERE 1=1
-    AND i.del = 0
+    WHERE i.del = 0
     AND i.cancel = 0
   `;
 
   if (branch) {
-    // ตัดตัว U ออกจาก branch (เช่น 'URY' -> 'RY')
     const branchCode = branch.startsWith('U') ? branch.substring(1) : branch;
-    // เทียบกับ 2 ตัวแรกของ mt_id
     sql += ` AND LEFT(i.mt_id, 2) = ?`;
     params.push(branchCode);
   }
@@ -3706,7 +3710,110 @@ app.get('/api/formList', (req, res) => {
       console.error('Query error:', err);
       return res.status(500).json({ error: 'ไม่สามารถดึง tagList ได้' });
     }
-    res.json(results || []);
+
+    if (results.length === 0) {
+      return res.json([]);
+    }
+
+    // ดึง service_order ทั้งหมดมาเช็คครั้งเดียว
+    const serviceOrders = results.map(r => r.insp_service_order);
+
+    const checkSql = `
+      SELECT DISTINCT insp_service_order 
+      FROM tbl_inspection_list 
+      WHERE insp_service_order IN (?)
+    `;
+
+    db3.query(checkSql, [serviceOrders], (err, checkResults) => {
+      if (err) {
+        console.error('Error checking db3:', err);
+        return res.status(500).json({ error: 'ไม่สามารถตรวจสอบข้อมูลใน db3 ได้' });
+      }
+
+      // สร้าง Set ของ service_order ที่มีอยู่ใน db3
+      const existingOrders = new Set(
+        checkResults.map(r => r.insp_service_order)
+      );
+
+      // กรองเฉพาะที่ไม่มีใน db3 (has_row = 0)
+      const filteredResults = results
+        .filter(row => !existingOrders.has(row.insp_service_order))
+        .map(row => ({ ...row, has_row: 0 }));
+
+      res.json(filteredResults);
+    });
+  });
+});
+
+// Endpoint ใหม่ - ส่งเฉพาะ has_row = 1
+app.get('/api/formListSynced', (req, res) => {
+  const { branch = '', year } = req.query;
+  const params = [];
+
+  let sql = `
+    SELECT
+      i.id AS insp_id,
+      i.mt_id AS insp_no,
+      i.customer AS insp_customer_name,
+      i.sq AS insp_sale_quote,
+      i.sv AS insp_service_order,
+      i.incoming_date AS insp_created_at,
+      f.form_name AS motor_name
+    FROM u_inspection AS i
+    LEFT JOIN u_form AS f ON f.form_type = i.type_form
+    WHERE i.del = 0 AND i.cancel = 0
+  `;
+
+  if (branch) {
+    const branchCode = branch.startsWith('U') ? branch.substring(1) : branch;
+    sql += ` AND LEFT(i.mt_id, 2) = ?`;
+    params.push(branchCode);
+  }
+
+  if (year) {
+    sql += ` AND YEAR(i.incoming_date) = ?`;
+    params.push(year);
+  }
+
+  sql += ` ORDER BY i.last_update DESC LIMIT 10000`;
+
+  db2.query(sql, params, (err, results) => {
+    if (err) {
+      console.error('Query error:', err);
+      return res.status(500).json({ error: 'ไม่สามารถดึง tagList ได้' });
+    }
+
+    if (results.length === 0) {
+      return res.json([]);
+    }
+
+    // ดึง service_order ทั้งหมดมาเช็คครั้งเดียว
+    const serviceOrders = results.map(r => r.insp_service_order);
+
+    const checkSql = `
+      SELECT DISTINCT insp_service_order 
+      FROM tbl_inspection_list 
+      WHERE insp_service_order IN (?)
+    `;
+
+    db3.query(checkSql, [serviceOrders], (err, checkResults) => {
+      if (err) {
+        console.error('Error checking db3:', err);
+        return res.status(500).json({ error: 'ไม่สามารถตรวจสอบข้อมูลใน db3 ได้' });
+      }
+
+      // สร้าง Set สำหรับการค้นหาที่เร็ว
+      const existingOrders = new Set(
+        checkResults.map(r => r.insp_service_order)
+      );
+
+      // กรองและเพิ่ม has_row
+      const filteredResults = results
+        .filter(row => existingOrders.has(row.insp_service_order))
+        .map(row => ({ ...row, has_row: 1 }));
+
+      res.json(filteredResults);
+    });
   });
 });
 
