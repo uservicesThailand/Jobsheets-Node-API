@@ -5,6 +5,7 @@ const bcrypt = require('bcrypt');
 const express = require('express');
 const cors = require('cors');
 const { db, db2, db3 } = require('./db');
+const { setupLoginRoutes } = require('./login');
 const axios = require('axios');
 const dayjs = require('dayjs');
 const path = require('path');
@@ -30,6 +31,9 @@ app.use(
     credentials: true
   })
 );
+
+
+setupLoginRoutes(app, db, db3);
 
 /* ดึง print */
 /**
@@ -632,6 +636,8 @@ function createStepEndpoint(path, stationList, label) {
     let sql = `
       SELECT 
         i.*, 
+        mn.fmn_power,
+        mn.fmn_power_unit,
         tr.trp_service_order, 
         tr.trp_motor_code, 
         tr.trp_customer AS trp_customer_name,
@@ -641,6 +647,7 @@ function createStepEndpoint(path, stationList, label) {
         mt2.motor_name AS trp_motor_name
       FROM tbl_inspection_list i
       LEFT JOIN form_test_report tr ON i.insp_no = tr.insp_no
+      LEFT JOIN form_motor_nameplate mn ON i.insp_no = mn.insp_no
       LEFT JOIN list_motor_type mt1 ON i.insp_motor_code = mt1.motor_code
       LEFT JOIN list_motor_type mt2 ON tr.trp_motor_code = mt2.motor_code
       WHERE (
@@ -692,9 +699,52 @@ createStepEndpoint('/api/StepQC', ['QC Incoming', 'QC Final'], 'QC Incoming');
 
 
 // ─────────────────────────────────────────────────────────────────────────────
+app.post('/api/manpower', (req, res) => {
+  const { insp_no, manpower } = req.body;
+
+  // Validate input
+
+  //ให้ดักที่ frontend แทนเนื่องจาก manpower อาจจะมีค่าว่างได้ถ้ายังไม่แน่ใจ
+  /* if (!insp_no || manpower === undefined || manpower === null) {
+    return res.status(400).json({
+      error: 'กรุณาระบุข้อมูลให้ครบถ้วน'
+    });
+  } */
+
+  const updateManpower = `
+    UPDATE tbl_inspection_list
+    SET insp_station_manpower = ?,
+        inspection_updated_at = NOW()
+    WHERE insp_no = ?
+  `;
+
+  db.query(updateManpower, [manpower, insp_no], (err, result) => {
+    if (err) {
+      console.error('Update error:', err);
+      return res.status(500).json({
+        error: 'ไม่สามารถอัปเดตจำนวนคนได้'
+      });
+    }
+
+    // ตรวจสอบว่ามีการ update จริงหรือไม่
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        error: 'ไม่พบข้อมูลที่ต้องการอัปเดต'
+      });
+    }
+
+    // ส่ง response สำเร็จ
+    res.json({
+      success: true,
+      message: 'อัปเดตจำนวนคนสำเร็จ',
+      affectedRows: result.affectedRows
+    });
+  });
+});
+
 // Stations
 app.post('/api/send_station001', (req, res) => {
-  const { insp_id, insp_no, next_station, user_id } = req.body;
+  const { insp_id, insp_no, next_station, user_id, manpower } = req.body;
 
   const updateSql = `
     UPDATE tbl_inspection_list 
@@ -702,7 +752,8 @@ app.post('/api/send_station001', (req, res) => {
         insp_station_now = ?, 
         insp_station_accept = '0',
         insp_status = 'In Progress', 
-        inspection_updated_at = NOW() 
+        inspection_updated_at = NOW(),
+        insp_station_manpower = NULL
     WHERE insp_id = ?
   `;
 
@@ -712,31 +763,67 @@ app.post('/api/send_station001', (req, res) => {
       return res.status(500).json({ error: 'ไม่สามารถอัปเดตสถานีได้' });
     }
 
-    const insertLogSql = `
-      INSERT INTO logs_inspection_stations (
-        insp_id,
-        insp_no,
-        station_step,
-        station_name,
-        station_status,
-        station_timestamp,
-        created_at,
-        user_id
-      ) VALUES (?, ?, ?, ?, ?, NOW(), NOW(), ?)
+    // หา station_step สูงสุดปัจจุบัน
+    const getMaxStepSql = `
+      SELECT COALESCE(MAX(station_step), 0) AS current_max_step 
+      FROM logs_inspection_stations 
+      WHERE insp_id = ?
     `;
 
-    db.query(
-      insertLogSql,
-      [insp_id, insp_no, '1', next_station, 'รอรับงาน', user_id],
-      (err2) => {
-        if (err2) {
-          console.error('Log insert error:', err2);
-          return res.status(500).json({ error: 'บันทึก timeline ไม่สำเร็จ' });
-        }
-        notifyFollowers(insp_id);
-        res.json({ success: true });
+    db.query(getMaxStepSql, [insp_id], (err1, result) => {
+      if (err1) {
+        console.error('Get max step error:', err1);
+        return res.status(500).json({ error: 'ไม่สามารถหา step ปัจจุบันได้' });
       }
-    );
+
+      const currentMaxStep = result[0].current_max_step;
+      const nextStep = currentMaxStep + 1;
+
+      // Update manpower ให้สถานีก่อนหน้า (station_step ปัจจุบัน)
+      if (currentMaxStep > 0) {
+        const updateManpowerSql = `
+          UPDATE logs_inspection_stations 
+          SET station_manpower = ? 
+          WHERE insp_id = ? 
+            AND station_step = ?
+        `;
+
+        db.query(updateManpowerSql, [manpower, insp_id, currentMaxStep], (err2) => {
+          if (err2) {
+            console.error('Manpower update error:', err2);
+            // ไม่ return เพราะไม่ให้ manpower error หยุด flow หลัก
+          }
+        });
+      }
+
+      // Insert log ใหม่ด้วย station_step ถัดไป
+      const insertLogSql = `
+        INSERT INTO logs_inspection_stations (
+          insp_id,
+          insp_no,
+          station_step,
+          station_name,
+          station_status,
+          station_timestamp,
+          station_manpower,
+          created_at,
+          user_id
+        ) VALUES (?, ?, ?, ?, ?, NOW(), NULL, NOW(), ?)
+      `;
+
+      db.query(
+        insertLogSql,
+        [insp_id, insp_no, nextStep, next_station, 'PENDING', user_id],
+        (err3) => {
+          if (err3) {
+            console.error('Log insert error:', err3);
+            return res.status(500).json({ error: 'บันทึก timeline ไม่สำเร็จ' });
+          }
+          notifyFollowers(insp_id);
+          res.json({ success: true });
+        }
+      );
+    });
   });
 });
 
@@ -770,6 +857,91 @@ app.post('/api/accept_station', (req, res) => {
         return res.status(500).json({ error: 'ไม่สามารถอัปเดตสถานีได้' });
       }
 
+      // หา station_step สูงสุดปัจจุบัน
+      const getMaxStepSql = `
+        SELECT COALESCE(MAX(station_step), 0) AS current_max_step 
+        FROM logs_inspection_stations 
+        WHERE insp_id = ?
+      `;
+
+      db.query(getMaxStepSql, [insp_id], (err3, stepResult) => {
+        if (err3) {
+          console.error('Get max step error:', err3);
+          return res.status(500).json({ error: 'ไม่สามารถหา step ปัจจุบันได้' });
+        }
+
+        const currentMaxStep = stepResult[0].current_max_step;
+        const nextStep = currentMaxStep + 1;
+
+        const insertLogSql = `
+          INSERT INTO logs_inspection_stations (
+            insp_id,
+            insp_no,
+            station_step,
+            station_name,
+            station_status,
+            station_timestamp,
+            created_at,
+            user_id
+          ) VALUES (?, ?, ?, ?, ?, NOW(), NOW(), ?)
+        `;
+
+        db.query(
+          insertLogSql,
+          [insp_id, insp_no, nextStep, currentStation, 'accepted', user_id],
+          (err4) => {
+            if (err4) {
+              console.error('Log insert error:', err4);
+              return res.status(500).json({ error: 'บันทึก timeline ไม่สำเร็จ' });
+            }
+
+            notifyFollowers(insp_id);
+            res.json({ success: true });
+          }
+        );
+      });
+    });
+  });
+});
+
+app.post('/api/rework_station', (req, res) => {
+  const { insp_id, insp_no, prev_station, now_station, user_id } = req.body;
+
+  const updateSql = `
+    UPDATE tbl_inspection_list 
+    SET insp_station_prev = ?, 
+        insp_station_now = ?, 
+        insp_station_accept = '0',
+        insp_status = 'In Progress', 
+        inspection_updated_at = NOW(),
+        insp_station_manpower = NULL
+    WHERE insp_id = ?
+  `;
+
+  db.query(updateSql, [now_station, prev_station, insp_id], (err) => {
+    if (err) {
+      console.error('Update error:', err);
+      return res.status(500).json({ error: 'ไม่สามารถอัปเดตสถานีได้' });
+    }
+
+    // NOTE: หา station_step สูงสุดปัจจุบัน
+    const getMaxStepSql = `
+      SELECT COALESCE(MAX(station_step), 0) AS current_max_step 
+      FROM logs_inspection_stations 
+      WHERE insp_id = ?
+    `;
+
+    db.query(getMaxStepSql, [insp_id], (err1, result) => {
+      if (err1) {
+        console.error('Get max step error:', err1);
+        return res.status(500).json({ error: 'ไม่สามารถหา step ปัจจุบันได้' });
+      }
+
+      const currentMaxStep = result[0].current_max_step;
+      const nextStep = currentMaxStep + 1;
+
+
+      // Insert log ใหม่ด้วย station_step ถัดไป
       const insertLogSql = `
         INSERT INTO logs_inspection_stations (
           insp_id,
@@ -778,20 +950,20 @@ app.post('/api/accept_station', (req, res) => {
           station_name,
           station_status,
           station_timestamp,
+          station_manpower,
           created_at,
           user_id
-        ) VALUES (?, ?, ?, ?, ?, NOW(), NOW(), ?)
+        ) VALUES (?, ?, ?, ?, ?, NOW(), NULL, NOW(), ?)
       `;
 
       db.query(
         insertLogSql,
-        [insp_id, insp_no, '2', currentStation, 'รับงานแล้ว', user_id],
+        [insp_id, insp_no, nextStep, prev_station, 'REWORK', user_id],
         (err3) => {
           if (err3) {
             console.error('Log insert error:', err3);
             return res.status(500).json({ error: 'บันทึก timeline ไม่สำเร็จ' });
           }
-
           notifyFollowers(insp_id);
           res.json({ success: true });
         }
@@ -978,7 +1150,7 @@ app.post('/api/forms/FormTestReport/:insp_no', (req, res) => {
                   user_id
                 ) VALUES (?, ?, ?, ?, ?, NOW(), NOW(), ?)
                 `,
-                [insp_id, insp_no, '1', payload.stationTo, 'Start Job', user_id],
+                [insp_id, insp_no, '1', payload.stationTo, 'OPEN MOTOR', user_id],
                 (errInsert) => {
                   if (errInsert) {
                     console.error('Log insert error (station):', errInsert);
@@ -2780,93 +2952,6 @@ app.delete('/api/todolist/:id', (req, res) => {
   });
 });
 
-/* ระบบPM-form */
-app.post('/api/login2', (req, res) => {
-  const { username, password, branch } = req.body || {};
-
-  if (!username || !password || !branch) {
-    return res.status(400).json({ error: 'กรุณากรอกข้อมูลให้ครบถ้วน' });
-  }
-
-  const sql = `
-    SELECT * FROM u_user 
-    WHERE username = ? 
-      AND user_status = 1
-  `;
-
-  db3.query(sql, [username], (err, results) => {
-    if (err) return res.status(500).json({ error: 'Database error' });
-    if (results.length === 0) return res.status(401).json({ error: 'ไม่พบผู้ใช้' });
-
-    const user = results[0];
-    const storedHash = user.password;
-
-    const handleLoginSuccess = () => {
-      // อัปเดตเวลาล็อกอินล่าสุด
-      db3.query(
-        'UPDATE u_user SET u_last_login = NOW() WHERE user_key = ?',
-        [user.user_key],
-        (err2) => {
-          if (err2) console.error('Update last login error:', err2);
-        }
-      );
-
-      res.json({
-        user_key: user.user_key,
-        name: user.name,
-        lastname: user.lastname,
-        username: user.username,
-        user_class: user.user_class,
-        user_type: user.user_type,
-        branch_log: user.branch_log,
-        user_photo: user.user_photo,
-        u_role: user.u_role,
-        user_language: user.user_language
-      });
-    };
-
-    if (storedHash.startsWith('$2')) {
-      bcrypt.compare(password, storedHash)
-        .then((isMatch) => {
-          if (!isMatch) return res.status(401).json({ error: 'รหัสผ่านไม่ถูกต้อง' });
-          handleLoginSuccess();
-        })
-        .catch((err2) => {
-          console.error('Password check error:', err2);
-          res.status(500).json({ error: 'Server error' });
-        });
-    } else {
-      const md5Hash = crypto.createHash('md5').update(password).digest('hex');
-      const isMatch = (md5Hash === storedHash);
-      if (!isMatch) return res.status(401).json({ error: 'รหัสผ่านไม่ถูกต้อง' });
-      handleLoginSuccess();
-    }
-  });
-});
-
-// Logout Endpoint
-app.post('/api/logout2', (req, res) => {
-  const { user_key } = req.body || {};
-
-  if (!user_key) {
-    return res.status(400).json({ error: 'ไม่พบ user_key' });
-  }
-
-  const sql = `UPDATE u_user SET u_last_logout = NOW() WHERE user_key = ?`;
-
-  db3.query(sql, [user_key], (err, result) => {
-    if (err) {
-      console.error('Database error:', err);
-      return res.status(500).json({ error: 'Database error' });
-    }
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: 'ไม่พบผู้ใช้' });
-    }
-
-    res.json({ message: 'ออกจากระบบสำเร็จ' });
-  });
-});
 
 // บันทึกหรืออัพเดทจำนวนฟอร์ม
 app.post('/api/forms/scm-number', (req, res) => {
@@ -4625,75 +4710,6 @@ app.get('/', (req, res) => {
 app.get('/health', (req, res) => res.status(200).send('OK'));
 
 
-// ─────────────────────────────────────────────────────────────────────────────
-// LOGIN
-app.post('/api/login', (req, res) => {
-  const { username, password, branch } = req.body || {};
-
-  if (!username || !password || !branch) {
-    return res.status(400).json({ error: 'กรุณากรอกข้อมูลให้ครบถ้วน' });
-  }
-
-  const sql = `
-    SELECT * FROM u_user 
-    WHERE username = ? 
-      AND user_status = 1
-  `;
-
-  db.query(sql, [username], (err, results) => {
-    if (err) return res.status(500).json({ error: 'Database error' });
-    if (results.length === 0) return res.status(401).json({ error: 'ไม่พบผู้ใช้' });
-
-    const user = results[0];
-    const storedHash = user.pass2 && user.pass2.startsWith('$2') ? user.pass2 : user.password;
-
-    const handleLoginSuccess = () => {
-      db.query(
-        'UPDATE u_user SET u_last_login = NOW() WHERE user_key = ?',
-        [user.user_key],
-        (err2) => {
-          if (err2) console.error('Update last login error:', err2);
-        }
-      );
-
-      res.json({
-        user_key: user.user_key,
-        name: user.name,
-        lastname: user.lastname,
-        username: user.username,
-        user_class: user.user_class,
-        user_type: user.user_type,
-        branch_log: user.branch_log,
-        user_photo: user.user_photo,
-        user_language: user.user_language,
-        bed_view: user.bed_view,
-        system_font_size: user.system_font_size,
-        email: user.email,
-        department: user.department,
-        api_token: user.api_token,
-        u_role: user.u_role,
-      });
-    };
-
-    // รองรับ bcrypt (pass2) และ md5 (password)
-    if (storedHash && storedHash.startsWith('$2')) {
-      bcrypt.compare(password, storedHash)
-        .then((isMatch) => {
-          if (!isMatch) return res.status(401).json({ error: 'รหัสผ่านไม่ถูกต้อง' });
-          handleLoginSuccess();
-        })
-        .catch((err2) => {
-          console.error('Password check error:', err2);
-          res.status(500).json({ error: 'Server error' });
-        });
-    } else {
-      const md5Hash = crypto.createHash('md5').update(password).digest('hex');
-      const isMatch = (md5Hash === storedHash);
-      if (!isMatch) return res.status(401).json({ error: 'รหัสผ่านไม่ถูกต้อง' });
-      handleLoginSuccess();
-    }
-  });
-});
 
 //_______________________________________________________________________________
 // Logout Endpoint
