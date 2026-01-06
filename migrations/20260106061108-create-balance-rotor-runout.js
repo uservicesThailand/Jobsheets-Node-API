@@ -46,10 +46,6 @@ module.exports = {
         type: Sequelize.DECIMAL(10, 3),
       },
 
-      result: {
-        type: Sequelize.ENUM("NORMAL", "OVER_LIMIT"),
-      },
-
       created_at: {
         allowNull: false,
         type: Sequelize.DATE,
