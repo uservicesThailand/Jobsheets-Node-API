@@ -1,12 +1,12 @@
 const formService = require("./form.service");
 const resUtil = require("../../util/response.util");
 
-const get = async (req, res, next) => {
+const get = async (_, res) => {
   try {
     const result = await formService.get();
     return resUtil.successResponse(res, null, result);
   } catch (err) {
-    next(err);
+    return resUtil.errorResponse(res, err.message);
   }
 };
 
