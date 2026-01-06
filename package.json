@@ -5,7 +5,12 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "create": "npx sequelize-cli model:generate --name",
+    "migrate": "env-cmd npx sequelize-cli db:migrate",
+    "migrate:create": "npx sequelize-cli migration:generate --name",
+    "migrate:rollback": "env-cmd npx sequelize-cli db:migrate:undo",
+    "seed": "env-cmd npx sequelize-cli db:seed --seed"
   },
   "keywords": [],
   "author": "",
@@ -32,6 +37,7 @@
     "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
+    "env-cmd": "^11.0.0",
     "sequelize-cli": "^6.6.5"
   }
 }
