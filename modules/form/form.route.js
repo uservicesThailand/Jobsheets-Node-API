@@ -3,6 +3,7 @@ const controller = require("./form.controller");
 
 const router = express.Router();
 
-router.get("/", controller.get);
+// rotor
+router.post("/rotor/:inspNo", controller.createRoter);
 
 module.exports = router;

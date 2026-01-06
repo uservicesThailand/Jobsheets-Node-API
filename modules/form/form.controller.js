@@ -1,13 +1,18 @@
 const formService = require("./form.service");
 const resUtil = require("../../util/response.util");
 
-const get = async (_, res) => {
+const createRoter = async (req, res) => {
   try {
-    const result = await formService.get();
-    return resUtil.successResponse(res, null, result);
+    const { inspNo } = req.params;
+
+    const result = await formService.createRoter(inspNo);
+    if (!result.success) {
+      return resUtil.failResponse(res, result.message);
+    }
+    return resUtil.successResponse(res, null);
   } catch (err) {
     return resUtil.errorResponse(res, err.message);
   }
 };
 
-module.exports = { get };
+module.exports = { createRoter };
