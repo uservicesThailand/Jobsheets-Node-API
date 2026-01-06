@@ -11,7 +11,6 @@ module.exports = (sequelize, DataTypes) => {
       ListMotorType.hasMany(models.TblInspectionList, {
         foreignKey: "inspMotorCode",
         sourceKey: "motorCode",
-        as: "inspectionLists",
       });
     }
   }

@@ -9,9 +9,8 @@ module.exports = (sequelize, DataTypes) => {
      */
     static associate(models) {
       TblInspectionList.belongsTo(models.ListMotorType, {
-        foreignKey: "inspMotorCode", // field ใน model
-        targetKey: "motorCode", // PK ใน ListMotorType
-        as: "motorType",
+        foreignKey: "inspMotorCode", 
+        targetKey: "motorCode", 
       });
     }
   }
