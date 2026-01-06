@@ -10,6 +10,7 @@ const axios = require('axios');
 const dayjs = require('dayjs');
 const path = require('path');
 const http = require('http');
+const routes = require('./routes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -20,6 +21,7 @@ const { swaggerUi, swaggerSpec } = require('./swagger');
 // ─────────────────────────────────────────────────────────────────────────────
 // Core middlewares
 app.use(express.json());
+app.use('/api', routes);
 
 // CORS: ใช้โดเมนจริงจาก ENV (คอมมาคั่นได้), dev fallback เป็น localhost
 const allowedOrigins = process.env.FRONTEND_ORIGIN?.split(',').map(s => s.trim()) || [];
