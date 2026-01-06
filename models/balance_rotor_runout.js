@@ -4,7 +4,7 @@ const { Model } = require("sequelize");
 module.exports = (sequelize, DataTypes) => {
   class BalanceRotorRunout extends Model {
     static associate(models) {
-      BalanceRotorRunout.belongsTo(models.BalanceRotor, {
+      this.belongsTo(models.BalanceRotor, {
         foreignKey: "balanceRotorId",
         targetKey: "rotorId",
       });

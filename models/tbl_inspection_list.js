@@ -8,9 +8,14 @@ module.exports = (sequelize, DataTypes) => {
      * The `models/index` file will call this method automatically.
      */
     static associate(models) {
-      TblInspectionList.belongsTo(models.ListMotorType, {
-        foreignKey: "inspMotorCode", 
-        targetKey: "motorCode", 
+      this.belongsTo(models.ListMotorType, {
+        foreignKey: "inspMotorCode",
+        targetKey: "motorCode",
+      });
+
+      this.hasOne(models.FormBalance, {
+        foreignKey: "inspId",
+        targetKey: "inspId",
       });
     }
   }

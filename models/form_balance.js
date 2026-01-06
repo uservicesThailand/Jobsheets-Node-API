@@ -8,10 +8,12 @@ module.exports = (sequelize, DataTypes) => {
      * The `models/index` file will call this method automatically.
      */
     static associate(models) {
-      FormBalance.belongsTo(models.TblInspectionList, {
+      this.belongsTo(models.TblInspectionList, {
         foreignKey: "inspId",
         targetKey: "inspId",
       });
+
+      this.hasOne(models.BalanceRotor, { foreignKey: "balId" });
     }
   }
   FormBalance.init(

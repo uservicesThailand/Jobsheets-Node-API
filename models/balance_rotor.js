@@ -4,8 +4,23 @@ const { Model } = require("sequelize");
 module.exports = (sequelize, DataTypes) => {
   class BalanceRotor extends Model {
     static associate(models) {
-      BalanceRotor.belongsTo(models.FormBalance, {
+      this.belongsTo(models.FormBalance, {
         foreignKey: "balId",
+      });
+
+      this.hasOne(models.BalanceRotorBalance, {
+        foreignKey: "balanceRotorId",
+        targetKey: "rotorId",
+      });
+
+      this.hasMany(models.BalanceRotorRunoutResult, {
+        foreignKey: "balanceRotorId",
+        targetKey: "rotorId",
+      });
+
+      this.hasMany(models.BalanceRotorRunout, {
+        foreignKey: "balanceRotorId",
+        targetKey: "rotorId",
       });
     }
   }
