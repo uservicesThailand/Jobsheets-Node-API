@@ -1,5 +1,5 @@
 const healthService = require("./health.service");
-const resUtil = require("../../util/response.util");
+const resUtil = require("../../utils/response.util");
 
 const checkDB = async (_, res) => {
   try {

@@ -1,5 +1,5 @@
 const formService = require("./form.service");
-const resUtil = require("../../util/response.util");
+const resUtil = require("../../utils/response.util");
 
 const createRoter = async (req, res) => {
   try {

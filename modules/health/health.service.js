@@ -1,5 +1,5 @@
 const { sequelize } = require("../../models");
-const { formatDate } = require("../../util/dateJs.util");
+const { formatDate } = require("../../utils/dateJs.util");
 
 const getDbHealthStatus = async () => {
   try {

@@ -1,7 +1,7 @@
 // login.js
 const crypto = require('crypto');
 const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
+const jwtUtil = require("./utils/jwt.util");
 
 /**
  * ฟังก์ชันตรวจจับประเภทอุปกรณ์จาก User-Agent
@@ -100,11 +100,10 @@ function setupLoginRoutes(app, db, db3) {
                         }
                     });
 
-                    const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-key';
                     const payload = {
-                        user_key: user.user_key,
+                        userKey: user.user_key,
                     }
-                    const accessToken = jwt.sign(payload, JWT_SECRET);
+                    const accessToken = jwtUtil.generateToken(payload);
 
                     // ส่งข้อมูล user กลับ
                     res.json({
