@@ -8,6 +8,11 @@ const swaggerSpec = {
     version: "1.0.0",
     description: "รวม endpoint ทั้งหมดที่ใช้ในระบบ",
   },
+  components: {
+    securitySchemes: {
+      BearerAuth: { type: "http", scheme: "bearer", bearerFormat: "JWT" },
+    },
+  },
   ...docs,
 };
 

@@ -1,5 +1,5 @@
 module.exports = {
   paths: {
-    // ...require("./auth.doc"),
+    ...require("./form/balance/rotor/rotor.doc"),
   },
 };
