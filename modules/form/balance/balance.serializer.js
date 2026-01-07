@@ -39,7 +39,7 @@ const rotorRunout = ({ rotorRunout }) => {
     side: item.side,
     point: item.point,
     position: item.position,
-    value: item.finalWeightDe || null,
+    value: item.value || null,
   }));
 };
 
