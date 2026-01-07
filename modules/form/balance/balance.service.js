@@ -7,6 +7,7 @@ const {
 } = require("./balance.generator");
 
 const createRotor = async (inspNo, userKey, body) => {
+  let balanceId;
   try {
     const inspection = await db.TblInspectionList.findOne({
       where: { inspNo },
@@ -38,9 +39,11 @@ const createRotor = async (inspNo, userKey, body) => {
       updatedBy: userKey,
     });
 
+    balanceId = createdBalanceRotor.balId;
+
     const createdRotor = await db.BalanceRotor.create({
       ...body,
-      balanceId: createdBalanceRotor.balId,
+      balanceId: balanceId,
     });
 
     return {
@@ -52,11 +55,13 @@ const createRotor = async (inspNo, userKey, body) => {
       },
     };
   } catch (error) {
+    balanceId && deleteFormBalance(balanceId);
     throw error;
   }
 };
 
 const createRotorBalance = async (inspNo, body) => {
+  let balanceId;
   try {
     const inspection = await db.TblInspectionList.findOne({
       where: { inspNo },
@@ -82,6 +87,8 @@ const createRotorBalance = async (inspNo, body) => {
         message: "Balance rotor not found",
       };
     }
+
+    balanceId = balanceRotor.BalanceRotor.balanceId;
 
     const rotorBalance = await db.BalanceRotorBalance.create({
       ...body,
@@ -97,11 +104,13 @@ const createRotorBalance = async (inspNo, body) => {
       },
     };
   } catch (error) {
+    balanceId && deleteFormBalance(balanceId);
     throw error;
   }
 };
 
 const createRotorRunout = async (inspNo, body) => {
+  let balanceId;
   try {
     const inspection = await db.TblInspectionList.findOne({
       where: { inspNo },
@@ -128,6 +137,7 @@ const createRotorRunout = async (inspNo, body) => {
       };
     }
 
+    balanceId = balanceRotor.BalanceRotor.balanceId;
     const balanceRotorId = balanceRotor.BalanceRotor.rotorId;
 
     const allCombos = generateAllCombos(balanceRotorId);
@@ -144,11 +154,13 @@ const createRotorRunout = async (inspNo, body) => {
       },
     };
   } catch (error) {
+    balanceId && deleteFormBalance(balanceId);
     throw error;
   }
 };
 
 const createRotorRunoutResult = async (inspNo, body) => {
+  let balanceId;
   try {
     const inspection = await db.TblInspectionList.findOne({
       where: { inspNo },
@@ -175,6 +187,7 @@ const createRotorRunoutResult = async (inspNo, body) => {
       };
     }
 
+    balanceId = balanceRotor.BalanceRotor.balanceId;
     const balanceRotorId = balanceRotor.BalanceRotor.rotorId;
 
     const allCombos = resultGenerate(balanceRotorId);
@@ -192,6 +205,15 @@ const createRotorRunoutResult = async (inspNo, body) => {
         rotorRunoutResult: rotorRunoutResult,
       },
     };
+  } catch (error) {
+    balanceId && deleteFormBalance(balanceId);
+    throw error;
+  }
+};
+
+const deleteFormBalance = async (balId) => {
+  try {
+    await db.FormBalance.destroy({ where: { balId } });
   } catch (error) {
     throw error;
   }
