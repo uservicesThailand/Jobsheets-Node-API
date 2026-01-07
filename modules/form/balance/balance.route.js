@@ -12,11 +12,21 @@ router.post(
   validate,
   controller.createRotor
 );
+
 router.post(
   "/rotor/balance/:inspNo",
+  validator.createRotorBalance,
+  validate,
   controller.createRotorBalance
 );
-// router.post("/balance/rotor/runout/:inspNo", authMiddleware, controller.createRotor);
+
+router.post(
+  "/rotor/runout/:inspNo",
+  validator.createRotorRunout,
+  validate,
+  controller.createRotorRunout
+);
+
 // router.post("/balance/rotor/runout/result/:inspNo", authMiddleware, controller.createRotor);
 
 module.exports = router;

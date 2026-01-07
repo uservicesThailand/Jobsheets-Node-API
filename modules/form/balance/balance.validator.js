@@ -1,14 +1,15 @@
 const { body } = require("express-validator");
 
-const ROTOR_TYPES = ["N/A", "AC ROTOR", "DC ROTOR", "GEN ROTOR", "FAN/BLOWER"];
-const INCLUDE_WITH = [
-  "N/A",
-  "Couping",
-  "Pulley",
-  "Cooling Fan",
-  "Key",
-  "Impeller",
-];
+const {
+  ROTOR_TYPES,
+  INCLUDE_WITH,
+  PHASES,
+  SIDES,
+  POINTS_BY_SIDE,
+  POSITIONS,
+} = require("./balance.constants");
+
+const ALL_POINTS = [...POINTS_BY_SIDE.DE, ...POINTS_BY_SIDE.NDE];
 
 // 🔧 helpers
 const decimalOptional = (field) =>
@@ -42,7 +43,19 @@ const createRotorBalance = [
   decimalOptional("stdToleranceNde"),
 ];
 
+const createRotorRunout = [
+  body("data").isArray(),
+
+  body("data.*.phase").isIn(PHASES),
+  body("data.*.side").isIn(SIDES),
+  body("data.*.point").isIn(ALL_POINTS),
+  body("data.*.position").isIn(POSITIONS),
+
+  decimalOptional("data.*.value"),
+];
+
 module.exports = {
   createRotor,
   createRotorBalance,
+  createRotorRunout,
 };

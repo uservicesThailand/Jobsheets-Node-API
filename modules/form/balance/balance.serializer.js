@@ -18,28 +18,33 @@ const rotor = ({ inspection, balanceRotor }) => {
   };
 };
 
-const rotorBalance = ({ inspection, rotorBalance }) => {
+const rotorBalance = ({ rotorBalance }) => {
   return {
-    inspection: {
-      inspNo: inspection.inspNo || null,
-      inspSv: inspection.inspServiceOrder || null,
-    },
-    rotor: {
-      incomingWeightDe: rotorBalance.incomingWeightDe || null,
-      incomingAngleDe: rotorBalance.incomingAngleDe || null,
-      incomingWeightNde: rotorBalance.incomingWeightNde || null,
-      incomingAngleNde: rotorBalance.incomingAngleNde || null,
-      finalWeightDe: rotorBalance.finalWeightDe || null,
-      finalAngleDe: rotorBalance.finalAngleDe || null,
-      finalWeightNde: rotorBalance.finalWeightNde || null,
-      finalAngleNde: rotorBalance.finalAngleNde || null,
-      stdToleranceDe: rotorBalance.stdToleranceDe || null,
-      stdToleranceNde: rotorBalance.stdToleranceNde || null,
-    },
+    incomingWeightDe: rotorBalance.incomingWeightDe || null,
+    incomingAngleDe: rotorBalance.incomingAngleDe || null,
+    incomingWeightNde: rotorBalance.incomingWeightNde || null,
+    incomingAngleNde: rotorBalance.incomingAngleNde || null,
+    finalWeightDe: rotorBalance.finalWeightDe || null,
+    finalAngleDe: rotorBalance.finalAngleDe || null,
+    finalWeightNde: rotorBalance.finalWeightNde || null,
+    finalAngleNde: rotorBalance.finalAngleNde || null,
+    stdToleranceDe: rotorBalance.stdToleranceDe || null,
+    stdToleranceNde: rotorBalance.stdToleranceNde || null,
   };
+};
+
+const rotorRunout = ({ rotorRunout }) => {
+  return rotorRunout.map((item) => ({
+    phase: item.phase,
+    side: item.side,
+    point: item.point,
+    position: item.position,
+    value: item.finalWeightDe || null,
+  }));
 };
 
 module.exports = {
   rotor,
   rotorBalance,
+  rotorRunout,
 };
