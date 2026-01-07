@@ -1,8 +1,8 @@
-const rotorSerializer = ({ inspection, balanceRotor }) => {
+const rotor = ({ inspection, balanceRotor }) => {
   return {
     inspection: {
-      inspNo: inspection.inspNo,
-      inspSv: inspection.inspServiceOrder,
+      inspNo: inspection.inspNo || null,
+      inspSv: inspection.inspServiceOrder || null,
     },
     rotor: {
       rotorType: balanceRotor.rotorType || null,
@@ -18,6 +18,28 @@ const rotorSerializer = ({ inspection, balanceRotor }) => {
   };
 };
 
+const rotorBalance = ({ inspection, rotorBalance }) => {
+  return {
+    inspection: {
+      inspNo: inspection.inspNo || null,
+      inspSv: inspection.inspServiceOrder || null,
+    },
+    rotor: {
+      incomingWeightDe: rotorBalance.incomingWeightDe || null,
+      incomingAngleDe: rotorBalance.incomingAngleDe || null,
+      incomingWeightNde: rotorBalance.incomingWeightNde || null,
+      incomingAngleNde: rotorBalance.incomingAngleNde || null,
+      finalWeightDe: rotorBalance.finalWeightDe || null,
+      finalAngleDe: rotorBalance.finalAngleDe || null,
+      finalWeightNde: rotorBalance.finalWeightNde || null,
+      finalAngleNde: rotorBalance.finalAngleNde || null,
+      stdToleranceDe: rotorBalance.stdToleranceDe || null,
+      stdToleranceNde: rotorBalance.stdToleranceNde || null,
+    },
+  };
+};
+
 module.exports = {
-  rotorSerializer,
+  rotor,
+  rotorBalance,
 };

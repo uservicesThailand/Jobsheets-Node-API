@@ -1,6 +1,6 @@
 const balanceService = require("./balance.service");
 const resUtil = require("../../../utils/response.util");
-const { rotorSerializer } = require("./balance.serializer");
+const { rotor, rotorBalance } = require("./balance.serializer");
 
 const createRotor = async (req, res) => {
   try {
@@ -16,7 +16,7 @@ const createRotor = async (req, res) => {
     }
     return resUtil.successResponse(
       res,
-      rotorSerializer(result.data),
+      rotor(result.data),
       "created successfully",
       201
     );
@@ -37,7 +37,12 @@ const createRotorBalance = async (req, res) => {
     if (!result.success) {
       return resUtil.failResponse(res, result.message);
     }
-    return resUtil.successResponse(res, rotorSerializer(result.data));
+    return resUtil.successResponse(
+      res,
+      rotorBalance(result.data),
+      "created successfully",
+      201
+    );
   } catch (err) {
     return resUtil.errorResponse(res, err.message);
   }
