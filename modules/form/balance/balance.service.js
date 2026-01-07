@@ -1,4 +1,4 @@
-const db = require("../../models");
+const db = require("../../../models");
 
 const createRotor = async (inspNo, userKey, body) => {
   try {
