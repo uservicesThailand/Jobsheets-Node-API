@@ -40,6 +40,7 @@ module.exports = (sequelize, DataTypes) => {
       sequelize,
       modelName: "ListMotorType",
       tableName: "list_motor_type",
+      underscored: true,
       timestamps: false,
     }
   );

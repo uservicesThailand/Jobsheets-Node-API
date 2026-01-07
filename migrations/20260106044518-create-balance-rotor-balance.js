@@ -72,9 +72,22 @@ module.exports = {
         type: Sequelize.DATE,
       },
     });
+
+    await queryInterface.addIndex(
+      "balance_rotor_balance",
+      ["balance_rotor_id"],
+      {
+        unique: true,
+        name: "idx_balance_rotor_balance_balance_rotor_id",
+      }
+    );
   },
 
   async down(queryInterface, Sequelize) {
     await queryInterface.dropTable("balance_rotor_balance");
+    await queryInterface.removeIndex(
+      "balance_rotor_balance",
+      "idx_balance_rotor_balance_balance_rotor_id"
+    );
   },
 };

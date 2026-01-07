@@ -145,6 +145,7 @@ module.exports = (sequelize, DataTypes) => {
       sequelize,
       modelName: "TblInspectionList",
       tableName: "tbl_inspection_list",
+      underscored: true,
       timestamps: false,
     }
   );

@@ -106,6 +106,7 @@ module.exports = (sequelize, DataTypes) => {
       sequelize,
       modelName: "BalanceRotor",
       tableName: "balance_rotor",
+      underscored: true,
     }
   );
 

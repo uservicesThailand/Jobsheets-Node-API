@@ -56,9 +56,22 @@ module.exports = {
         type: Sequelize.DATE,
       },
     });
+
+    await queryInterface.addIndex(
+      "balance_rotor_runout",
+      ["balance_rotor_id", "phase", "side", "point", "position"],
+      {
+        unique: true,
+        name: "idx_brr_rotor_phase_side_point_pos",
+      }
+    );
   },
 
   async down(queryInterface, Sequelize) {
     await queryInterface.dropTable("balance_rotor_runout");
+    await queryInterface.removeIndex(
+      "balance_rotor_runout",
+      "idx_brr_rotor_phase_side_point_pos"
+    );
   },
 };

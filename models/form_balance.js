@@ -13,7 +13,10 @@ module.exports = (sequelize, DataTypes) => {
         targetKey: "inspId",
       });
 
-      this.hasOne(models.BalanceRotor, { foreignKey: "balId" });
+      this.hasOne(models.BalanceRotor, {
+        foreignKey: "balanceId",
+        targetKey: "balId",
+      });
     }
   }
   FormBalance.init(
@@ -65,6 +68,7 @@ module.exports = (sequelize, DataTypes) => {
       sequelize,
       modelName: "FormBalance",
       tableName: "form_balance",
+      underscored: true,
     }
   );
   return FormBalance;
