@@ -16,7 +16,7 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Swagger
-const { swaggerUi, swaggerSpec } = require('./swagger');
+const { swaggerUi, swaggerSpec } = require('./config/swagger');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Core middlewares
@@ -4695,7 +4695,6 @@ process.on('unhandledRejection', err => {
 
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Swagger & Static
 app.use('/img', express.static(path.join(__dirname, 'public', 'img_upload')));
 app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));
 
