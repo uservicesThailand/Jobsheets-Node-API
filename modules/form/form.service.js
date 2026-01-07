@@ -1,6 +1,6 @@
 const db = require("../../models");
 
-const createRoter = async (inspNo) => {
+const createRotor = async (inspNo, userKey, body) => {
   try {
     const inspection = await db.TblInspectionList.findOne({
       where: { inspNo },
@@ -13,24 +13,50 @@ const createRoter = async (inspNo) => {
       };
     }
 
-    const balanceRotor = await db.FormBalance.findOne({
-      where: { inspId: inspection.inspId },
+    const inspectionId = inspection.inspId;
+
+    const existingBalanceRotor = await db.FormBalance.findOne({
+      where: { inspId: inspectionId },
     });
 
-    if (balanceRotor) {
+    if (existingBalanceRotor) {
       return {
         success: false,
-        message: "balance rotor duplicate",
+        message: "Balance rotor already exists",
       };
     }
 
+    const createdBalanceRotor = await db.FormBalance.create({
+      inspId: inspectionId,
+      createdBy: userKey,
+      updatedBy: userKey,
+    });
+
+    const createdRotor = await db.BalanceRotor.create({
+      rotorType: body.rotorType,
+      includeWith: body.includeWith,
+      rotorWeight: body.rotorWeight,
+      diameterA: body.diameterA,
+      diameterB: body.diameterB,
+      diameterC: body.diameterC,
+      radius1: body.radius1,
+      radius2: body.radius2,
+      rotorSpeed: body.rotorSpeed,
+      note: body.note,
+      balanceId: createdBalanceRotor.balId,
+    });
+
     return {
       success: true,
-      message: "passs",
+      data: {
+        inspection: inspection.toJSON(),
+        formBalance: createdBalanceRotor.toJSON(),
+        balanceRotor: createdRotor.toJSON(),
+      },
     };
   } catch (error) {
     throw error;
   }
 };
 
-module.exports = { createRoter };
+module.exports = { createRotor };
