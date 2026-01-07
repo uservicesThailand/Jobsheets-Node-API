@@ -5,7 +5,8 @@ module.exports = (sequelize, DataTypes) => {
   class BalanceRotor extends Model {
     static associate(models) {
       this.belongsTo(models.FormBalance, {
-        foreignKey: "balId",
+        foreignKey: "balanceId",
+        targetKey: "balId",
       });
 
       this.hasOne(models.BalanceRotorBalance, {
