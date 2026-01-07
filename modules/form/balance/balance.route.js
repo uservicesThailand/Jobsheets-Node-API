@@ -27,6 +27,11 @@ router.post(
   controller.createRotorRunout
 );
 
-// router.post("/balance/rotor/runout/result/:inspNo", authMiddleware, controller.createRotor);
+router.post(
+  "/rotor/runout/result/:inspNo",
+  validator.createRotorRunoutResult,
+  validate,
+  controller.createRotorRunoutResult
+);
 
 module.exports = router;

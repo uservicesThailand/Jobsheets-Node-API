@@ -7,6 +7,7 @@ const {
   SIDES,
   POINTS_BY_SIDE,
   POSITIONS,
+  RESULT,
 } = require("./balance.constants");
 
 const ALL_POINTS = [...POINTS_BY_SIDE.DE, ...POINTS_BY_SIDE.NDE];
@@ -54,8 +55,16 @@ const createRotorRunout = [
   decimalOptional("data.*.value"),
 ];
 
+const createRotorRunoutResult = [
+  body("data").isArray(),
+
+  body("data.*.phase").isIn(PHASES),
+  body("data.*.result").isIn(RESULT),
+];
+
 module.exports = {
   createRotor,
   createRotorBalance,
   createRotorRunout,
+  createRotorRunoutResult,
 };

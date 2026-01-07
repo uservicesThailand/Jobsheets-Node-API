@@ -31,6 +31,36 @@ const validateRunoutBusiness = (data = []) => {
   return errors;
 };
 
+const validateRunoutResult = (data = []) => {
+  const errors = [];
+  const phaseSet = new Set();
+
+  if (!Array.isArray(data)) {
+    return [
+      {
+        index: 0,
+        message: "data must be an array",
+      },
+    ];
+  }
+
+  data.forEach((item, index) => {
+    if (!item.phase) return;
+
+    if (phaseSet.has(item.phase)) {
+      errors.push({
+        index,
+        message: `phase '${item.phase}' duplicated`,
+      });
+    }
+
+    phaseSet.add(item.phase);
+  });
+
+  return errors;
+};
+
 module.exports = {
   validateRunoutBusiness,
+  validateRunoutResult,
 };

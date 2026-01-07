@@ -18,6 +18,8 @@ const POINTS_BY_SIDE = {
 
 const POSITIONS = ["TOP", "BOTTOM", "LEFT", "RIGHT"];
 
+const RESULT = ["NORMAL", "OVER_LIMIT"];
+
 module.exports = {
   ROTOR_TYPES,
   INCLUDE_WITH,
@@ -25,4 +27,5 @@ module.exports = {
   SIDES,
   POINTS_BY_SIDE,
   POSITIONS,
+  RESULT,
 };

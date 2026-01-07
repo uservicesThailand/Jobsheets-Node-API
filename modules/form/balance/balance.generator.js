@@ -52,7 +52,30 @@ const mergeRunoutData = (allCombos, payloadList = []) => {
   });
 };
 
+const resultGenerate = (balanceRotorId) => {
+  return PHASES.map((phase) => ({
+    balanceRotorId,
+    phase,
+    result: null,
+  }));
+};
+
+const mergeResultPayload = (defaults, payloadList = []) => {
+  const payloadMap = new Map();
+
+  for (const item of payloadList) {
+    payloadMap.set(item.phase, item.result ?? null);
+  }
+
+  return defaults.map((row) => ({
+    ...row,
+    result: payloadMap.has(row.phase) ? payloadMap.get(row.phase) : null,
+  }));
+};
+
 module.exports = {
   generateAllCombos,
   mergeRunoutData,
+  mergeResultPayload,
+  resultGenerate,
 };

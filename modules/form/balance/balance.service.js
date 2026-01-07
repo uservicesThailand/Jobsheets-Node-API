@@ -1,5 +1,10 @@
 const db = require("../../../models");
-const { generateAllCombos, mergeRunoutData } = require("./balance.generator");
+const {
+  generateAllCombos,
+  mergeRunoutData,
+  mergeResultPayload,
+  resultGenerate,
+} = require("./balance.generator");
 
 const createRotor = async (inspNo, userKey, body) => {
   try {
@@ -143,4 +148,58 @@ const createRotorRunout = async (inspNo, body) => {
   }
 };
 
-module.exports = { createRotor, createRotorBalance, createRotorRunout };
+const createRotorRunoutResult = async (inspNo, body) => {
+  try {
+    const inspection = await db.TblInspectionList.findOne({
+      where: { inspNo },
+    });
+
+    if (!inspection) {
+      return {
+        success: false,
+        message: "Inspection not found",
+      };
+    }
+
+    const inspectionId = inspection.inspId;
+
+    const balanceRotor = await db.FormBalance.findOne({
+      where: { inspId: inspectionId },
+      include: [{ model: db.BalanceRotor, required: true }],
+    });
+
+    if (!balanceRotor) {
+      return {
+        success: false,
+        message: "Balance rotor not found",
+      };
+    }
+
+    const balanceRotorId = balanceRotor.BalanceRotor.rotorId;
+
+    const allCombos = resultGenerate(balanceRotorId);
+    const mergedRows = mergeResultPayload(allCombos, body);
+
+    const rotorRunoutResult = await db.BalanceRotorRunoutResult.bulkCreate(
+      mergedRows
+    );
+
+    return {
+      success: true,
+      data: {
+        inspection: inspection.toJSON(),
+        formBalance: balanceRotor.toJSON(),
+        rotorRunoutResult: rotorRunoutResult,
+      },
+    };
+  } catch (error) {
+    throw error;
+  }
+};
+
+module.exports = {
+  createRotor,
+  createRotorBalance,
+  createRotorRunout,
+  createRotorRunoutResult,
+};

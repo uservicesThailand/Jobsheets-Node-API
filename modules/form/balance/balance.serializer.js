@@ -43,8 +43,16 @@ const rotorRunout = ({ rotorRunout }) => {
   }));
 };
 
+const rotorRunoutResult = ({ rotorRunoutResult }) => {
+  return rotorRunoutResult.map((item) => ({
+    phase: item.phase,
+    result: item.result || null,
+  }));
+};
+
 module.exports = {
   rotor,
   rotorBalance,
   rotorRunout,
+  rotorRunoutResult
 };
