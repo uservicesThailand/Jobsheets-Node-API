@@ -1,61 +1,70 @@
 "use strict";
 const { Model } = require("sequelize");
 module.exports = (sequelize, DataTypes) => {
-  class BalanceShaft extends Model {
+  class BalanceShaftBalance extends Model {
     /**
      * Helper method for defining associations.
      * This method is not a part of Sequelize lifecycle.
      * The `models/index` file will call this method automatically.
      */
     static associate(models) {
-      this.belongsTo(models.FormBalance, {
-        foreignKey: "balanceId",
-        targetKey: "balId",
-      });
-
-      this.hasOne(models.BalanceShaftBalance, {
+      this.belongsTo(models.BalanceShaft, {
         foreignKey: "balanceShaftId",
         targetKey: "shaftId",
       });
     }
   }
-  BalanceShaft.init(
+  BalanceShaftBalance.init(
     {
-      shaftId: {
+      id: {
         type: DataTypes.INTEGER,
         primaryKey: true,
         autoIncrement: true,
-        field: "shaft_id",
       },
 
-      rotorWeight: {
-        type: DataTypes.DECIMAL(10, 2),
-        field: "rotor_weight",
+      balancingSpeed: {
+        type: DataTypes.INTEGER,
+        field: "balancing_speed",
       },
 
-      diameterA: {
+      incomingWeightDe: {
         type: DataTypes.DECIMAL(10, 2),
-        field: "diameter_a",
+        field: "incoming_weight_de",
       },
 
-      diameterB: {
+      incomingWeightNde: {
         type: DataTypes.DECIMAL(10, 2),
-        field: "diameter_b",
+        field: "incoming_weight_nde",
       },
 
-      diameterC: {
+      incomingPhaseDe: {
         type: DataTypes.DECIMAL(10, 2),
-        field: "diameter_c",
+        field: "incoming_phase_de",
       },
 
-      radius1: {
+      incomingPhaseNde: {
         type: DataTypes.DECIMAL(10, 2),
-        field: "radius_1",
+        field: "incoming_phase_nde",
       },
 
-      radius2: {
+      finalWeightDe: {
         type: DataTypes.DECIMAL(10, 2),
-        field: "radius_2",
+        field: "final_weight_de",
+      },
+
+      finalWeightNde: {
+        type: DataTypes.DECIMAL(10, 2),
+        field: "final_weight_nde",
+      },
+
+      finalPhaseDe: {
+        type: DataTypes.DECIMAL(10, 2),
+        field: "final_phase_de",
+      },
+
+      finalPhaseNde: {
+        type: DataTypes.DECIMAL(10, 2),
+        field: "final_phase_nde",
       },
 
       createdAt: {
@@ -72,10 +81,10 @@ module.exports = (sequelize, DataTypes) => {
     },
     {
       sequelize,
-      modelName: "BalanceShaft",
-      tableName: "balance_shaft",
+      modelName: "BalanceShaftBalance",
+      tableName: "balance_shaft_balance",
       underscored: true,
     }
   );
-  return BalanceShaft;
+  return BalanceShaftBalance;
 };
