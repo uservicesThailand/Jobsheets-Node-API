@@ -31,6 +31,8 @@ router.post(
   controller.createRotorRunout
 );
 
+router.get( "/rotor/runout/:inspNo", controller.getRotorRunout);
+
 router.post(
   "/rotor/runout/result/:inspNo",
   validator.createRotorRunoutResult,

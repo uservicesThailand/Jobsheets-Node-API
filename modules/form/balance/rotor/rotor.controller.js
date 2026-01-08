@@ -119,6 +119,25 @@ const createRotorRunout = async (req, res) => {
   }
 };
 
+const getRotorRunout = async (req, res) => {
+  try {
+    const { inspNo } = req.params;
+
+    const result = await rotorService.getRotorRunout(inspNo);
+    if (!result.success) {
+      return resUtil.failResponse(res, result.message);
+    }
+    return resUtil.successResponse(
+      res,
+      rotorRunout(result.data),
+      "fetched successfully",
+      200
+    );
+  } catch (err) {
+    return resUtil.errorResponse(res, err.message);
+  }
+};
+
 const createRotorRunoutResult = async (req, res) => {
   try {
     const { inspNo } = req.params;
@@ -157,4 +176,5 @@ module.exports = {
   createRotorRunoutResult,
   getRotor,
   getRotorBalance,
+  getRotorRunout,
 };

@@ -54,5 +54,5 @@ module.exports = {
   rotor,
   rotorBalance,
   rotorRunout,
-  rotorRunoutResult
+  rotorRunoutResult,
 };
