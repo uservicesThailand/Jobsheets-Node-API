@@ -369,7 +369,6 @@ const getRotorRunoutResult = async (inspNo) => {
       ],
     });
 
-    // console.log(inspection.toJSON());
 
     if (!inspection) {
       return {
