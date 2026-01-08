@@ -22,6 +22,8 @@ router.post(
   controller.createRotorBalance
 );
 
+router.get("/rotor/balance/:inspNo", controller.getRotorBalance);
+
 router.post(
   "/rotor/runout/:inspNo",
   validator.createRotorRunout,

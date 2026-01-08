@@ -252,7 +252,50 @@ const getRotor = async (inspNo) => {
         balanceRotor: inspection.FormBalance.BalanceRotor,
       },
     };
+  } catch (error) {
+    throw error;
+  }
+};
 
+const getRotorBalance = async (inspNo) => {
+  try {
+    const inspection = await db.TblInspectionList.findOne({
+      where: { inspNo },
+      include: [
+        {
+          model: db.FormBalance,
+          required: true,
+          include: [
+            {
+              model: db.BalanceRotor,
+              required: true,
+              include: [
+                {
+                  model: db.BalanceRotorBalance,
+                  required: true,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    if (!inspection) {
+      return {
+        success: false,
+        message: "Balance rotor not found",
+      };
+    }
+
+    return {
+      success: true,
+      data: {
+        inspection: inspection.toJSON(),
+        formBalance: inspection.FormBalance.BalanceRotor,
+        rotorBalance: inspection.FormBalance.BalanceRotor.BalanceRotorBalance,
+      },
+    };
   } catch (error) {
     throw error;
   }
@@ -264,4 +307,5 @@ module.exports = {
   createRotorRunout,
   createRotorRunoutResult,
   getRotor,
+  getRotorBalance,
 };
