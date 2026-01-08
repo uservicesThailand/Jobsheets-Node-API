@@ -335,9 +335,56 @@ const getRotorRunout = async (inspNo) => {
     return {
       success: true,
       data: {
-        inspection: inspection.toJSON(),
+        inspection: inspection,
         formBalance: inspection.FormBalance.BalanceRotor,
         rotorRunout: inspection.FormBalance.BalanceRotor.BalanceRotorRunouts,
+      },
+    };
+  } catch (error) {
+    throw error;
+  }
+};
+
+const getRotorRunoutResult = async (inspNo) => {
+  try {
+    const inspection = await db.TblInspectionList.findOne({
+      where: { inspNo },
+      include: [
+        {
+          model: db.FormBalance,
+          required: true,
+          include: [
+            {
+              model: db.BalanceRotor,
+              required: true,
+              include: [
+                {
+                  model: db.BalanceRotorRunoutResult,
+                  required: true,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    // console.log(inspection.toJSON());
+
+    if (!inspection) {
+      return {
+        success: false,
+        message: "Balance rotor not found",
+      };
+    }
+
+    return {
+      success: true,
+      data: {
+        inspection: inspection,
+        formBalance: inspection.FormBalance.BalanceRotor,
+        rotorRunoutResult:
+          inspection.FormBalance.BalanceRotor.BalanceRotorRunoutResults,
       },
     };
   } catch (error) {
@@ -353,4 +400,5 @@ module.exports = {
   getRotor,
   getRotorBalance,
   getRotorRunout,
+  getRotorRunoutResult,
 };

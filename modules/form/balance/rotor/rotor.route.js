@@ -31,7 +31,7 @@ router.post(
   controller.createRotorRunout
 );
 
-router.get( "/rotor/runout/:inspNo", controller.getRotorRunout);
+router.get("/rotor/runout/:inspNo", controller.getRotorRunout);
 
 router.post(
   "/rotor/runout/result/:inspNo",
@@ -39,5 +39,7 @@ router.post(
   validate,
   controller.createRotorRunoutResult
 );
+
+router.get("/rotor/runout/result/:inspNo", controller.getRotorRunoutResult);
 
 module.exports = router;
