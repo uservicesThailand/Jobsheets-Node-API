@@ -93,6 +93,51 @@ module.exports = {
         },
       },
     },
+
+    get: {
+      tags: ["form balance rotor"],
+      security: [{ BearerAuth: [] }],
+      parameters: [
+        {
+          name: "inspNo",
+          in: "path",
+          required: true,
+          schema: { type: "string" },
+          example: "URY-251111-001",
+        },
+      ],
+      responses: {
+        200: {
+          description: "Success",
+          content: {
+            "application/json": {
+              example: {
+                status: "success",
+                message: "fetched successfully",
+                data: {
+                  inspection: {
+                    inspNo: "URY-251111-001",
+                    inspSv: "SVRY2501-0001",
+                  },
+                  rotor: {
+                    rotorType: "N/A",
+                    includeWith: "N/A",
+                    rotorWeight: 10.11,
+                    diameterA: 10.11,
+                    diameterB: 10.11,
+                    diameterC: 10.11,
+                    radius1: 10.11,
+                    radius2: 10.11,
+                    rotorSpeed: 10.11,
+                    note: "note",
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   },
 
   "/api/forms/balance/rotor/balance/{inspNo}": {
@@ -165,6 +210,45 @@ module.exports = {
               example: {
                 status: "success",
                 message: "created successfully",
+                data: {
+                  incomingWeightDe: 10.11,
+                  incomingAngleDe: 10.11,
+                  incomingWeightNde: 10.11,
+                  incomingAngleNde: 10.11,
+                  finalWeightDe: 10.11,
+                  finalAngleDe: 10.11,
+                  finalWeightNde: 10.11,
+                  finalAngleNde: 10.11,
+                  stdToleranceDe: 10.11,
+                  stdToleranceNde: 10.11,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    get: {
+      tags: ["form balance rotor"],
+      security: [{ BearerAuth: [] }],
+      parameters: [
+        {
+          name: "inspNo",
+          in: "path",
+          required: true,
+          schema: { type: "string" },
+          example: "URY-251111-001",
+        },
+      ],
+      responses: {
+        200: {
+          description: "Success",
+          content: {
+            "application/json": {
+              example: {
+                status: "success",
+                message: "fetched successfully",
                 data: {
                   incomingWeightDe: 10.11,
                   incomingAngleDe: 10.11,
@@ -279,6 +363,49 @@ module.exports = {
         },
       },
     },
+
+    get: {
+      tags: ["form balance rotor"],
+      security: [{ BearerAuth: [] }],
+      parameters: [
+        {
+          name: "inspNo",
+          in: "path",
+          required: true,
+          schema: { type: "string" },
+          example: "URY-251111-001",
+        },
+      ],
+      responses: {
+        200: {
+          description: "Success",
+          content: {
+            "application/json": {
+              example: {
+                status: "success",
+                message: "fetched successfully",
+                data: [
+                  {
+                    phase: "BEFORE",
+                    side: "DE",
+                    point: "A",
+                    position: "TOP",
+                    value: 10.2,
+                  },
+                  {
+                    phase: "BEFORE",
+                    side: "DE",
+                    point: "A",
+                    position: "BOTTOM",
+                    value: null,
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+    },
   },
 
   "/api/forms/balance/rotor/runout/result/{inspNo}": {
@@ -336,6 +463,37 @@ module.exports = {
                     phase: "AFTER",
                     result: "NORMAL",
                   },
+                ],
+              },
+            },
+          },
+        },
+      },
+    },
+
+    get: {
+      tags: ["form balance rotor"],
+      security: [{ BearerAuth: [] }],
+      parameters: [
+        {
+          name: "inspNo",
+          in: "path",
+          required: true,
+          schema: { type: "string" },
+          example: "URY-251111-001",
+        },
+      ],
+      responses: {
+        200: {
+          description: "Success",
+          content: {
+            "application/json": {
+              example: {
+                status: "success",
+                message: "fetched successfully",
+                data: [
+                  { phase: "BEFORE", result: "NORMAL" },
+                  { phase: "AFTER", result: "NORMAL" },
                 ],
               },
             },
