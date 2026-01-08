@@ -1,48 +1,26 @@
 "use strict";
 const { Model } = require("sequelize");
-
 module.exports = (sequelize, DataTypes) => {
-  class BalanceRotor extends Model {
+  class BalanceShaft extends Model {
+    /**
+     * Helper method for defining associations.
+     * This method is not a part of Sequelize lifecycle.
+     * The `models/index` file will call this method automatically.
+     */
     static associate(models) {
       this.belongsTo(models.FormBalance, {
         foreignKey: "balanceId",
         targetKey: "balId",
       });
-
-      this.hasOne(models.BalanceRotorBalance, {
-        foreignKey: "balanceRotorId",
-        targetKey: "rotorId",
-      });
-
-      this.hasMany(models.BalanceRotorRunoutResult, {
-        foreignKey: "balanceRotorId",
-        targetKey: "rotorId",
-      });
-
-      this.hasMany(models.BalanceRotorRunout, {
-        foreignKey: "balanceRotorId",
-        targetKey: "rotorId",
-      });
     }
   }
-
-  BalanceRotor.init(
+  BalanceShaft.init(
     {
-      rotorId: {
+      shaftId: {
         type: DataTypes.INTEGER,
         primaryKey: true,
         autoIncrement: true,
-        field: "rotor_id",
-      },
-
-      rotorType: {
-        type: DataTypes.STRING(50),
-        field: "rotor_type",
-      },
-
-      includeWith: {
-        type: DataTypes.STRING(50),
-        field: "include_with",
+        field: "shaft_id",
       },
 
       rotorWeight: {
@@ -75,15 +53,6 @@ module.exports = (sequelize, DataTypes) => {
         field: "radius_2",
       },
 
-      rotorSpeed: {
-        type: DataTypes.INTEGER,
-        field: "rotor_speed",
-      },
-
-      note: {
-        type: DataTypes.TEXT,
-      },
-
       createdAt: {
         type: DataTypes.DATE,
         allowNull: false,
@@ -98,11 +67,10 @@ module.exports = (sequelize, DataTypes) => {
     },
     {
       sequelize,
-      modelName: "BalanceRotor",
-      tableName: "balance_rotor",
+      modelName: "BalanceShaft",
+      tableName: "balance_shaft",
       underscored: true,
     }
   );
-
-  return BalanceRotor;
+  return BalanceShaft;
 };

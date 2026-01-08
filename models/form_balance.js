@@ -17,6 +17,11 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "balanceId",
         targetKey: "balId",
       });
+
+      this.hasOne(models.BalanceShaft, {
+        foreignKey: "balanceId",
+        targetKey: "balId",
+      });
     }
   }
   FormBalance.init(
