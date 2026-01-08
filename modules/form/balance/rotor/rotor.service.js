@@ -1,10 +1,10 @@
-const db = require("../../../models");
+const db = require("../../../../models");
 const {
   generateAllCombos,
   mergeRunoutData,
   mergeResultPayload,
   resultGenerate,
-} = require("./balance.generator");
+} = require("./rotor.generator");
 
 const createRotor = async (inspNo, userKey, body) => {
   let balanceId;

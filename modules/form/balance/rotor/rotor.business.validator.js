@@ -1,4 +1,4 @@
-const { POINTS_BY_SIDE } = require("./balance.constants");
+const { POINTS_BY_SIDE } = require("./rotor.constants");
 
 const validateRunoutBusiness = (data = []) => {
   const errors = [];

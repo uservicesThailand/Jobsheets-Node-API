@@ -1,9 +1,9 @@
 const express = require("express");
 const auth = require("../../middlewares/auth.middleware");
-const balanceRouter = require("./balance/balance.route")
+const rotorRouter = require("./balance/rotor/rotor.route")
 
 const router = express.Router();
 
-router.use("/balance", auth, balanceRouter);
+router.use("/balance", auth, rotorRouter);
 
 module.exports = router;

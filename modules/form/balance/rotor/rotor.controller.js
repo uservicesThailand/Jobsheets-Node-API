@@ -1,21 +1,21 @@
-const balanceService = require("./balance.service");
-const resUtil = require("../../../utils/response.util");
+const rotorService = require("./rotor.service");
+const resUtil = require("../../../../utils/response.util");
 const {
   rotor,
   rotorBalance,
   rotorRunout,
   rotorRunoutResult,
-} = require("./balance.serializer");
+} = require("./rotor.serializer");
 const {
   validateRunoutBusiness,
   validateRunoutResult,
-} = require("./balance.business.validator");
+} = require("./rotor.business.validator");
 
 const createRotor = async (req, res) => {
   try {
     const { inspNo } = req.params;
 
-    const result = await balanceService.createRotor(
+    const result = await rotorService.createRotor(
       inspNo,
       req.userKey,
       req.body
@@ -38,7 +38,7 @@ const createRotorBalance = async (req, res) => {
   try {
     const { inspNo } = req.params;
 
-    const result = await balanceService.createRotorBalance(inspNo, req.body);
+    const result = await rotorService.createRotorBalance(inspNo, req.body);
     if (!result.success) {
       return resUtil.failResponse(res, result.message);
     }
@@ -66,7 +66,7 @@ const createRotorRunout = async (req, res) => {
       );
     }
 
-    const result = await balanceService.createRotorRunout(
+    const result = await rotorService.createRotorRunout(
       inspNo,
       req.body.data
     );
@@ -97,7 +97,7 @@ const createRotorRunoutResult = async (req, res) => {
       );
     }
 
-    const result = await balanceService.createRotorRunoutResult(
+    const result = await rotorService.createRotorRunoutResult(
       inspNo,
       req.body.data
     );

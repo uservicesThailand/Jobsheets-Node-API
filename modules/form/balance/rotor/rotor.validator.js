@@ -8,7 +8,7 @@ const {
   POINTS_BY_SIDE,
   POSITIONS,
   RESULT,
-} = require("./balance.constants");
+} = require("./rotor.constants");
 
 const ALL_POINTS = [...POINTS_BY_SIDE.DE, ...POINTS_BY_SIDE.NDE];
 

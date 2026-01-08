@@ -3,7 +3,7 @@ const {
   SIDES,
   POINTS_BY_SIDE,
   POSITIONS,
-} = require("./balance.constants");
+} = require("./rotor.constants");
 
 const generateAllCombos = (balanceRotorId) => {
   const rows = [];

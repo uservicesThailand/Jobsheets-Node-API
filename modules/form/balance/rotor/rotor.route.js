@@ -1,7 +1,7 @@
 const express = require("express");
-const controller = require("./balance.controller");
-const validator = require("./balance.validator");
-const validate = require("../../../middlewares/validate.middleware");
+const controller = require("./rotor.controller");
+const validator = require("./rotor.validator");
+const validate = require("../../../../middlewares/validate.middleware");
 
 const router = express.Router();
 
