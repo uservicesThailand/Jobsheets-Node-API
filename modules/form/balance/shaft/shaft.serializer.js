@@ -9,6 +9,21 @@ const shaft = ({ balanceShaft }) => {
   };
 };
 
+const shaftBalance = ({ shaftBalance }) => {
+  return {
+    balancingSpeed: shaftBalance.balancingSpeed,
+    incomingWeightDe: shaftBalance.incomingWeightDe,
+    incomingWeightNde: shaftBalance.incomingWeightNde,
+    incomingPhaseDe: shaftBalance.incomingPhaseDe,
+    incomingPhaseNde: shaftBalance.incomingPhaseNde,
+    finalWeightDe: shaftBalance.finalWeightDe,
+    finalWeightNde: shaftBalance.finalWeightNde,
+    finalPhaseDe: shaftBalance.finalPhaseDe,
+    finalPhaseNde: shaftBalance.finalPhaseNde,
+  };
+};
+
 module.exports = {
   shaft,
+  shaftBalance,
 };
