@@ -1,4 +1,5 @@
 const { body } = require("express-validator");
+const { decimalOptional } = require("../../../../utils/validator.util");
 
 const {
   ROTOR_TYPES,
@@ -11,10 +12,6 @@ const {
 } = require("./rotor.constants");
 
 const ALL_POINTS = [...POINTS_BY_SIDE.DE, ...POINTS_BY_SIDE.NDE];
-
-// 🔧 helpers
-const decimalOptional = (field) =>
-  body(field).optional({ nullable: true }).isDecimal({ decimal_digits: "0,2" });
 
 const createRotor = [
   body("rotorType").optional({ nullable: true }).isIn(ROTOR_TYPES),

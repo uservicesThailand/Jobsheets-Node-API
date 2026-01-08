@@ -7,13 +7,13 @@ const router = express.Router();
 
 // rotor
 router.post(
-  "/rotor/:inspNo",
+  "/:inspNo",
   validator.createRotor,
   validate,
   controller.createRotor
 );
 
-router.get("/rotor/:inspNo", controller.getRotor);
+router.get("/:inspNo", controller.getRotor);
 
 router.post(
   "/rotor/balance/:inspNo",
@@ -22,24 +22,24 @@ router.post(
   controller.createRotorBalance
 );
 
-router.get("/rotor/balance/:inspNo", controller.getRotorBalance);
+router.get("/balance/:inspNo", controller.getRotorBalance);
 
 router.post(
-  "/rotor/runout/:inspNo",
+  "/runout/:inspNo",
   validator.createRotorRunout,
   validate,
   controller.createRotorRunout
 );
 
-router.get("/rotor/runout/:inspNo", controller.getRotorRunout);
+router.get("/runout/:inspNo", controller.getRotorRunout);
 
 router.post(
-  "/rotor/runout/result/:inspNo",
+  "/runout/result/:inspNo",
   validator.createRotorRunoutResult,
   validate,
   controller.createRotorRunoutResult
 );
 
-router.get("/rotor/runout/result/:inspNo", controller.getRotorRunoutResult);
+router.get("/runout/result/:inspNo", controller.getRotorRunoutResult);
 
 module.exports = router;

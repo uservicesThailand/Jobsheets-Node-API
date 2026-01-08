@@ -6,7 +6,7 @@ module.exports = (req, res, next) => {
   if (!errors.isEmpty()) {
     return failResponse(
       res,
-      errors.array().map((e) => `${e.param}: ${e.msg}`),
+      errors.array().map((e) => `${e.path}: ${e.msg}`),
       422
     );
   }
