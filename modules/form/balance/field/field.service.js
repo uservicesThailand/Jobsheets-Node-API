@@ -1,4 +1,5 @@
 const db = require("../../../../models");
+const { generateAllCombos, mergeWithPayload } = require("./field.generator");
 
 const resolveFieldContext = async (inspNo) => {
   const inspection = await db.TblInspectionList.findOne({
@@ -68,4 +69,45 @@ const create = async (inspNo, body) => {
   }
 };
 
-module.exports = { create };
+const createPosition = async (inspNo, body) => {
+  try {
+    const ctx = await resolveFieldContext(inspNo);
+    if (!ctx.success) return ctx;
+
+    if (!ctx.balanceField) {
+      return {
+        success: false,
+        message: "Balance field not found",
+      };
+    }
+
+    const balanceFieldId = ctx.balanceField.id;
+
+    const existing = await db.BalanceFieldPosition.findOne({
+      where: { balanceFieldId },
+    });
+
+    if (existing) {
+      return {
+        success: false,
+        message: "field position already exists",
+      };
+    }
+
+    const generatedRows = generateAllCombos(balanceFieldId);
+    const finalRows = mergeWithPayload(generatedRows, body);
+
+    const fieldPositions = await db.BalanceFieldPosition.bulkCreate(finalRows);
+
+    return {
+      success: true,
+      data: {
+        fieldPositions,
+      },
+    };
+  } catch (error) {
+    throw error;
+  }
+};
+
+module.exports = { create, createPosition };

@@ -1,9 +1,9 @@
-const { body } = require("express-validator");
 const {
   decimalOptional,
   enumOptional,
   enumRequired,
   stringOptional,
+  arrayMaxLength,
 } = require("../../../../utils/validator.util");
 
 const {
@@ -47,7 +47,7 @@ const createRotorBalance = [
 ];
 
 const createRotorRunout = [
-  body("data").isArray(),
+  arrayMaxLength(80),
 
   enumRequired("data.*.phase", PHASES),
   enumRequired("data.*.side", SIDES),
@@ -58,7 +58,7 @@ const createRotorRunout = [
 ];
 
 const createRotorRunoutResult = [
-  body("data").isArray(),
+  arrayMaxLength(2),
 
   enumRequired("data.*.phase", PHASES),
   enumRequired("data.*.result", RESULT),

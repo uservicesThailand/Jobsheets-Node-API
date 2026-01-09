@@ -6,5 +6,11 @@ const validate = require("../../../../middlewares/validate.middleware");
 const router = express.Router();
 
 router.post("/:inspNo", validator.createField, validate, controller.create);
+router.post(
+  "/position/:inspNo",
+  validator.createPosition,
+  validate,
+  controller.createPosition
+);
 
 module.exports = router;

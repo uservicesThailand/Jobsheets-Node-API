@@ -14,6 +14,9 @@ const enumOptional = (field, allowedValues) =>
 
 const enumRequired = (field, allowedValues) => {
   return body(field)
+    .exists({ checkNull: true })
+    .withMessage("is required")
+    .bail()
     .isIn(allowedValues)
     .withMessage(`Value must be one of: ${allowedValues.join(", ")}`);
 };
@@ -27,9 +30,15 @@ const stringOptional = (field, { min = 1, max = 255 } = {}) =>
     .isLength({ min, max })
     .withMessage(`String length must be between ${min} and ${max}`);
 
+const arrayMaxLength = (max) =>
+  body("data")
+    .isArray({ max })
+    .withMessage(`Array length must not exceed ${max}`);
+
 module.exports = {
   decimalOptional,
   enumOptional,
   enumRequired,
   stringOptional,
+  arrayMaxLength,
 };
