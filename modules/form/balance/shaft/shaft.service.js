@@ -1,42 +1,66 @@
 const db = require("../../../../models");
 
+const resolveShaftContext = async (inspNo) => {
+  const inspection = await db.TblInspectionList.findOne({
+    where: { inspNo },
+    include: [
+      {
+        model: db.FormBalance,
+        include: [
+          {
+            model: db.BalanceShaft,
+          },
+        ],
+      },
+    ],
+  });
+
+  if (!inspection) {
+    return {
+      success: false,
+      message: "Inspection not found",
+    };
+  }
+
+  const formBalance = inspection.FormBalance;
+  if (!formBalance) {
+    return {
+      success: false,
+      message: "Form balance not found",
+    };
+  }
+
+  const balanceShaft = formBalance.BalanceShaft || null;
+
+  return {
+    success: true,
+    inspection,
+    formBalance,
+    balanceShaft,
+  };
+};
+
 const create = async (inspNo, body) => {
   try {
-    const inspection = await db.TblInspectionList.findOne({
-      where: { inspNo },
-    });
+    const ctx = await resolveShaftContext(inspNo);
+    if (!ctx.success) return ctx;
 
-    if (!inspection) {
+    if (ctx.balanceShaft) {
       return {
         success: false,
-        message: "Inspection not found",
-      };
-    }
-
-    const inspectionId = inspection.inspId;
-
-    const formBalance = await db.FormBalance.findOne({
-      where: { inspId: inspectionId },
-    });
-
-    if (!formBalance) {
-      return {
-        success: false,
-        message: "form balance not found",
+        message: "Balance shaft already exists",
       };
     }
 
     const balanceShaft = await db.BalanceShaft.create({
       ...body,
-      balanceId: formBalance.balId,
+      balanceId: ctx.formBalance.balId,
     });
 
     return {
       success: true,
       data: {
-        inspection: inspection,
-        formBalance: formBalance,
-        balanceShaft: balanceShaft,
+        balanceShaft,
       },
     };
   } catch (error) {
@@ -46,52 +70,36 @@ const create = async (inspNo, body) => {
 
 const createBalance = async (inspNo, body) => {
   try {
-    const inspection = await db.TblInspectionList.findOne({
-      where: { inspNo },
-    });
+    const ctx = await resolveShaftContext(inspNo);
+    if (!ctx.success) return ctx;
 
-    if (!inspection) {
+    if (!ctx.balanceShaft) {
       return {
         success: false,
-        message: "Inspection not found",
+        message: "Balance shaft not found",
       };
     }
 
-    const inspectionId = inspection.inspId;
-
-    const formBalance = await db.FormBalance.findOne({
-      where: { inspId: inspectionId },
+    const existing = await db.BalanceShaftBalance.findOne({
+      where: { balanceShaftId: ctx.balanceShaft.shaftId },
     });
 
-    if (!formBalance) {
+    if (existing) {
       return {
         success: false,
-        message: "form balance not found",
-      };
-    }
-
-    const balanceShaft = await db.BalanceShaft.findOne({
-      where: { balanceId: formBalance.balId },
-    });
-
-    if (!balanceShaft) {
-      return {
-        success: false,
-        message: "balance shaft not found",
+        message: "Shaft balance already exists",
       };
     }
 
     const shaftBalance = await db.BalanceShaftBalance.create({
       ...body,
-      balanceShaftId: balanceShaft.shaftId,
+      balanceShaftId: ctx.balanceShaft.shaftId,
     });
 
     return {
       success: true,
       data: {
-        inspection: inspection,
-        formBalance: formBalance,
-        shaftBalance: shaftBalance,
+        shaftBalance,
       },
     };
   } catch (error) {
