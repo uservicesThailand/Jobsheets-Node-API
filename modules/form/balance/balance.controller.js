@@ -48,7 +48,7 @@ const remove = async (req, res) => {
     if (!result.success) {
       return resUtil.failResponse(res, result.message);
     }
-    return resUtil.successResponse(res, null, result.message, 200);
+    return resUtil.successResponse(res, null, "deleted successfully", 200);
   } catch (err) {
     return resUtil.errorResponse(res, err.message);
   }

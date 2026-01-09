@@ -106,7 +106,6 @@ const remove = async (inspNo) => {
 
     return {
       success: true,
-      message: "Form balance deleted successfully",
     };
   } catch (error) {
     throw error;

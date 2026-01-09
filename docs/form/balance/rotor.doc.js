@@ -21,22 +21,6 @@ module.exports = {
         required: true,
         content: {
           "application/json": {
-            schema: {
-              type: "object",
-              properties: {
-                rotorType: { type: "string" },
-                includeWith: { type: "string" },
-                rotorWeight: { type: "number" },
-                diameterA: { type: "number" },
-                diameterB: { type: "number" },
-                diameterC: { type: "number" },
-                radius1: { type: "number" },
-                radius2: { type: "number" },
-                rotorSpeed: { type: "number" },
-                note: { type: "string" },
-              },
-            },
-
             example: {
               rotorType: "N/A",
               includeWith: "N/A",
@@ -55,37 +39,23 @@ module.exports = {
 
       responses: {
         201: {
-          description: "Success",
+          description: "Created",
           content: {
             "application/json": {
-              schema: {
-                type: "object",
-                properties: {
-                  status: { type: "string" },
-                  message: { type: "string" },
-                  data: { type: "object" },
-                },
-              },
               example: {
                 status: "success",
                 message: "created successfully",
                 data: {
-                  inspection: {
-                    inspNo: "URY-251111-001",
-                    inspSv: "SVRY2501-0001",
-                  },
-                  rotor: {
-                    rotorType: "N/A",
-                    includeWith: "N/A",
-                    rotorWeight: 10.11,
-                    diameterA: 10.11,
-                    diameterB: 10.11,
-                    diameterC: 10.11,
-                    radius1: 10.11,
-                    radius2: 10.11,
-                    rotorSpeed: 10.11,
-                    note: "note",
-                  },
+                  rotorType: "N/A",
+                  includeWith: "N/A",
+                  rotorWeight: 10.11,
+                  diameterA: 10.11,
+                  diameterB: 10.11,
+                  diameterC: 10.11,
+                  radius1: 10.11,
+                  radius2: 10.11,
+                  rotorSpeed: 10.11,
+                  note: "note",
                 },
               },
             },
@@ -115,22 +85,16 @@ module.exports = {
                 status: "success",
                 message: "fetched successfully",
                 data: {
-                  inspection: {
-                    inspNo: "URY-251111-001",
-                    inspSv: "SVRY2501-0001",
-                  },
-                  rotor: {
-                    rotorType: "N/A",
-                    includeWith: "N/A",
-                    rotorWeight: 10.11,
-                    diameterA: 10.11,
-                    diameterB: 10.11,
-                    diameterC: 10.11,
-                    radius1: 10.11,
-                    radius2: 10.11,
-                    rotorSpeed: 10.11,
-                    note: "note",
-                  },
+                  rotorType: "N/A",
+                  includeWith: "N/A",
+                  rotorWeight: 10.11,
+                  diameterA: 10.11,
+                  diameterB: 10.11,
+                  diameterC: 10.11,
+                  radius1: 10.11,
+                  radius2: 10.11,
+                  rotorSpeed: 10.11,
+                  note: "note",
                 },
               },
             },
@@ -162,22 +126,6 @@ module.exports = {
         required: true,
         content: {
           "application/json": {
-            schema: {
-              type: "object",
-              properties: {
-                incomingWeightDe: { type: "number" },
-                incomingAngleDe: { type: "number" },
-                incomingWeightNde: { type: "number" },
-                incomingAngleNde: { type: "number" },
-                finalWeightDe: { type: "number" },
-                finalAngleDe: { type: "number" },
-                finalWeightNde: { type: "number" },
-                finalAngleNde: { type: "number" },
-                stdToleranceDe: { type: "number" },
-                stdToleranceNde: { type: "number" },
-              },
-            },
-
             example: {
               incomingWeightDe: 10.11,
               incomingAngleDe: 10.11,
@@ -196,17 +144,9 @@ module.exports = {
 
       responses: {
         201: {
-          description: "Success",
+          description: "Created",
           content: {
             "application/json": {
-              schema: {
-                type: "object",
-                properties: {
-                  status: { type: "string" },
-                  message: { type: "string" },
-                  data: { type: "object" },
-                },
-              },
               example: {
                 status: "success",
                 message: "created successfully",
@@ -291,25 +231,6 @@ module.exports = {
         required: true,
         content: {
           "application/json": {
-            schema: {
-              type: "object",
-              properties: {
-                data: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      phase: { type: "string", description: "BEFORE or AFTER" },
-                      side: { type: "string", description: "DE / NDE" },
-                      point: { type: "string", description: "A / B / C ..." },
-                      position: { type: "string", description: "TOP / BOTTOM" },
-                      value: { type: "number", description: "Measured value" },
-                    },
-                  },
-                },
-              },
-            },
-
             example: {
               data: [
                 {
@@ -327,17 +248,9 @@ module.exports = {
 
       responses: {
         201: {
-          description: "Success",
+           description: "Created",
           content: {
             "application/json": {
-              schema: {
-                type: "object",
-                properties: {
-                  status: { type: "string" },
-                  message: { type: "string" },
-                  data: { type: "array" },
-                },
-              },
               example: {
                 status: "success",
                 message: "created successfully",
@@ -448,7 +361,7 @@ module.exports = {
 
       responses: {
         201: {
-          description: "Success",
+         description: "Created",
           content: {
             "application/json": {
               example: {
