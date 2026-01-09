@@ -17,6 +17,11 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "balanceFieldId",
         targetKey: "id",
       });
+
+      this.hasMany(models.BalanceFieldLocation, {
+        foreignKey: "balanceFieldId",
+        targetKey: "id",
+      });
     }
   }
   BalanceField.init(
