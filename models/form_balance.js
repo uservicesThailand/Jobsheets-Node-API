@@ -22,6 +22,11 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "balanceId",
         targetKey: "balId",
       });
+
+      this.hasOne(models.BalanceField, {
+        foreignKey: "balanceId",
+        targetKey: "balId",
+      });
     }
   }
   FormBalance.init(
