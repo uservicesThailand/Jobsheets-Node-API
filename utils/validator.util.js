@@ -6,4 +6,30 @@ const decimalOptional = (field) =>
     .isDecimal({ decimal_digits: "0,2" })
     .withMessage("Invalid decimal (max 2 digits)");
 
-module.exports = { decimalOptional };
+const enumOptional = (field, allowedValues) =>
+  body(field)
+    .optional({ nullable: true })
+    .isIn(allowedValues)
+    .withMessage(`Value must be one of: ${allowedValues.join(", ")}`);
+
+const enumRequired = (field, allowedValues) => {
+  return body(field)
+    .isIn(allowedValues)
+    .withMessage(`Value must be one of: ${allowedValues.join(", ")}`);
+};
+
+const stringOptional = (field, { min = 1, max = 255 } = {}) =>
+  body(field)
+    .optional({ nullable: true })
+    .isString()
+    .withMessage("Invalid string")
+    .trim()
+    .isLength({ min, max })
+    .withMessage(`String length must be between ${min} and ${max}`);
+
+module.exports = {
+  decimalOptional,
+  enumOptional,
+  enumRequired,
+  stringOptional,
+};

@@ -2,11 +2,13 @@ const express = require("express");
 const controller = require("./balance.controller");
 const rotorRouter = require("./rotor/rotor.route");
 const shaftRouter = require("./shaft/shaft.route");
+const fieldRouter = require("./field/field.route");
 
 const router = express.Router();
 
 router.use("/rotor", rotorRouter);
 router.use("/shaft", shaftRouter);
+router.use("/field", fieldRouter);
 
 router.post("/:inspNo", controller.create);
 router.get("/:inspNo", controller.get);

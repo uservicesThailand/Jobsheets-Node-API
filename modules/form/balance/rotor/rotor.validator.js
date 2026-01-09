@@ -1,5 +1,10 @@
 const { body } = require("express-validator");
-const { decimalOptional } = require("../../../../utils/validator.util");
+const {
+  decimalOptional,
+  enumOptional,
+  enumRequired,
+  stringOptional,
+} = require("../../../../utils/validator.util");
 
 const {
   ROTOR_TYPES,
@@ -14,8 +19,8 @@ const {
 const ALL_POINTS = [...POINTS_BY_SIDE.DE, ...POINTS_BY_SIDE.NDE];
 
 const createRotor = [
-  body("rotorType").optional({ nullable: true }).isIn(ROTOR_TYPES),
-  body("includeWith").optional({ nullable: true }).isIn(INCLUDE_WITH),
+  enumOptional("rotorType", ROTOR_TYPES),
+  enumOptional("includeWith", INCLUDE_WITH),
 
   decimalOptional("rotorWeight"),
   decimalOptional("diameterA"),
@@ -25,7 +30,7 @@ const createRotor = [
   decimalOptional("radius2"),
   decimalOptional("rotorSpeed"),
 
-  body("note").optional({ nullable: true }).isString().notEmpty().trim(),
+  stringOptional("note", { max: 500 }),
 ];
 
 const createRotorBalance = [
@@ -44,10 +49,10 @@ const createRotorBalance = [
 const createRotorRunout = [
   body("data").isArray(),
 
-  body("data.*.phase").isIn(PHASES),
-  body("data.*.side").isIn(SIDES),
-  body("data.*.point").isIn(ALL_POINTS),
-  body("data.*.position").isIn(POSITIONS),
+  enumRequired("data.*.phase", PHASES),
+  enumRequired("data.*.side", SIDES),
+  enumRequired("data.*.point", ALL_POINTS),
+  enumRequired("data.*.position", POSITIONS),
 
   decimalOptional("data.*.value"),
 ];
@@ -55,8 +60,8 @@ const createRotorRunout = [
 const createRotorRunoutResult = [
   body("data").isArray(),
 
-  body("data.*.phase").isIn(PHASES),
-  body("data.*.result").isIn(RESULT),
+  enumRequired("data.*.phase", PHASES),
+  enumRequired("data.*.result", RESULT),
 ];
 
 module.exports = {
