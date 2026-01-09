@@ -107,7 +107,87 @@ const createBalance = async (inspNo, body) => {
   }
 };
 
+const get = async (inspNo) => {
+  try {
+    const inspection = await db.TblInspectionList.findOne({
+      where: { inspNo },
+      include: [
+        {
+          model: db.FormBalance,
+          required: true,
+          include: [
+            {
+              model: db.BalanceShaft,
+              required: true,
+            },
+          ],
+        },
+      ],
+    });
+
+    if (!inspection) {
+      return {
+        success: false,
+        message: "Balance shaft not found",
+      };
+    }
+
+    return {
+      success: true,
+      data: {
+        balanceShaft: inspection.FormBalance.BalanceShaft,
+      },
+    };
+  } catch (error) {
+    throw error;
+  }
+};
+
+const getBalance = async (inspNo) => {
+  try {
+    const inspection = await db.TblInspectionList.findOne({
+      where: { inspNo },
+      include: [
+        {
+          model: db.FormBalance,
+          required: true,
+          include: [
+            {
+              model: db.BalanceShaft,
+              required: true,
+              include: [
+                {
+                  model: db.BalanceShaftBalance,
+                  required: true,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    if (!inspection) {
+      return {
+        success: false,
+        message: "Balance shaft not found",
+      };
+    }
+
+    return {
+      success: true,
+      data: {
+        shaftBalance: inspection.FormBalance.BalanceShaft.BalanceShaftBalance,
+      },
+    };
+  } catch (error) {
+    throw error;
+  }
+};
+
 module.exports = {
   create,
   createBalance,
+  get,
+  getBalance,
 };
