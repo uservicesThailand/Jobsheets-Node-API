@@ -16,7 +16,7 @@ router.post(
 router.get("/:inspNo", controller.getRotor);
 
 router.post(
-  "/rotor/balance/:inspNo",
+  "/balance/:inspNo",
   validator.createRotorBalance,
   validate,
   controller.createRotorBalance

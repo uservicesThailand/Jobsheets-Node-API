@@ -8,8 +8,8 @@ const router = express.Router();
 router.use("/rotor", rotorRouter);
 router.use("/shaft", shaftRouter);
 
-router.post("/", controller.create);
-router.get("/", controller.get);
-router.post("/", controller.remove);
+router.post("/:inspNo", controller.create);
+router.get("/:inspNo", controller.get);
+router.delete("/:inspNo", controller.remove);
 
 module.exports = router;

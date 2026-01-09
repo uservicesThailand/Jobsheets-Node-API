@@ -1,3 +1,4 @@
+const db = require("../../../models");
 const create = async (inspNo, userKey) => {
   try {
     const inspection = await db.TblInspectionList.findOne({

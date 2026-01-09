@@ -1,4 +1,5 @@
 const serviceBalance = require("./balance.service");
+const resUtil = require("../../../utils/response.util");
 const { balance } = require("./balance.serializer");
 
 const create = async (req, res) => {

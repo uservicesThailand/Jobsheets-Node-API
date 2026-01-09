@@ -6,49 +6,67 @@ const {
   resultGenerate,
 } = require("./rotor.generator");
 
-const createRotor = async (inspNo, userKey, body) => {
+const resolveBalanceContext = async (inspNo) => {
+  const inspection = await db.TblInspectionList.findOne({
+    where: { inspNo },
+    include: [
+      {
+        model: db.FormBalance,
+        include: [
+          {
+            model: db.BalanceRotor,
+          },
+        ],
+      },
+    ],
+  });
+
+  if (!inspection) {
+    return {
+      success: false,
+      message: "Inspection not found",
+    };
+  }
+
+  const formBalance = inspection.FormBalance;
+  if (!formBalance) {
+    return {
+      success: false,
+      message: "Form balance not found",
+    };
+  }
+
+  const balanceRotor = formBalance.BalanceRotor || null;
+
+  return {
+    success: true,
+    inspection,
+    formBalance,
+    balanceRotor,
+  };
+};
+
+const createRotor = async (inspNo, body) => {
   try {
-    const inspection = await db.TblInspectionList.findOne({
-      where: { inspNo },
-    });
+    const ctx = await resolveBalanceContext(inspNo);
+    if (!ctx.success) return ctx;
 
-    if (!inspection) {
-      return {
-        success: false,
-        message: "Inspection not found",
-      };
-    }
-
-    const inspectionId = inspection.inspId;
-
-    const existingBalanceRotor = await db.FormBalance.findOne({
-      where: { inspId: inspectionId },
-    });
-
-    if (existingBalanceRotor) {
+    if (ctx.balanceRotor) {
       return {
         success: false,
         message: "Balance rotor already exists",
       };
     }
 
-    const createdBalanceRotor = await db.FormBalance.create({
-      inspId: inspectionId,
-      createdBy: userKey,
-      updatedBy: userKey,
-    });
-
     const createdRotor = await db.BalanceRotor.create({
       ...body,
-      balanceId: createdBalanceRotor.balId,
+      balanceId: ctx.formBalance.balId,
     });
 
     return {
       success: true,
       data: {
-        inspection: inspection.toJSON(),
-        formBalance: createdBalanceRotor.toJSON(),
-        balanceRotor: createdRotor.toJSON(),
+        balanceRotor: createdRotor,
       },
     };
   } catch (error) {
@@ -58,42 +76,36 @@ const createRotor = async (inspNo, userKey, body) => {
 
 const createRotorBalance = async (inspNo, body) => {
   try {
-    const inspection = await db.TblInspectionList.findOne({
-      where: { inspNo },
-    });
+    const ctx = await resolveBalanceContext(inspNo);
+    if (!ctx.success) return ctx;
 
-    if (!inspection) {
-      return {
-        success: false,
-        message: "Inspection not found",
-      };
-    }
-
-    const inspectionId = inspection.inspId;
-
-    const balanceRotor = await db.FormBalance.findOne({
-      where: { inspId: inspectionId },
-      include: [{ model: db.BalanceRotor, required: true }],
-    });
-
-    if (!balanceRotor) {
+    if (!ctx.balanceRotor) {
       return {
         success: false,
         message: "Balance rotor not found",
       };
     }
 
+    const existing = await db.BalanceRotorBalance.findOne({
+      where: { balanceRotorId: ctx.balanceRotor.rotorId },
+    });
+
+    if (existing) {
+      return {
+        success: false,
+        message: "Rotor balance already exists",
+      };
+    }
+
     const rotorBalance = await db.BalanceRotorBalance.create({
       ...body,
-      balanceRotorId: balanceRotor.BalanceRotor.rotorId,
+      balanceRotorId: ctx.balanceRotor.rotorId,
     });
 
     return {
       success: true,
       data: {
-        inspection: inspection.toJSON(),
-        formBalance: balanceRotor.toJSON(),
-        rotorBalance: rotorBalance.toJSON(),
+        rotorBalance,
       },
     };
   } catch (error) {
@@ -103,34 +115,28 @@ const createRotorBalance = async (inspNo, body) => {
 
 const createRotorRunout = async (inspNo, body) => {
   try {
-    const inspection = await db.TblInspectionList.findOne({
-      where: { inspNo },
-    });
+    const ctx = await resolveBalanceContext(inspNo);
+    if (!ctx.success) return ctx;
 
-    if (!inspection) {
-      return {
-        success: false,
-        message: "Inspection not found",
-      };
-    }
-
-    const inspectionId = inspection.inspId;
-
-    const balanceRotor = await db.FormBalance.findOne({
-      where: { inspId: inspectionId },
-      include: [{ model: db.BalanceRotor, required: true }],
-    });
-
-    if (!balanceRotor) {
+    if (!ctx.balanceRotor) {
       return {
         success: false,
         message: "Balance rotor not found",
       };
     }
 
-    const balanceRotorId = balanceRotor.BalanceRotor.rotorId;
+    const existing = await db.BalanceRotorRunout.findOne({
+      where: { balanceRotorId: ctx.balanceRotor.rotorId },
+    });
 
-    const allCombos = generateAllCombos(balanceRotorId);
+    if (existing) {
+      return {
+        success: false,
+        message: "Rotor runout already exists",
+      };
+    }
+
+    const allCombos = generateAllCombos(ctx.balanceRotor.rotorId);
     const mergedRows = mergeRunoutData(allCombos, body);
 
     const rotorRunout = await db.BalanceRotorRunout.bulkCreate(mergedRows);
@@ -138,9 +144,7 @@ const createRotorRunout = async (inspNo, body) => {
     return {
       success: true,
       data: {
-        inspection: inspection.toJSON(),
-        formBalance: balanceRotor.toJSON(),
-        rotorRunout: rotorRunout,
+        rotorRunout,
       },
     };
   } catch (error) {
@@ -150,34 +154,28 @@ const createRotorRunout = async (inspNo, body) => {
 
 const createRotorRunoutResult = async (inspNo, body) => {
   try {
-    const inspection = await db.TblInspectionList.findOne({
-      where: { inspNo },
-    });
+    const ctx = await resolveBalanceContext(inspNo);
+    if (!ctx.success) return ctx;
 
-    if (!inspection) {
-      return {
-        success: false,
-        message: "Inspection not found",
-      };
-    }
-
-    const inspectionId = inspection.inspId;
-
-    const balanceRotor = await db.FormBalance.findOne({
-      where: { inspId: inspectionId },
-      include: [{ model: db.BalanceRotor, required: true }],
-    });
-
-    if (!balanceRotor) {
+    if (!ctx.balanceRotor) {
       return {
         success: false,
         message: "Balance rotor not found",
       };
     }
 
-    const balanceRotorId = balanceRotor.BalanceRotor.rotorId;
+    const existing = await db.BalanceRotorRunoutResult.findOne({
+      where: { balanceRotorId: ctx.balanceRotor.rotorId },
+    });
 
-    const allCombos = resultGenerate(balanceRotorId);
+    if (existing) {
+      return {
+        success: false,
+        message: "Rotor runout result already exists",
+      };
+    }
+
+    const allCombos = resultGenerate(ctx.balanceRotor.rotorId);
     const mergedRows = mergeResultPayload(allCombos, body);
 
     const rotorRunoutResult = await db.BalanceRotorRunoutResult.bulkCreate(
@@ -187,9 +185,7 @@ const createRotorRunoutResult = async (inspNo, body) => {
     return {
       success: true,
       data: {
-        inspection: inspection.toJSON(),
-        formBalance: balanceRotor.toJSON(),
-        rotorRunoutResult: rotorRunoutResult,
+        rotorRunoutResult,
       },
     };
   } catch (error) {
@@ -225,8 +221,6 @@ const getRotor = async (inspNo) => {
     return {
       success: true,
       data: {
-        inspection: inspection,
-        formBalance: inspection.FormBalance,
         balanceRotor: inspection.FormBalance.BalanceRotor,
       },
     };
@@ -269,8 +263,6 @@ const getRotorBalance = async (inspNo) => {
     return {
       success: true,
       data: {
-        inspection: inspection.toJSON(),
-        formBalance: inspection.FormBalance.BalanceRotor,
         rotorBalance: inspection.FormBalance.BalanceRotor.BalanceRotorBalance,
       },
     };
@@ -313,8 +305,6 @@ const getRotorRunout = async (inspNo) => {
     return {
       success: true,
       data: {
-        inspection: inspection,
-        formBalance: inspection.FormBalance.BalanceRotor,
         rotorRunout: inspection.FormBalance.BalanceRotor.BalanceRotorRunouts,
       },
     };
@@ -357,8 +347,6 @@ const getRotorRunoutResult = async (inspNo) => {
     return {
       success: true,
       data: {
-        inspection: inspection,
-        formBalance: inspection.FormBalance.BalanceRotor,
         rotorRunoutResult:
           inspection.FormBalance.BalanceRotor.BalanceRotorRunoutResults,
       },

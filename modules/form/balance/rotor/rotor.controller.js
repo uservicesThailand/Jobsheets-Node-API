@@ -15,11 +15,7 @@ const createRotor = async (req, res) => {
   try {
     const { inspNo } = req.params;
 
-    const result = await rotorService.createRotor(
-      inspNo,
-      req.userKey,
-      req.body
-    );
+    const result = await rotorService.createRotor(inspNo, req.body);
     if (!result.success) {
       return resUtil.failResponse(res, result.message);
     }
