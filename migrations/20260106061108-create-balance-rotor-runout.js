@@ -69,9 +69,5 @@ module.exports = {
 
   async down(queryInterface, Sequelize) {
     await queryInterface.dropTable("balance_rotor_runout");
-    await queryInterface.removeIndex(
-      "balance_rotor_runout",
-      "idx_brr_rotor_phase_side_point_pos"
-    );
   },
 };

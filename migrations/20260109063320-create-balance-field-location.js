@@ -72,9 +72,5 @@ module.exports = {
   },
   async down(queryInterface, Sequelize) {
     await queryInterface.dropTable("balance_field_location");
-    await queryInterface.removeIndex(
-      "balance_field_location",
-      "idx_balance_field_location_balance_field_id_location"
-    );
   },
 };

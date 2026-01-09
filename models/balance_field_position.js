@@ -27,6 +27,12 @@ module.exports = (sequelize, DataTypes) => {
         field: "position_name",
       },
 
+      positionIndex: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        field: "position_index",
+      },
+
       beforeUnbalance: {
         type: DataTypes.DECIMAL(10, 2),
         field: "before_unbalance",

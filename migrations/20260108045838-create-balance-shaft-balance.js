@@ -68,16 +68,16 @@ module.exports = {
       },
     });
 
-    await queryInterface.addIndex("balance_shaft_balance", ["balance_shaft_id"], {
-      unique: true,
-      name: "idx_balance_shaft_balance_balance_shaft_id",
-    });
+    await queryInterface.addIndex(
+      "balance_shaft_balance",
+      ["balance_shaft_id"],
+      {
+        unique: true,
+        name: "idx_balance_shaft_balance_balance_shaft_id",
+      }
+    );
   },
   async down(queryInterface, Sequelize) {
     await queryInterface.dropTable("balance_shaft_balance");
-    await queryInterface.removeIndex(
-      "balance_shaft_balance",
-      "idx_balance_shaft_balance_balance_shaft_id"
-    );
   },
 };

@@ -21,6 +21,11 @@ module.exports = {
         onDelete: "CASCADE",
       },
 
+      position_index: {
+        type: Sequelize.INTEGER,
+        allowNull: false,
+      },
+
       position_name: {
         type: Sequelize.STRING(50),
       },
@@ -70,18 +75,14 @@ module.exports = {
 
     await queryInterface.addIndex(
       "balance_field_position",
-      ["balance_field_id", "position_name"],
+      ["balance_field_id", "position_index"],
       {
         unique: true,
-        name: "idx_balance_field_positions_balance_field_position",
+        name: "idx_balance_field_positions_balance_field_position_index",
       }
     );
   },
   async down(queryInterface, Sequelize) {
     await queryInterface.dropTable("balance_field_position");
-    await queryInterface.removeIndex(
-      "balance_field_position",
-      "idx_balance_field_positions_balance_field_position"
-    );
   },
 };
