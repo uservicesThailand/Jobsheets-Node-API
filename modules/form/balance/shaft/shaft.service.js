@@ -26,8 +26,6 @@ const create = async (inspNo, body) => {
       };
     }
 
-    const balanceId = formBalance.balId;
-
     const balanceShaft = await db.BalanceShaft.create({
       ...body,
       balanceId: formBalance.balId,
@@ -83,7 +81,6 @@ const createBalance = async (inspNo, body) => {
       };
     }
 
-   
     const shaftBalance = await db.BalanceShaftBalance.create({
       ...body,
       balanceShaftId: balanceShaft.shaftId,
