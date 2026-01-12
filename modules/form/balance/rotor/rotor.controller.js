@@ -82,14 +82,14 @@ const getRotorBalance = async (req, res) => {
       res,
       rotorBalance(result.data),
       "fetched successfully",
-      202
+      200
     );
   } catch (err) {
     return resUtil.errorResponse(res, err.message);
   }
 };
 
-const createRotorRunout = async (req, res) => {
+const saveRotorRunout = async (req, res) => {
   try {
     const { inspNo } = req.params;
 
@@ -102,7 +102,7 @@ const createRotorRunout = async (req, res) => {
       );
     }
 
-    const result = await rotorService.createRotorRunout(inspNo, req.body.data);
+    const result = await rotorService.saveRotorRunout(inspNo, req.body.data);
     if (!result.success) {
       return resUtil.failResponse(res, result.message);
     }
@@ -136,7 +136,7 @@ const getRotorRunout = async (req, res) => {
   }
 };
 
-const createRotorRunoutResult = async (req, res) => {
+const saveRotorRunoutResult = async (req, res) => {
   try {
     const { inspNo } = req.params;
 
@@ -149,7 +149,7 @@ const createRotorRunoutResult = async (req, res) => {
       );
     }
 
-    const result = await rotorService.createRotorRunoutResult(
+    const result = await rotorService.saveRotorRunoutResult(
       inspNo,
       req.body.data
     );
@@ -189,8 +189,8 @@ const getRotorRunoutResult = async (req, res) => {
 module.exports = {
   saveRotor,
   saveRotorBalance,
-  createRotorRunout,
-  createRotorRunoutResult,
+  saveRotorRunout,
+  saveRotorRunoutResult,
   getRotor,
   getRotorBalance,
   getRotorRunout,

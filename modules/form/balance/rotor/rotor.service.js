@@ -124,7 +124,7 @@ const saveRotorBalance = async (inspNo, body) => {
   }
 };
 
-const createRotorRunout = async (inspNo, body) => {
+const saveRotorRunout = async (inspNo, body) => {
   try {
     const ctx = await resolveBalanceContext(inspNo);
     if (!ctx.success) return ctx;
@@ -136,9 +136,13 @@ const createRotorRunout = async (inspNo, body) => {
       };
     }
 
-    const existing = await db.BalanceRotorRunout.findOne({
+    const count = await db.BalanceRotorRunout.count({
       where: { balanceRotorId: ctx.balanceRotor.rotorId },
     });
+
+    if (count > 0) {
+      return await updateRotorRunout(body, ctx.balanceRotor.rotorId);
+    }
 
     if (existing) {
       return {
@@ -154,6 +158,7 @@ const createRotorRunout = async (inspNo, body) => {
 
     return {
       success: true,
+      created: true,
       data: {
         rotorRunout,
       },
@@ -163,7 +168,40 @@ const createRotorRunout = async (inspNo, body) => {
   }
 };
 
-const createRotorRunoutResult = async (inspNo, body) => {
+const updateRotorRunout = async (bodys, balanceRotorId) => {
+  try {
+    for (const body of bodys) {
+      await db.BalanceRotorRunout.update(
+        { value: body.value },
+        {
+          where: {
+            balanceRotorId: balanceRotorId,
+            phase: body.phase,
+            side: body.side,
+            point: body.point,
+            position: body.position,
+          },
+        }
+      );
+    }
+
+    const rotorRunout = await db.BalanceRotorRunout.findAll({
+      where: { balanceRotorId },
+    });
+
+    return {
+      success: true,
+      created: false,
+      data: {
+        rotorRunout,
+      },
+    };
+  } catch (error) {
+    throw error;
+  }
+};
+
+const saveRotorRunoutResult = async (inspNo, body) => {
   try {
     const ctx = await resolveBalanceContext(inspNo);
     if (!ctx.success) return ctx;
@@ -175,15 +213,12 @@ const createRotorRunoutResult = async (inspNo, body) => {
       };
     }
 
-    const existing = await db.BalanceRotorRunoutResult.findOne({
+    const count = await db.BalanceRotorRunoutResult.count({
       where: { balanceRotorId: ctx.balanceRotor.rotorId },
     });
 
-    if (existing) {
-      return {
-        success: false,
-        message: "Rotor runout result already exists",
-      };
+    if (count > 0) {
+      return await updateRotorRunoutResult(body, ctx.balanceRotor.rotorId);
     }
 
     const allCombos = resultGenerate(ctx.balanceRotor.rotorId);
@@ -195,6 +230,37 @@ const createRotorRunoutResult = async (inspNo, body) => {
 
     return {
       success: true,
+      created: true,
+      data: {
+        rotorRunoutResult,
+      },
+    };
+  } catch (error) {
+    throw error;
+  }
+};
+
+const updateRotorRunoutResult = async (bodys, balanceRotorId) => {
+  try {
+    for (const body of bodys) {
+      await db.BalanceRotorRunoutResult.update(
+        { result: body.result },
+        {
+          where: {
+            balanceRotorId: balanceRotorId,
+            phase: body.phase,
+          },
+        }
+      );
+    }
+
+    const rotorRunoutResult = await db.BalanceRotorRunoutResult.findAll({
+      where: { balanceRotorId },
+    });
+
+    return {
+      success: true,
+      created: false,
       data: {
         rotorRunoutResult,
       },
@@ -370,8 +436,8 @@ const getRotorRunoutResult = async (inspNo) => {
 module.exports = {
   saveRotor,
   saveRotorBalance,
-  createRotorRunout,
-  createRotorRunoutResult,
+  saveRotorRunout,
+  saveRotorRunoutResult,
   getRotor,
   getRotorBalance,
   getRotorRunout,

@@ -6,12 +6,7 @@ const validate = require("../../../../middlewares/validate.middleware");
 const router = express.Router();
 
 // rotor
-router.post(
-  "/:inspNo",
-  validator.createRotor,
-  validate,
-  controller.saveRotor
-);
+router.post("/:inspNo", validator.createRotor, validate, controller.saveRotor);
 
 router.get("/:inspNo", controller.getRotor);
 
@@ -28,7 +23,7 @@ router.post(
   "/runout/:inspNo",
   validator.createRotorRunout,
   validate,
-  controller.createRotorRunout
+  controller.saveRotorRunout
 );
 
 router.get("/runout/:inspNo", controller.getRotorRunout);
@@ -37,7 +32,7 @@ router.post(
   "/runout/result/:inspNo",
   validator.createRotorRunoutResult,
   validate,
-  controller.createRotorRunoutResult
+  controller.saveRotorRunoutResult
 );
 
 router.get("/runout/result/:inspNo", controller.getRotorRunoutResult);
