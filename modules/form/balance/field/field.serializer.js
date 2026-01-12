@@ -1,3 +1,5 @@
+const { toNumberOrNull } = require("../../../../utils/number.util");
+
 const field = ({ balanceField }) => {
   return {
     checkResult: balanceField.checkResult || null,
@@ -9,25 +11,26 @@ const fieldPositions = ({ fieldPositions }) => {
   return fieldPositions.map((item) => ({
     positionIndex: item.positionIndex,
     positionName: item.positionName || null,
-    beforeUnbalance: item.beforeUnbalance || null,
-    beforeDegree1: item.beforeDegree1 || null,
-    beforeWeight: item.beforeWeight || null,
-    beforeDegree2: item.beforeDegree2 || null,
-    afterUnbalance: item.afterUnbalance || null,
-    afterDegree1: item.afterDegree1 || null,
-    afterWeight: item.afterWeight || null,
+    beforeUnbalance: toNumberOrNull(item.beforeUnbalance),
+    beforeDegree1: toNumberOrNull(item.beforeDegree1),
+    beforeWeight: toNumberOrNull(item.beforeWeight),
+    beforeDegree2: toNumberOrNull(item.beforeDegree2),
+    afterUnbalance: toNumberOrNull(item.afterUnbalance),
+    afterDegree1: toNumberOrNull(item.afterDegree1),
+    afterWeight: toNumberOrNull(item.afterWeight),
+    afterDegree2: toNumberOrNull(item.afterDegree2),
   }));
 };
 
 const fieldLocations = ({ fieldLocations }) => {
   return fieldLocations.map((item) => ({
     location: item.location,
-    beforeH: item.beforeH,
-    beforeV: item.beforeV,
-    beforeA: item.beforeA,
-    afterH: item.afterH,
-    afterV: item.afterV,
-    afterA: item.afterA,
+    beforeH: toNumberOrNull(item.beforeH),
+    beforeV: toNumberOrNull(item.beforeV),
+    beforeA: toNumberOrNull(item.beforeA),
+    afterH: toNumberOrNull(item.afterH),
+    afterV: toNumberOrNull(item.afterV),
+    afterA: toNumberOrNull(item.afterA),
   }));
 };
 

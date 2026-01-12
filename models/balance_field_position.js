@@ -68,7 +68,7 @@ module.exports = (sequelize, DataTypes) => {
         field: "after_weight",
       },
 
-      afterDegree1: {
+      afterDegree2: {
         type: DataTypes.DECIMAL(10, 2),
         field: "after_degree_2",
       },

@@ -1,29 +1,31 @@
+const { toNumberOrNull } = require("../../../../utils/number.util");
+
 const rotor = ({ balanceRotor }) => {
   return {
     rotorType: balanceRotor.rotorType || null,
     rotorWeight: balanceRotor.rotorWeight || null,
-    diameterA: balanceRotor.diameterA || null,
-    diameterB: balanceRotor.diameterB || null,
-    diameterC: balanceRotor.diameterC || null,
-    radius1: balanceRotor.radius1 || null,
-    radius2: balanceRotor.radius2 || null,
-    rotorSpeed: balanceRotor.rotorSpeed || null,
+    diameterA: toNumberOrNull(balanceRotor.diameterA),
+    diameterB: toNumberOrNull(balanceRotor.diameterB),
+    diameterC: toNumberOrNull(balanceRotor.diameterC),
+    radius1: toNumberOrNull(balanceRotor.radius1),
+    radius2: toNumberOrNull(balanceRotor.radius2),
+    rotorSpeed: toNumberOrNull(balanceRotor.rotorSpeed),
     note: balanceRotor.note || null,
   };
 };
 
 const rotorBalance = ({ rotorBalance }) => {
   return {
-    incomingWeightDe: rotorBalance.incomingWeightDe || null,
-    incomingAngleDe: rotorBalance.incomingAngleDe || null,
-    incomingWeightNde: rotorBalance.incomingWeightNde || null,
-    incomingAngleNde: rotorBalance.incomingAngleNde || null,
-    finalWeightDe: rotorBalance.finalWeightDe || null,
-    finalAngleDe: rotorBalance.finalAngleDe || null,
-    finalWeightNde: rotorBalance.finalWeightNde || null,
-    finalAngleNde: rotorBalance.finalAngleNde || null,
-    stdToleranceDe: rotorBalance.stdToleranceDe || null,
-    stdToleranceNde: rotorBalance.stdToleranceNde || null,
+    incomingWeightDe: toNumberOrNull(rotorBalance.incomingWeightDe),
+    incomingAngleDe: toNumberOrNull(rotorBalance.incomingAngleDe),
+    incomingWeightNde: toNumberOrNull(rotorBalance.incomingWeightNde),
+    incomingAngleNde: toNumberOrNull(rotorBalance.incomingAngleNde),
+    finalWeightDe: toNumberOrNull(rotorBalance.finalWeightDe),
+    finalAngleDe: toNumberOrNull(rotorBalance.finalAngleDe),
+    finalWeightNde: toNumberOrNull(rotorBalance.finalWeightNde),
+    finalAngleNde: toNumberOrNull(rotorBalance.finalAngleNde),
+    stdToleranceDe: toNumberOrNull(rotorBalance.stdToleranceDe),
+    stdToleranceNde: toNumberOrNull(rotorBalance.stdToleranceNde),
   };
 };
 
@@ -33,7 +35,7 @@ const rotorRunout = ({ rotorRunout }) => {
     side: item.side,
     point: item.point,
     position: item.position,
-    value: item.value || null,
+    value: toNumberOrNull(item.value),
   }));
 };
 
