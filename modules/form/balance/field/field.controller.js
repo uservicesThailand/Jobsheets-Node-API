@@ -3,18 +3,20 @@ const resUtil = require("../../../../utils/response.util");
 const { field, fieldPositions, fieldLocations } = require("./field.serializer");
 const { validateBusiness } = require("./field.business.validator");
 
-const create = async (req, res) => {
+const save = async (req, res) => {
   try {
     const { inspNo } = req.params;
 
-    const result = await serviceField.create(inspNo, req.body);
+    const result = await serviceField.save(inspNo, req.body);
     if (!result.success) {
       return resUtil.failResponse(res, result.message);
     }
     return resUtil.successResponse(
       res,
       field(result.data),
-      "created successfully",
+      result.action === "created"
+        ? "created successfully"
+        : "updated successfully",
       201
     );
   } catch (err) {
@@ -41,7 +43,7 @@ const get = async (req, res) => {
   }
 };
 
-const createPosition = async (req, res) => {
+const savePosition = async (req, res) => {
   try {
     const { inspNo } = req.params;
 
@@ -54,7 +56,7 @@ const createPosition = async (req, res) => {
       );
     }
 
-    const result = await serviceField.createPosition(inspNo, req.body.data);
+    const result = await serviceField.savePosition(inspNo, req.body.data);
     if (!result.success) {
       return resUtil.failResponse(res, result.message);
     }
@@ -62,7 +64,9 @@ const createPosition = async (req, res) => {
     return resUtil.successResponse(
       res,
       fieldPositions(result.data),
-      "created successfully",
+      result.action === "created"
+        ? "created successfully"
+        : "updated successfully",
       201
     );
   } catch (err) {
@@ -89,7 +93,7 @@ const getPosition = async (req, res) => {
   }
 };
 
-const createLocation = async (req, res) => {
+const saveLocation = async (req, res) => {
   try {
     const { inspNo } = req.params;
 
@@ -102,7 +106,7 @@ const createLocation = async (req, res) => {
       );
     }
 
-    const result = await serviceField.createLocation(inspNo, req.body.data);
+    const result = await serviceField.saveLocation(inspNo, req.body.data);
     if (!result.success) {
       return resUtil.failResponse(res, result.message);
     }
@@ -110,7 +114,9 @@ const createLocation = async (req, res) => {
     return resUtil.successResponse(
       res,
       fieldLocations(result.data),
-      "created successfully",
+      result.action === "created"
+        ? "created successfully"
+        : "updated successfully",
       201
     );
   } catch (err) {
@@ -138,9 +144,9 @@ const getLocation = async (req, res) => {
 };
 
 module.exports = {
-  create,
-  createPosition,
-  createLocation,
+  save,
+  savePosition,
+  saveLocation,
   get,
   getPosition,
   getLocation,

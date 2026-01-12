@@ -32,8 +32,9 @@ module.exports = (sequelize, DataTypes) => {
         autoIncrement: true,
       },
 
-      check_result: {
+      checkResult: {
         type: DataTypes.ENUM("C1", "C2", "C3", "C4"),
+        field: "check_result",
       },
 
       note: {

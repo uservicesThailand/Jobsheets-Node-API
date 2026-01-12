@@ -45,15 +45,19 @@ const resolveFieldContext = async (inspNo) => {
   };
 };
 
-const create = async (inspNo, body) => {
+const save = async (inspNo, body) => {
   try {
     const ctx = await resolveFieldContext(inspNo);
     if (!ctx.success) return ctx;
 
     if (ctx.balanceField) {
+      await ctx.balanceField.update(body);
       return {
-        success: false,
-        message: "Balance rotor already exists",
+        success: true,
+        action: "updated",
+        data: {
+          balanceField: ctx.balanceField,
+        },
       };
     }
 
@@ -64,6 +68,7 @@ const create = async (inspNo, body) => {
 
     return {
       success: true,
+      action: "created",
       data: {
         balanceField: createdField,
       },
@@ -73,7 +78,7 @@ const create = async (inspNo, body) => {
   }
 };
 
-const createPosition = async (inspNo, body) => {
+const savePosition = async (inspNo, body) => {
   try {
     const ctx = await resolveFieldContext(inspNo);
     if (!ctx.success) return ctx;
@@ -87,15 +92,12 @@ const createPosition = async (inspNo, body) => {
 
     const balanceFieldId = ctx.balanceField.id;
 
-    const existing = await db.BalanceFieldPosition.findOne({
+    const count = await db.BalanceFieldPosition.count({
       where: { balanceFieldId },
     });
 
-    if (existing) {
-      return {
-        success: false,
-        message: "field position already exists",
-      };
+    if (count > 0) {
+      return await updatePosition(body, balanceFieldId);
     }
 
     const generatedRows = generateAllCombos(balanceFieldId);
@@ -114,7 +116,34 @@ const createPosition = async (inspNo, body) => {
   }
 };
 
-const createLocation = async (inspNo, body) => {
+const updatePosition = async (bodys, balanceFieldId) => {
+  try {
+    for (const body of bodys) {
+      await db.BalanceFieldPosition.update(body, {
+        where: {
+          balanceFieldId: balanceFieldId,
+          positionIndex: body.positionIndex,
+        },
+      });
+    }
+
+    const fieldPositions = await db.BalanceFieldPosition.findAll({
+      where: { balanceFieldId },
+    });
+
+    return {
+      success: true,
+      action: "updated",
+      data: {
+        fieldPositions,
+      },
+    };
+  } catch (error) {
+    throw error;
+  }
+};
+
+const saveLocation = async (inspNo, body) => {
   try {
     const ctx = await resolveFieldContext(inspNo);
     if (!ctx.success) return ctx;
@@ -128,15 +157,12 @@ const createLocation = async (inspNo, body) => {
 
     const balanceFieldId = ctx.balanceField.id;
 
-    const existing = await db.BalanceFieldLocation.findOne({
+    const count = await db.BalanceFieldLocation.count({
       where: { balanceFieldId },
     });
 
-    if (existing) {
-      return {
-        success: false,
-        message: "field position already exists",
-      };
+    if (count > 0) {
+      return await updateLocation(body, balanceFieldId);
     }
 
     const generatedRows = generateAllLocation(balanceFieldId);
@@ -146,6 +172,33 @@ const createLocation = async (inspNo, body) => {
 
     return {
       success: true,
+      data: {
+        fieldLocations,
+      },
+    };
+  } catch (error) {
+    throw error;
+  }
+};
+
+const updateLocation = async (bodys, balanceFieldId) => {
+  try {
+    for (const body of bodys) {
+      await db.BalanceFieldLocation.update(body, {
+        where: {
+          balanceFieldId: balanceFieldId,
+          location: body.location,
+        },
+      });
+    }
+
+    const fieldLocations = await db.BalanceFieldLocation.findAll({
+      where: { balanceFieldId },
+    });
+
+    return {
+      success: true,
+      action: "updated",
       data: {
         fieldLocations,
       },
@@ -278,9 +331,9 @@ const getLocation = async (inspNo) => {
 };
 
 module.exports = {
-  create,
-  createPosition,
-  createLocation,
+  save,
+  savePosition,
+  saveLocation,
   get,
   getPosition,
   getLocation,
