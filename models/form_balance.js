@@ -38,12 +38,6 @@ module.exports = (sequelize, DataTypes) => {
         field: "bal_id",
       },
 
-      inspId: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-        field: "insp_id",
-      },
-
       inspSv: {
         type: DataTypes.STRING(255),
         allowNull: true,
