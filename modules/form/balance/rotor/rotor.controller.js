@@ -109,8 +109,8 @@ const saveRotorRunout = async (req, res) => {
     return resUtil.successResponse(
       res,
       rotorRunout(result.data),
-      "created successfully",
-      201
+      result.created ? "created successfully" : "updated successfully",
+      result.created ? 201 : 200
     );
   } catch (err) {
     return resUtil.errorResponse(res, err.message);
@@ -159,8 +159,8 @@ const saveRotorRunoutResult = async (req, res) => {
     return resUtil.successResponse(
       res,
       rotorRunoutResult(result.data),
-      "created successfully",
-      201
+      result.created ? "created successfully" : "updated successfully",
+      result.created ? 201 : 200
     );
   } catch (err) {
     return resUtil.errorResponse(res, err.message);

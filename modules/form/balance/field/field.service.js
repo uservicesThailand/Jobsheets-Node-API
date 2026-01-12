@@ -54,7 +54,7 @@ const save = async (inspNo, body) => {
       await ctx.balanceField.update(body);
       return {
         success: true,
-        action: "updated",
+        created: false,
         data: {
           balanceField: ctx.balanceField,
         },
@@ -68,7 +68,7 @@ const save = async (inspNo, body) => {
 
     return {
       success: true,
-      action: "created",
+      created: true,
       data: {
         balanceField: createdField,
       },
@@ -107,6 +107,7 @@ const savePosition = async (inspNo, body) => {
 
     return {
       success: true,
+      created: true,
       data: {
         fieldPositions,
       },
@@ -133,7 +134,7 @@ const updatePosition = async (bodys, balanceFieldId) => {
 
     return {
       success: true,
-      action: "updated",
+      created: false,
       data: {
         fieldPositions,
       },
@@ -172,6 +173,7 @@ const saveLocation = async (inspNo, body) => {
 
     return {
       success: true,
+      created: true,
       data: {
         fieldLocations,
       },
@@ -198,7 +200,7 @@ const updateLocation = async (bodys, balanceFieldId) => {
 
     return {
       success: true,
-      action: "updated",
+      created: false,
       data: {
         fieldLocations,
       },

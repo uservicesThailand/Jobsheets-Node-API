@@ -2,38 +2,38 @@ const resUtil = require("../../../../utils/response.util");
 const serviceShaft = require("./shaft.service");
 const { shaft, shaftBalance } = require("./shaft.serializer");
 
-const create = async (req, res) => {
+const save = async (req, res) => {
   try {
     const { inspNo } = req.params;
 
-    const result = await serviceShaft.create(inspNo, req.body);
+    const result = await serviceShaft.save(inspNo, req.body);
     if (!result.success) {
       return resUtil.failResponse(res, result.message);
     }
     return resUtil.successResponse(
       res,
       shaft(result.data),
-      "created successfully",
-      201
+      result.created ? "created successfully" : "updated successfully",
+      result.created ? 201 : 200
     );
   } catch (err) {
     return resUtil.errorResponse(res, err.message);
   }
 };
 
-const createBalance = async (req, res) => {
+const saveBalance = async (req, res) => {
   try {
     const { inspNo } = req.params;
 
-    const result = await serviceShaft.createBalance(inspNo, req.body);
+    const result = await serviceShaft.saveBalance(inspNo, req.body);
     if (!result.success) {
       return resUtil.failResponse(res, result.message);
     }
     return resUtil.successResponse(
       res,
       shaftBalance(result.data),
-      "created successfully",
-      201
+      result.created ? "created successfully" : "updated successfully",
+      result.created ? 201 : 200
     );
   } catch (err) {
     return resUtil.errorResponse(res, err.message);
@@ -78,4 +78,4 @@ const getBalance = async (req, res) => {
   }
 };
 
-module.exports = { create, createBalance, get, getBalance };
+module.exports = { save, saveBalance, get, getBalance };

@@ -7,12 +7,12 @@ const router = express.Router();
 
 router.get("/:inspNo", controller.get);
 router.get("/balance/:inspNo", controller.getBalance);
-router.post("/:inspNo", validator.create, validate, controller.create);
+router.post("/:inspNo", validator.create, validate, controller.save);
 router.post(
   "/balance/:inspNo",
   validator.createShaftBalance,
   validate,
-  controller.createBalance
+  controller.saveBalance
 );
 
 module.exports = router;

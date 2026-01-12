@@ -14,10 +14,8 @@ const save = async (req, res) => {
     return resUtil.successResponse(
       res,
       field(result.data),
-      result.action === "created"
-        ? "created successfully"
-        : "updated successfully",
-      201
+      result.created ? "created successfully" : "updated successfully",
+      result.created ? 201 : 200
     );
   } catch (err) {
     return resUtil.errorResponse(res, err.message);
@@ -64,10 +62,8 @@ const savePosition = async (req, res) => {
     return resUtil.successResponse(
       res,
       fieldPositions(result.data),
-      result.action === "created"
-        ? "created successfully"
-        : "updated successfully",
-      201
+      result.created ? "created successfully" : "updated successfully",
+      result.created ? 201 : 200
     );
   } catch (err) {
     return resUtil.errorResponse(res, err.message);
@@ -114,10 +110,8 @@ const saveLocation = async (req, res) => {
     return resUtil.successResponse(
       res,
       fieldLocations(result.data),
-      result.action === "created"
-        ? "created successfully"
-        : "updated successfully",
-      201
+      result.created ? "created successfully" : "updated successfully",
+      result.created ? 201 : 200
     );
   } catch (err) {
     return resUtil.errorResponse(res, err.message);

@@ -40,15 +40,19 @@ const resolveShaftContext = async (inspNo) => {
   };
 };
 
-const create = async (inspNo, body) => {
+const save = async (inspNo, body) => {
   try {
     const ctx = await resolveShaftContext(inspNo);
     if (!ctx.success) return ctx;
 
     if (ctx.balanceShaft) {
+      await ctx.balanceShaft.update(body);
       return {
-        success: false,
-        message: "Balance shaft already exists",
+        success: true,
+        created: false,
+        data: {
+          balanceShaft,
+        },
       };
     }
 
@@ -59,6 +63,7 @@ const create = async (inspNo, body) => {
 
     return {
       success: true,
+      created: true,
       data: {
         balanceShaft,
       },
@@ -68,7 +73,7 @@ const create = async (inspNo, body) => {
   }
 };
 
-const createBalance = async (inspNo, body) => {
+const saveBalance = async (inspNo, body) => {
   try {
     const ctx = await resolveShaftContext(inspNo);
     if (!ctx.success) return ctx;
@@ -85,9 +90,13 @@ const createBalance = async (inspNo, body) => {
     });
 
     if (existing) {
+      await existing.update(body);
       return {
-        success: false,
-        message: "Shaft balance already exists",
+        success: true,
+        created: false,
+        data: {
+          shaftBalance: existing,
+        },
       };
     }
 
@@ -98,6 +107,7 @@ const createBalance = async (inspNo, body) => {
 
     return {
       success: true,
+      created: true,
       data: {
         shaftBalance,
       },
@@ -186,8 +196,8 @@ const getBalance = async (inspNo) => {
 };
 
 module.exports = {
-  create,
-  createBalance,
+  save,
+  saveBalance,
   get,
   getBalance,
 };
