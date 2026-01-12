@@ -30,10 +30,8 @@ const stringOptional = (field, { min = 1, max = 255 } = {}) =>
     .isLength({ min, max })
     .withMessage(`String length must be between ${min} and ${max}`);
 
-const arrayMaxLength = (max) =>
-  body("data")
-    .isArray({ max })
-    .withMessage(`Array length must not exceed ${max}`);
+const arrayMaxLength = (max, key = "data") =>
+  body(key).isArray({ max }).withMessage(`Array length must not exceed ${max}`);
 
 module.exports = {
   decimalOptional,
