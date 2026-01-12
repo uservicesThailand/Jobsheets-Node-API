@@ -1,4 +1,4 @@
-const { POSITION_INDEX } = require("./field.constants");
+const { POSITION_INDEX, LOCATION } = require("./field.constants");
 
 const generateAllCombos = (balanceFieldId) => {
   const rows = [];
@@ -15,24 +15,22 @@ const generateAllCombos = (balanceFieldId) => {
       afterUnbalance: null,
       afterDegree1: null,
       afterWeight: null,
-      afterDegree1: null,
+      afterDegree2: null,
     });
   }
 
   return rows;
 };
 
-const mergeWithPayload = (generatedRows = [], payloadRows = []) => {
+const mergeByKey = (generatedRows = [], payloadRows = [], key) => {
   if (!Array.isArray(payloadRows) || payloadRows.length === 0) {
     return generatedRows;
   }
 
-  const payloadMap = new Map(
-    payloadRows.map((row) => [row.positionIndex, row])
-  );
+  const payloadMap = new Map(payloadRows.map((row) => [row[key], row]));
 
   return generatedRows.map((genRow) => {
-    const payload = payloadMap.get(genRow.positionIndex);
+    const payload = payloadMap.get(genRow[key]);
     if (!payload) return genRow;
 
     return {
@@ -42,7 +40,27 @@ const mergeWithPayload = (generatedRows = [], payloadRows = []) => {
   });
 };
 
+const generateAllLocation = (balanceFieldId) => {
+  const rows = [];
+
+  for (const location of LOCATION) {
+    rows.push({
+      balanceFieldId,
+      location,
+      beforeH: null,
+      beforeV: null,
+      beforeA: null,
+      afterH: null,
+      afterV: null,
+      afterA: null,
+    });
+  }
+
+  return rows;
+};
+
 module.exports = {
   generateAllCombos,
-  mergeWithPayload,
+  mergeByKey,
+  generateAllLocation,
 };

@@ -12,5 +12,11 @@ router.post(
   validate,
   controller.createPosition
 );
+router.post(
+  "/location/:inspNo",
+  validator.createLocation,
+  validate,
+  controller.createLocation
+);
 
 module.exports = router;

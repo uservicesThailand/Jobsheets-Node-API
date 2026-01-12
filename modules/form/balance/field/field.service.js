@@ -1,5 +1,9 @@
 const db = require("../../../../models");
-const { generateAllCombos, mergeWithPayload } = require("./field.generator");
+const {
+  generateAllCombos,
+  mergeByKey,
+  generateAllLocation,
+} = require("./field.generator");
 
 const resolveFieldContext = async (inspNo) => {
   const inspection = await db.TblInspectionList.findOne({
@@ -95,7 +99,7 @@ const createPosition = async (inspNo, body) => {
     }
 
     const generatedRows = generateAllCombos(balanceFieldId);
-    const finalRows = mergeWithPayload(generatedRows, body);
+    const finalRows = mergeByKey(generatedRows, body, "positionIndex");
 
     const fieldPositions = await db.BalanceFieldPosition.bulkCreate(finalRows);
 
@@ -110,4 +114,45 @@ const createPosition = async (inspNo, body) => {
   }
 };
 
-module.exports = { create, createPosition };
+const createLocation = async (inspNo, body) => {
+  try {
+    const ctx = await resolveFieldContext(inspNo);
+    if (!ctx.success) return ctx;
+
+    if (!ctx.balanceField) {
+      return {
+        success: false,
+        message: "Balance field not found",
+      };
+    }
+
+    const balanceFieldId = ctx.balanceField.id;
+
+    const existing = await db.BalanceFieldLocation.findOne({
+      where: { balanceFieldId },
+    });
+
+    if (existing) {
+      return {
+        success: false,
+        message: "field position already exists",
+      };
+    }
+
+    const generatedRows = generateAllLocation(balanceFieldId);
+    const finalRows = mergeByKey(generatedRows, body, "location");
+
+    const fieldLocations = await db.BalanceFieldLocation.bulkCreate(finalRows);
+
+    return {
+      success: true,
+      data: {
+        fieldLocations,
+      },
+    };
+  } catch (error) {
+    throw error;
+  }
+};
+
+module.exports = { create, createPosition, createLocation };

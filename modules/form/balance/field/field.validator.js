@@ -3,10 +3,9 @@ const {
   enumOptional,
   decimalOptional,
   enumRequired,
-  arrayMaxLength
+  arrayMaxLength,
 } = require("../../../../utils/validator.util");
-const { body } = require("express-validator");
-const { CHECK_RESULT, POSITION_INDEX } = require("./field.constants");
+const { CHECK_RESULT, POSITION_INDEX, LOCATION } = require("./field.constants");
 
 const createField = [
   enumOptional("checkResult", CHECK_RESULT),
@@ -28,4 +27,16 @@ const createPosition = [
   decimalOptional("data.*.afterDegree1"),
 ];
 
-module.exports = { createField, createPosition };
+const createLocation = [
+  arrayMaxLength(4),
+
+  enumRequired("data.*.location", LOCATION),
+  decimalOptional("data.*.beforeH"),
+  decimalOptional("data.*.beforeV"),
+  decimalOptional("data.*.beforeA"),
+  decimalOptional("data.*.afterH"),
+  decimalOptional("data.*.afterV"),
+  decimalOptional("data.*.afterA"),
+];
+
+module.exports = { createField, createPosition, createLocation };

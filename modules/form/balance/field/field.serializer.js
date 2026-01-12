@@ -19,7 +19,20 @@ const fieldPositions = ({ fieldPositions }) => {
   }));
 };
 
+const fieldLocations = ({ fieldLocations }) => {
+  return fieldLocations.map((item) => ({
+    location: item.location,
+    beforeH: item.beforeH,
+    beforeV: item.beforeV,
+    beforeA: item.beforeA,
+    afterH: item.afterH,
+    afterV: item.afterV,
+    afterA: item.afterA,
+  }));
+};
+
 module.exports = {
   field,
   fieldPositions,
+  fieldLocations,
 };

@@ -1,4 +1,4 @@
-const validatePosition = (rows) => {
+const validateBusiness = (rows, key) => {
   const errors = [];
 
   if (!Array.isArray(rows) || rows.length <= 1) {
@@ -8,10 +8,10 @@ const validatePosition = (rows) => {
   const seen = new Set();
 
   rows.forEach((row, index) => {
-    if (seen.has(row.positionIndex)) {
-      errors.push(`data[${index}].positionIndex: value must be unique`);
+    if (seen.has(row[key])) {
+      errors.push(`data[${index}].${key}: value must be unique`);
     } else {
-      seen.add(row.positionIndex);
+      seen.add(row[key]);
     }
   });
 
@@ -19,5 +19,5 @@ const validatePosition = (rows) => {
 };
 
 module.exports = {
-  validatePosition,
+  validateBusiness,
 };
