@@ -76,8 +76,17 @@ module.exports = {
     await queryInterface.addColumn("form_coil_brake_test", "cos", {
       type: Sequelize.DECIMAL(10, 2),
     });
+
+    await queryInterface.addIndex("form_coil_brake_test", ["insp_id"], {
+      unique: true,
+      name: "idx_form_coil_brake_test_insp_id",
+    });
   },
   async down(queryInterface, Sequelize) {
+    await queryInterface.removeIndex(
+      "form_coil_brake_test",
+      "idx_form_coil_brake_test_insp_id"
+    );
     await queryInterface.removeColumn("form_coil_brake_test", "cos");
     await queryInterface.removeColumn("form_coil_brake_test", "weight");
     await queryInterface.removeColumn("form_coil_brake_test", "ip");
