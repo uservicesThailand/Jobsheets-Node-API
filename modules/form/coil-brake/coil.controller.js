@@ -1,19 +1,24 @@
 const serviceCoil = require("./coil.service");
 const resUtil = require("../../../utils/response.util");
-// const { balance } = require("./balance.serializer");
+const { coilBrake } = require("./coil.serializer");
 
-const create = async (req, res) => {
+const save = async (req, res) => {
   try {
     const { inspNo } = req.params;
 
-    const result = await serviceCoil.create(inspNo, req.userKey);
+    const result = await serviceCoil.save(inspNo, req.userKey, req.body);
     if (!result.success) {
       return resUtil.failResponse(res, result.message);
     }
-    return resUtil.successResponse(res, null, "created successfully", 201);
+    return resUtil.successResponse(
+      res,
+      coilBrake(result.data),
+      result.created ? "created successfully" : "updated successfully",
+      result.created ? 201 : 200
+    );
   } catch (err) {
     return resUtil.errorResponse(res, err.message);
   }
 };
 
-module.exports = { create };
+module.exports = { save };

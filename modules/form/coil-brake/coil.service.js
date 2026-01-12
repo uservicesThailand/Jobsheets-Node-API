@@ -1,9 +1,18 @@
+const { mapPayload } = require("./coil.serializer");
+const db = require("../../../models");
+
+
 const resolveFieldContext = async (inspNo) => {
   const inspection = await db.TblInspectionList.findOne({
     where: { inspNo },
     include: [
       {
-        model: db.FormBalance,
+        model: db.FormCoilBrakeTest,
+        include: [
+          {
+            model: db.CoilBrakeTestType,
+          },
+        ],
       },
     ],
   });
@@ -15,35 +24,91 @@ const resolveFieldContext = async (inspNo) => {
     };
   }
 
-  const formBalance = inspection.FormBalance;
-  if (!formBalance) {
-    return {
-      success: false,
-      message: "Form balance not found",
-    };
-  }
-
-  const balanceField = formBalance.BalanceField || null;
+  const formCoilBrakeTest = inspection.FormCoilBrakeTest || null;
 
   return {
     success: true,
     inspection,
-    formBalance,
-    balanceField,
+    formCoilBrakeTest,
   };
 };
 
-const create = async (inspNo, userKey) => {
+const update = async (formCoilBrakeTest, userKey, body) => {
   try {
-    console.log(inspNo, userKey);
+    // update main form
+    const updatedForm = await formCoilBrakeTest.update({
+      ...mapPayload(body),
+      updatedBy: userKey,
+    });
+
+    // sync brakeTypes if any
+    const coilBrakeTestTypes = await syncBrakeTypes(
+      formCoilBrakeTest.cbtId,
+      body.brakeTypes
+    );
 
     return {
       success: true,
-      data: {},
+      action: "updated",
+      data: { formCoilBrakeTest: updatedForm, coilBrakeTestTypes },
     };
   } catch (error) {
     throw error;
   }
 };
 
-module.exports = { create };
+const save = async (inspNo, userKey, body) => {
+  try {
+    const ctx = await resolveFieldContext(inspNo);
+    if (!ctx.success) return ctx;
+
+    // update branch
+    if (ctx.formCoilBrakeTest) {
+      return await update(ctx.formCoilBrakeTest, userKey, body);
+    }
+
+    // create branch
+    const payload = {
+      inspId: ctx.inspection.inspId,
+      ...mapPayload(body),
+      createdBy: userKey,
+      updatedBy: userKey,
+    };
+
+    const formCoilBrakeTest = await db.FormCoilBrakeTest.create(payload);
+
+    const coilBrakeTestTypes = await syncBrakeTypes(
+      formCoilBrakeTest.cbtId,
+      body.brakeTypes
+    );
+
+    return {
+      success: true,
+      action: "created",
+      data: { formCoilBrakeTest, coilBrakeTestTypes },
+    };
+  } catch (error) {
+    throw error;
+  }
+};
+
+const syncBrakeTypes = async (coilBrakeTestId, brakeTypes) => {
+  try {
+    if (!Array.isArray(brakeTypes) || brakeTypes.length === 0) return [];
+
+    await db.CoilBrakeTestType.destroy({
+      where: { coilBrakeTestId },
+    });
+
+    const dataMap = brakeTypes.map((item) => ({
+      brakeTypeCode: item,
+      coilBrakeTestId,
+    }));
+
+    return await db.CoilBrakeTestType.bulkCreate(dataMap);
+  } catch (error) {
+    throw error; // ให้ caller handle ต่อ
+  }
+};
+
+module.exports = { save };
