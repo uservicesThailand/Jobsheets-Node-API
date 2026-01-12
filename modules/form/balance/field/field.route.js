@@ -6,17 +6,22 @@ const validate = require("../../../../middlewares/validate.middleware");
 const router = express.Router();
 
 router.post("/:inspNo", validator.createField, validate, controller.create);
+router.get("/:inspNo", controller.get);
+
 router.post(
   "/position/:inspNo",
   validator.createPosition,
   validate,
   controller.createPosition
 );
+router.get("/position/:inspNo", controller.getPosition);
+
 router.post(
   "/location/:inspNo",
   validator.createLocation,
   validate,
   controller.createLocation
 );
+router.get("/location/:inspNo", controller.getLocation);
 
 module.exports = router;

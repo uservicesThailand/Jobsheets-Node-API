@@ -155,4 +155,133 @@ const createLocation = async (inspNo, body) => {
   }
 };
 
-module.exports = { create, createPosition, createLocation };
+const get = async (inspNo) => {
+  try {
+    const inspection = await db.TblInspectionList.findOne({
+      where: { inspNo },
+      include: [
+        {
+          model: db.FormBalance,
+          required: true,
+          include: [
+            {
+              model: db.BalanceField,
+              required: true,
+            },
+          ],
+        },
+      ],
+    });
+
+    if (!inspection) {
+      return {
+        success: false,
+        message: "Balance field not found",
+      };
+    }
+
+    return {
+      success: true,
+      data: {
+        balanceField: inspection.FormBalance.BalanceField,
+      },
+    };
+  } catch (error) {
+    throw error;
+  }
+};
+
+const getPosition = async (inspNo) => {
+  try {
+    const inspection = await db.TblInspectionList.findOne({
+      where: { inspNo },
+      include: [
+        {
+          model: db.FormBalance,
+          required: true,
+          include: [
+            {
+              model: db.BalanceField,
+              required: true,
+              include: [
+                {
+                  model: db.BalanceFieldPosition,
+                  required: true,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    if (!inspection) {
+      return {
+        success: false,
+        message: "field position not found",
+      };
+    }
+
+    return {
+      success: true,
+      data: {
+        fieldPositions:
+          inspection.FormBalance.BalanceField.BalanceFieldPositions,
+      },
+    };
+  } catch (error) {
+    throw error;
+  }
+};
+
+const getLocation = async (inspNo) => {
+  try {
+    const inspection = await db.TblInspectionList.findOne({
+      where: { inspNo },
+      include: [
+        {
+          model: db.FormBalance,
+          required: true,
+          include: [
+            {
+              model: db.BalanceField,
+              required: true,
+              include: [
+                {
+                  model: db.BalanceFieldLocation,
+                  required: true,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    if (!inspection) {
+      return {
+        success: false,
+        message: "field location not found",
+      };
+    }
+
+    return {
+      success: true,
+      data: {
+        fieldLocations:
+          inspection.FormBalance.BalanceField.BalanceFieldLocations,
+      },
+    };
+  } catch (error) {
+    throw error;
+  }
+};
+
+module.exports = {
+  create,
+  createPosition,
+  createLocation,
+  get,
+  getPosition,
+  getLocation,
+};

@@ -22,6 +22,25 @@ const create = async (req, res) => {
   }
 };
 
+const get = async (req, res) => {
+  try {
+    const { inspNo } = req.params;
+
+    const result = await serviceField.get(inspNo);
+    if (!result.success) {
+      return resUtil.failResponse(res, result.message);
+    }
+    return resUtil.successResponse(
+      res,
+      field(result.data),
+      "fetched successfully",
+      200
+    );
+  } catch (err) {
+    return resUtil.errorResponse(res, err.message);
+  }
+};
+
 const createPosition = async (req, res) => {
   try {
     const { inspNo } = req.params;
@@ -45,6 +64,25 @@ const createPosition = async (req, res) => {
       fieldPositions(result.data),
       "created successfully",
       201
+    );
+  } catch (err) {
+    return resUtil.errorResponse(res, err.message);
+  }
+};
+
+const getPosition = async (req, res) => {
+  try {
+    const { inspNo } = req.params;
+
+    const result = await serviceField.getPosition(inspNo);
+    if (!result.success) {
+      return resUtil.failResponse(res, result.message);
+    }
+    return resUtil.successResponse(
+      res,
+      fieldPositions(result.data),
+      "fetched successfully",
+      200
     );
   } catch (err) {
     return resUtil.errorResponse(res, err.message);
@@ -80,4 +118,30 @@ const createLocation = async (req, res) => {
   }
 };
 
-module.exports = { create, createPosition, createLocation };
+const getLocation = async (req, res) => {
+  try {
+    const { inspNo } = req.params;
+
+    const result = await serviceField.getLocation(inspNo);
+    if (!result.success) {
+      return resUtil.failResponse(res, result.message);
+    }
+    return resUtil.successResponse(
+      res,
+      fieldLocations(result.data),
+      "fetched successfully",
+      200
+    );
+  } catch (err) {
+    return resUtil.errorResponse(res, err.message);
+  }
+};
+
+module.exports = {
+  create,
+  createPosition,
+  createLocation,
+  get,
+  getPosition,
+  getLocation,
+};
