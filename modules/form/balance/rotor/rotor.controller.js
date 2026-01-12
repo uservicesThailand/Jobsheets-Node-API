@@ -11,19 +11,20 @@ const {
   validateRunoutResult,
 } = require("./rotor.business.validator");
 
-const createRotor = async (req, res) => {
+const saveRotor = async (req, res) => {
   try {
     const { inspNo } = req.params;
 
-    const result = await rotorService.createRotor(inspNo, req.body);
+    const result = await rotorService.saveRotor(inspNo, req.body);
     if (!result.success) {
       return resUtil.failResponse(res, result.message);
     }
+
     return resUtil.successResponse(
       res,
       rotor(result.data),
-      "created successfully",
-      201
+      result.created ? "created successfully" : "updated successfully",
+      result.created ? 201 : 200
     );
   } catch (err) {
     return resUtil.errorResponse(res, err.message);
@@ -49,19 +50,20 @@ const getRotor = async (req, res) => {
   }
 };
 
-const createRotorBalance = async (req, res) => {
+const saveRotorBalance = async (req, res) => {
   try {
     const { inspNo } = req.params;
 
-    const result = await rotorService.createRotorBalance(inspNo, req.body);
+    const result = await rotorService.saveRotorBalance(inspNo, req.body);
     if (!result.success) {
       return resUtil.failResponse(res, result.message);
     }
+
     return resUtil.successResponse(
       res,
       rotorBalance(result.data),
-      "created successfully",
-      201
+      result.created ? "created successfully" : "updated successfully",
+      result.created ? 201 : 200
     );
   } catch (err) {
     return resUtil.errorResponse(res, err.message);
@@ -185,8 +187,8 @@ const getRotorRunoutResult = async (req, res) => {
 };
 
 module.exports = {
-  createRotor,
-  createRotorBalance,
+  saveRotor,
+  saveRotorBalance,
   createRotorRunout,
   createRotorRunoutResult,
   getRotor,

@@ -46,15 +46,20 @@ const resolveBalanceContext = async (inspNo) => {
   };
 };
 
-const createRotor = async (inspNo, body) => {
+const saveRotor = async (inspNo, body) => {
   try {
     const ctx = await resolveBalanceContext(inspNo);
     if (!ctx.success) return ctx;
 
     if (ctx.balanceRotor) {
+      await ctx.balanceRotor.update(body);
+
       return {
-        success: false,
-        message: "Balance rotor already exists",
+        success: true,
+        created: false,
+        data: {
+          balanceRotor: ctx.balanceRotor,
+        },
       };
     }
 
@@ -65,6 +70,7 @@ const createRotor = async (inspNo, body) => {
 
     return {
       success: true,
+      created: true,
       data: {
         balanceRotor: createdRotor,
       },
@@ -74,7 +80,7 @@ const createRotor = async (inspNo, body) => {
   }
 };
 
-const createRotorBalance = async (inspNo, body) => {
+const saveRotorBalance = async (inspNo, body) => {
   try {
     const ctx = await resolveBalanceContext(inspNo);
     if (!ctx.success) return ctx;
@@ -91,9 +97,13 @@ const createRotorBalance = async (inspNo, body) => {
     });
 
     if (existing) {
+      await existing.update(body);
       return {
-        success: false,
-        message: "Rotor balance already exists",
+        success: true,
+        created: false,
+        data: {
+          rotorBalance: existing,
+        },
       };
     }
 
@@ -104,6 +114,7 @@ const createRotorBalance = async (inspNo, body) => {
 
     return {
       success: true,
+      created: true,
       data: {
         rotorBalance,
       },
@@ -357,8 +368,8 @@ const getRotorRunoutResult = async (inspNo) => {
 };
 
 module.exports = {
-  createRotor,
-  createRotorBalance,
+  saveRotor,
+  saveRotorBalance,
   createRotorRunout,
   createRotorRunoutResult,
   getRotor,

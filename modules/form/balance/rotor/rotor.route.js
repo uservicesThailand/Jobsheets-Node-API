@@ -10,7 +10,7 @@ router.post(
   "/:inspNo",
   validator.createRotor,
   validate,
-  controller.createRotor
+  controller.saveRotor
 );
 
 router.get("/:inspNo", controller.getRotor);
@@ -19,7 +19,7 @@ router.post(
   "/balance/:inspNo",
   validator.createRotorBalance,
   validate,
-  controller.createRotorBalance
+  controller.saveRotorBalance
 );
 
 router.get("/balance/:inspNo", controller.getRotorBalance);
