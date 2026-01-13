@@ -4,5 +4,6 @@ module.exports = {
     ...require("./form/balance/rotor.doc"),
     ...require("./form/balance/shaft.doc"),
     ...require("./form/balance/field.doc"),
+    ...require("./form/coil/coil.doc"),
   },
 };
