@@ -33,10 +33,17 @@ const stringOptional = (field, { min = 1, max = 255 } = {}) =>
 const arrayMaxLength = (max, key = "data") =>
   body(key).isArray({ max }).withMessage(`Array length must not exceed ${max}`);
 
+const arrayMaxLengthOpt = ({ min, max }, key = "data") =>
+  body(key)
+    .optional()
+    .isArray({ min, max })
+    .withMessage(`Array length must not exceed (${(min, max)})`);
+
 module.exports = {
   decimalOptional,
   enumOptional,
   enumRequired,
   stringOptional,
   arrayMaxLength,
+  arrayMaxLengthOpt,
 };
