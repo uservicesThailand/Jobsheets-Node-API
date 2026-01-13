@@ -110,4 +110,28 @@ const syncBrakeTypes = async (coilBrakeTestId, brakeTypes) => {
   }
 };
 
-module.exports = { save };
+const get = async (inspNo) => {
+  try {
+    const ctx = await resolveFieldContext(inspNo);
+    if (!ctx.success) return ctx;
+
+    if (!ctx.formCoilBrakeTest) {
+      return {
+        success: false,
+        message: "form coil brake test not found",
+      };
+    }
+
+    return {
+      success: true,
+      data: {
+        formCoilBrakeTest: ctx.formCoilBrakeTest,
+        coilBrakeTestTypes: ctx.formCoilBrakeTest.CoilBrakeTestTypes,
+      },
+    };
+  } catch (error) {
+    throw error;
+  }
+};
+
+module.exports = { save, get };

@@ -21,4 +21,23 @@ const save = async (req, res) => {
   }
 };
 
-module.exports = { save };
+const get = async (req, res) => {
+  try {
+    const { inspNo } = req.params;
+
+    const result = await serviceCoil.get(inspNo, req.userKey, req.body);
+    if (!result.success) {
+      return resUtil.failResponse(res, result.message);
+    }
+    return resUtil.successResponse(
+      res,
+      coilBrake(result.data),
+      "fetched successfully",
+      200
+    );
+  } catch (err) {
+    return resUtil.errorResponse(res, err.message);
+  }
+};
+
+module.exports = { save, get };
