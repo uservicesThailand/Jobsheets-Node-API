@@ -1,18 +1,18 @@
-const serviceCoil = require("./coil.service");
-const resUtil = require("../../../utils/response.util");
-const { coilBrake } = require("./coil.serializer");
+const serviceInsulation = require("./insulation.service");
+const resUtil = require("../../../../utils/response.util");
+const { insulationTest } = require("./insulation.serializer");
 
 const save = async (req, res) => {
   try {
     const { inspNo } = req.params;
 
-    const result = await serviceCoil.save(inspNo, req.userKey, req.body);
+    const result = await serviceInsulation.save(inspNo, req.body);
     if (!result.success) {
       return resUtil.failResponse(res, result.message);
     }
     return resUtil.successResponse(
       res,
-      coilBrake(result.data),
+      insulationTest(result.data),
       result.created ? "created successfully" : "updated successfully",
       result.created ? 201 : 200
     );
@@ -25,13 +25,13 @@ const get = async (req, res) => {
   try {
     const { inspNo } = req.params;
 
-    const result = await serviceCoil.get(inspNo);
+    const result = await serviceInsulation.get(inspNo);
     if (!result.success) {
       return resUtil.failResponse(res, result.message);
     }
     return resUtil.successResponse(
       res,
-      coilBrake(result.data),
+      insulationTest(result.data),
       "fetched successfully",
       200
     );
@@ -40,4 +40,7 @@ const get = async (req, res) => {
   }
 };
 
-module.exports = { save, get };
+module.exports = {
+  save,
+  get,
+};

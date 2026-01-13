@@ -1,4 +1,5 @@
 const { toNumberOrNull } = require("../../../utils/number.util");
+const { removeUndefined } = require("../../../utils/object.util");
 
 const mapPayload = (body) => {
   const payload = {
@@ -33,11 +34,6 @@ const mapPayload = (body) => {
 
   return removeUndefined(payload);
 };
-
-const removeUndefined = (obj) =>
-  Object.fromEntries(
-    Object.entries(obj).filter(([, value]) => value !== undefined)
-  );
 
 const coilBrake = ({ formCoilBrakeTest, coilBrakeTestTypes }) => {
   return {
