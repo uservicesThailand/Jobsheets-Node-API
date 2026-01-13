@@ -27,6 +27,11 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "coilBrakeTestId",
         targetKey: "cbtId",
       });
+
+      this.hasOne(models.CoilBrakeTest, {
+        foreignKey: "coilBrakeTestId",
+        targetKey: "cbtId",
+      });
     }
   }
   FormCoilBrakeTest.init(

@@ -1,4 +1,4 @@
-const { mapPayload } = require("./resistance.serializer");
+const { mapPayload } = require("./coil-test.serializer");
 const db = require("../../../../models");
 
 const resolveFieldContext = async (inspNo) => {
@@ -9,7 +9,7 @@ const resolveFieldContext = async (inspNo) => {
         model: db.FormCoilBrakeTest,
         include: [
           {
-            model: db.ResistanceTest,
+            model: db.CoilBrakeTest,
           },
         ],
       },
@@ -31,13 +31,13 @@ const resolveFieldContext = async (inspNo) => {
     };
   }
 
-  const resistanceTest = formCoilBrakeTest.ResistanceTest || null;
+  const coilBrakeTest = formCoilBrakeTest.CoilBrakeTest || null;
 
   return {
     success: true,
     inspection,
     formCoilBrakeTest,
-    resistanceTest,
+    coilBrakeTest,
   };
 };
 
@@ -50,22 +50,23 @@ const save = async (inspNo, body) => {
       ...mapPayload(body),
     };
 
-    if (ctx.resistanceTest) {
-      await ctx.resistanceTest.update(payload);
+    if (ctx.coilBrakeTest) {
+      await ctx.coilBrakeTest.update(payload);
+
       return {
         success: true,
         created: false,
-        data: { resistanceTest: ctx.resistanceTest },
+        data: { coilBrakeTest: ctx.coilBrakeTest },
       };
     }
 
     payload.coilBrakeTestId = ctx.formCoilBrakeTest.cbtId;
-    const resistanceTest = await db.ResistanceTest.create(payload);
+    const coilBrakeTest = await db.CoilBrakeTest.create(payload);
 
     return {
       success: true,
       created: true,
-      data: { resistanceTest },
+      data: { coilBrakeTest },
     };
   } catch (error) {
     throw error;
@@ -77,16 +78,16 @@ const get = async (inspNo) => {
     const ctx = await resolveFieldContext(inspNo);
     if (!ctx.success) return ctx;
 
-    if (!ctx.resistanceTest) {
+    if (!ctx.coilBrakeTest) {
       return {
         success: false,
-        message: "insulation not found",
+        message: "coil test not found",
       };
     }
 
     return {
       success: true,
-      data: { resistanceTest: ctx.resistanceTest },
+      data: { coilBrakeTest: ctx.coilBrakeTest },
     };
   } catch (error) {
     throw error;
