@@ -2,32 +2,32 @@ const { toNumberOrNull } = require("../../../utils/number.util");
 
 const mapPayload = (body) => {
   const payload = {
-    frame: body.frame ?? undefined,
-    type: body.type ?? undefined,
-    manufacture: body.manufacture ?? undefined,
-    model: body.model ?? undefined,
+    frame: body.frame,
+    type: body.type,
+    manufacture: body.manufacture,
+    model: body.model,
 
-    powerValue: body.power?.value ?? undefined,
-    powerUnit: body.power?.unit ?? undefined,
+    powerValue: body.power?.value,
+    powerUnit: body.power?.unit,
 
-    speedValue: body.speed?.value ?? undefined,
-    speedUnit: body.speed?.unit ?? undefined,
+    speedValue: body.speed?.value,
+    speedUnit: body.speed?.unit,
 
-    serialNo: body.serialNo ?? undefined,
-    insulationClass: body.insulationClass ?? undefined,
+    serialNo: body.serialNo,
+    insulationClass: body.insulationClass,
 
-    design: body.design ?? undefined,
-    frequency: body.frequency ?? undefined,
-    current: body.current ?? undefined,
-    volt: body.volt ?? undefined,
+    design: body.design,
+    frequency: body.frequency,
+    current: body.current,
+    volt: body.volt,
 
-    year: body.year ?? undefined,
-    pe: body.pe ?? undefined,
-    eff: body.eff ?? undefined,
-    ip: body.ip ?? undefined,
+    year: body.year,
+    pe: body.pe,
+    eff: body.eff,
+    ip: body.ip,
 
-    weight: body.weight ?? undefined,
-    cos: body.cos ?? undefined,
+    weight: body.weight,
+    cos: body.cos,
   };
 
   return removeUndefined(payload);
