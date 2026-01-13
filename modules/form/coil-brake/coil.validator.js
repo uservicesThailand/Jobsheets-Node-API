@@ -16,6 +16,7 @@ const create = [
   stringOptional("design", { max: 255 }),
   stringOptional("pe", { max: 255 }),
   stringOptional("ip", { max: 255 }),
+  stringOptional("note", { max: 500 }),
 
   decimalOptional("frequency"),
   decimalOptional("current"),
@@ -37,8 +38,6 @@ const create = [
     }
     return true;
   }),
-
-  ,
   enumOptional("brakeTypes.*", BRAKE_TYPES),
 ];
 

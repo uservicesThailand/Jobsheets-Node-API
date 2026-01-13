@@ -120,6 +120,10 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.DECIMAL(10, 2),
       },
 
+      note: {
+        type: DataTypes.TEXT,
+      },
+
       createdBy: {
         type: DataTypes.INTEGER(11),
         allowNull: true,

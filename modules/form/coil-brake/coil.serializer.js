@@ -28,6 +28,7 @@ const mapPayload = (body) => {
 
     weight: body.weight,
     cos: body.cos,
+    note: body.note,
   };
 
   return removeUndefined(payload);
@@ -49,6 +50,7 @@ const coilBrake = ({ formCoilBrakeTest, coilBrakeTestTypes }) => {
     pe: formCoilBrakeTest.pe,
     ip: formCoilBrakeTest.ip,
     insulationClass: formCoilBrakeTest.insulationClass,
+    note: formCoilBrakeTest.note,
     power: {
       value: toNumberOrNull(formCoilBrakeTest.powerValue),
       unit: formCoilBrakeTest.powerUnit,

@@ -77,6 +77,10 @@ module.exports = {
       type: Sequelize.DECIMAL(10, 2),
     });
 
+    await queryInterface.addColumn("form_coil_brake_test", "note", {
+      type: Sequelize.TEXT,
+    });
+
     await queryInterface.addIndex("form_coil_brake_test", ["insp_id"], {
       unique: true,
       name: "idx_form_coil_brake_test_insp_id",
@@ -110,5 +114,6 @@ module.exports = {
     await queryInterface.removeColumn("form_coil_brake_test", "manufacture");
     await queryInterface.removeColumn("form_coil_brake_test", "type");
     await queryInterface.removeColumn("form_coil_brake_test", "frame");
+    await queryInterface.removeColumn("form_coil_brake_test", "note");
   },
 };

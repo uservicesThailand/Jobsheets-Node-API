@@ -1,7 +1,6 @@
 const { mapPayload } = require("./coil.serializer");
 const db = require("../../../models");
 
-
 const resolveFieldContext = async (inspNo) => {
   const inspection = await db.TblInspectionList.findOne({
     where: { inspNo },
