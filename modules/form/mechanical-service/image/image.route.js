@@ -19,5 +19,7 @@ router.post(
   uploadErrorHandler,
   controller.uploadImages
 );
+router.get("/:inspNo", controller.getImages);
+router.delete("/:inspNo/:imageId", controller.deleteImage);
 
 module.exports = router;
