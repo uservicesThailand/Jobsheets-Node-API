@@ -1,50 +1,49 @@
 "use strict";
 const { Model } = require("sequelize");
 module.exports = (sequelize, DataTypes) => {
-  class FormMechanicalService extends Model {
+  class MechanicalServiceImage extends Model {
     /**
      * Helper method for defining associations.
      * This method is not a part of Sequelize lifecycle.
      * The `models/index` file will call this method automatically.
      */
     static associate(models) {
-      this.belongsTo(models.TblInspectionList, {
-        foreignKey: "inspId",
-        targetKey: "inspId",
-      });
-
-      this.hasMany(models.MechanicalServiceImage, {
+      this.belongsTo(models.FormMechanicalService, {
         foreignKey: "formId",
         targetKey: "mcsId",
       });
     }
   }
-
-  FormMechanicalService.init(
+  MechanicalServiceImage.init(
     {
-      mcsId: {
+      id: {
         type: DataTypes.INTEGER,
         primaryKey: true,
         autoIncrement: true,
-        field: "mcs_id",
       },
 
-      inspSv: {
+      fileName: {
         type: DataTypes.STRING,
-        allowNull: true,
-        field: "insp_sv",
+        allowNull: false,
+        field: "file_name",
       },
 
-      createdBy: {
-        type: DataTypes.INTEGER(11),
-        allowNull: true,
-        field: "created_by",
+      filePath: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        field: "file_path",
       },
 
-      updatedBy: {
-        type: DataTypes.INTEGER(11),
-        allowNull: true,
-        field: "updated_by",
+      mimeType: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        field: "mime_type",
+      },
+
+      fileSize: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        field: "file_size",
       },
 
       createdAt: {
@@ -61,10 +60,10 @@ module.exports = (sequelize, DataTypes) => {
     },
     {
       sequelize,
-      modelName: "FormMechanicalService",
-      tableName: "form_mechanical_services",
+      modelName: "MechanicalServiceImage",
+      tableName: "mechanical_service_image",
       underscored: true,
     }
   );
-  return FormMechanicalService;
+  return MechanicalServiceImage;
 };
