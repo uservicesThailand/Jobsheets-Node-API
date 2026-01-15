@@ -18,11 +18,6 @@ const PORT = process.env.PORT || 5000;
 // Swagger
 const { swaggerUi, swaggerSpec } = require('./config/swagger');
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Core middlewares
-app.use(express.json());
-app.use('/api', routes);
-
 // CORS: ใช้โดเมนจริงจาก ENV (คอมมาคั่นได้), dev fallback เป็น localhost
 const allowedOrigins = process.env.FRONTEND_ORIGIN?.split(',').map(s => s.trim()) || [];
 
@@ -33,6 +28,9 @@ app.use(
     credentials: true
   })
 );
+
+app.use(express.json());
+app.use('/api', routes);
 
 
 setupLoginRoutes(app, db, db3);
