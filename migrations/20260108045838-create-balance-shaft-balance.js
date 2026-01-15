@@ -26,35 +26,35 @@ module.exports = {
       },
 
       incoming_weight_de: {
-        type: Sequelize.DECIMAL(10, 2),
+        type: Sequelize.DECIMAL(10, 3),
       },
 
       incoming_weight_nde: {
-        type: Sequelize.DECIMAL(10, 2),
+        type: Sequelize.DECIMAL(10, 3),
       },
 
       incoming_phase_de: {
-        type: Sequelize.DECIMAL(10, 2),
+        type: Sequelize.DECIMAL(10, 3),
       },
 
       incoming_phase_nde: {
-        type: Sequelize.DECIMAL(10, 2),
+        type: Sequelize.DECIMAL(10, 3),
       },
 
       final_weight_de: {
-        type: Sequelize.DECIMAL(10, 2),
+        type: Sequelize.DECIMAL(10, 3),
       },
 
       final_weight_nde: {
-        type: Sequelize.DECIMAL(10, 2),
+        type: Sequelize.DECIMAL(10, 3),
       },
 
       final_phase_de: {
-        type: Sequelize.DECIMAL(10, 2),
+        type: Sequelize.DECIMAL(10, 3),
       },
 
       final_phase_nde: {
-        type: Sequelize.DECIMAL(10, 2),
+        type: Sequelize.DECIMAL(10, 3),
       },
 
       created_at: {

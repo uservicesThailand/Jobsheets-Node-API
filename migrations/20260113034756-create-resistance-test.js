@@ -22,27 +22,27 @@ module.exports = {
       },
 
       marking_1: {
-        type: Sequelize.DECIMAL(10, 2),
+        type: Sequelize.DECIMAL(10, 3),
       },
 
       marking_2: {
-        type: Sequelize.DECIMAL(10, 2),
+        type: Sequelize.DECIMAL(10, 3),
       },
 
       marking_3: {
-        type: Sequelize.DECIMAL(10, 2),
+        type: Sequelize.DECIMAL(10, 3),
       },
 
       incoming_1: {
-        type: Sequelize.DECIMAL(10, 2),
+        type: Sequelize.DECIMAL(10, 3),
       },
 
       incoming_2: {
-        type: Sequelize.DECIMAL(10, 2),
+        type: Sequelize.DECIMAL(10, 3),
       },
 
       incoming_3: {
-        type: Sequelize.DECIMAL(10, 2),
+        type: Sequelize.DECIMAL(10, 3),
       },
 
       incoming_unit: {
@@ -50,15 +50,15 @@ module.exports = {
       },
 
       final_1: {
-        type: Sequelize.DECIMAL(10, 2),
+        type: Sequelize.DECIMAL(10, 3),
       },
 
       final_2: {
-        type: Sequelize.DECIMAL(10, 2),
+        type: Sequelize.DECIMAL(10, 3),
       },
 
       final_3: {
-        type: Sequelize.DECIMAL(10, 2),
+        type: Sequelize.DECIMAL(10, 3),
       },
 
       final_unit: {

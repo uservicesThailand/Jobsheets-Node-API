@@ -28,32 +28,32 @@ module.exports = (sequelize, DataTypes) => {
       },
 
       beforeH: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "before_h",
       },
 
       beforeV: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "before_v",
       },
 
       beforeA: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "before_a",
       },
 
       afterH: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "after_h",
       },
 
       afterV: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "after_v",
       },
 
       afterA: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "after_a",
       },
 

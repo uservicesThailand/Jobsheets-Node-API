@@ -66,7 +66,7 @@ module.exports = (sequelize, DataTypes) => {
       },
 
       powerValue: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "power_value",
       },
 
@@ -76,7 +76,7 @@ module.exports = (sequelize, DataTypes) => {
       },
 
       speedValue: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "speed_value",
       },
 
@@ -100,15 +100,15 @@ module.exports = (sequelize, DataTypes) => {
       },
 
       frequency: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
       },
 
       current: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
       },
 
       volt: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
       },
 
       year: {
@@ -120,7 +120,7 @@ module.exports = (sequelize, DataTypes) => {
       },
 
       eff: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
       },
 
       ip: {
@@ -128,11 +128,11 @@ module.exports = (sequelize, DataTypes) => {
       },
 
       weight: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
       },
 
       cos: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
       },
 
       note: {

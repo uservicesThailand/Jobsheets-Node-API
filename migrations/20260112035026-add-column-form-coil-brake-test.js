@@ -16,14 +16,14 @@ module.exports = {
     });
 
     await queryInterface.addColumn("form_coil_brake_test", "power_value", {
-      type: Sequelize.DECIMAL(10, 2),
+      type: Sequelize.DECIMAL(10, 3),
     });
     await queryInterface.addColumn("form_coil_brake_test", "power_unit", {
       type: Sequelize.ENUM("KW", "HP", "NM"),
     });
 
     await queryInterface.addColumn("form_coil_brake_test", "speed_value", {
-      type: Sequelize.DECIMAL(10, 2),
+      type: Sequelize.DECIMAL(10, 3),
     });
     await queryInterface.addColumn("form_coil_brake_test", "speed_unit", {
       type: Sequelize.ENUM("RPM", "POLE"),
@@ -42,15 +42,15 @@ module.exports = {
     });
 
     await queryInterface.addColumn("form_coil_brake_test", "frequency", {
-      type: Sequelize.DECIMAL(10, 2),
+      type: Sequelize.DECIMAL(10, 3),
     });
 
     await queryInterface.addColumn("form_coil_brake_test", "current", {
-      type: Sequelize.DECIMAL(10, 2),
+      type: Sequelize.DECIMAL(10, 3),
     });
 
     await queryInterface.addColumn("form_coil_brake_test", "volt", {
-      type: Sequelize.DECIMAL(10, 2),
+      type: Sequelize.DECIMAL(10, 3),
     });
 
     await queryInterface.addColumn("form_coil_brake_test", "year", {
@@ -62,7 +62,7 @@ module.exports = {
     });
 
     await queryInterface.addColumn("form_coil_brake_test", "eff", {
-      type: Sequelize.DECIMAL(10, 2),
+      type: Sequelize.DECIMAL(10, 3),
     });
 
     await queryInterface.addColumn("form_coil_brake_test", "ip", {
@@ -70,11 +70,11 @@ module.exports = {
     });
 
     await queryInterface.addColumn("form_coil_brake_test", "weight", {
-      type: Sequelize.DECIMAL(10, 2),
+      type: Sequelize.DECIMAL(10, 3),
     });
 
     await queryInterface.addColumn("form_coil_brake_test", "cos", {
-      type: Sequelize.DECIMAL(10, 2),
+      type: Sequelize.DECIMAL(10, 3),
     });
 
     await queryInterface.addColumn("form_coil_brake_test", "note", {

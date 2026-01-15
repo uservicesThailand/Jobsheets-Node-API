@@ -23,11 +23,11 @@ module.exports = (sequelize, DataTypes) => {
       },
 
       volt: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
       },
 
       incomingValue: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "incoming_value",
       },
 
@@ -37,7 +37,7 @@ module.exports = (sequelize, DataTypes) => {
       },
 
       finalValue: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "final_value",
       },
 

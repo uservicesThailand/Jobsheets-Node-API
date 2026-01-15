@@ -23,62 +23,62 @@ module.exports = (sequelize, DataTypes) => {
       },
 
       voltIncoming1: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "volt_incoming_1",
       },
 
       voltIncoming2: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "volt_incoming_2",
       },
 
       voltIncoming3: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "volt_incoming_3",
       },
 
       voltFinal1: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "volt_final_1",
       },
 
       voltFinal2: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "volt_final_2",
       },
 
       voltFinal3: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "volt_final_3",
       },
 
       currentIncoming1: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "current_incoming_1",
       },
 
       currentIncoming2: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "current_incoming_2",
       },
 
       currentIncoming3: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "current_incoming_3",
       },
 
       currentFinal1: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "current_final_1",
       },
 
       currentFinal2: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "current_final_2",
       },
 
       currentFinal3: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "current_final_3",
       },
 

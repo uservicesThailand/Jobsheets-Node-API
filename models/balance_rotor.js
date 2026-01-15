@@ -46,32 +46,32 @@ module.exports = (sequelize, DataTypes) => {
       },
 
       rotorWeight: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "rotor_weight",
       },
 
       diameterA: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "diameter_a",
       },
 
       diameterB: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "diameter_b",
       },
 
       diameterC: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "diameter_c",
       },
 
       radius1: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "radius_1",
       },
 
       radius2: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "radius_2",
       },
 

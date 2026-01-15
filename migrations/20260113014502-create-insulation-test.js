@@ -22,11 +22,11 @@ module.exports = {
       },
 
       volt: {
-        type: Sequelize.DECIMAL(10, 2),
+        type: Sequelize.DECIMAL(10, 3),
       },
 
       incoming_value: {
-        type: Sequelize.DECIMAL(10, 2),
+        type: Sequelize.DECIMAL(10, 3),
       },
 
       incoming_unit: {
@@ -34,7 +34,7 @@ module.exports = {
       },
 
       final_value: {
-        type: Sequelize.DECIMAL(10, 2),
+        type: Sequelize.DECIMAL(10, 3),
       },
 
       final_unit: {

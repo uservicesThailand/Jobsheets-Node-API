@@ -23,52 +23,52 @@ module.exports = (sequelize, DataTypes) => {
       },
 
       incomingWeightDe: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "incoming_weight_de",
       },
 
       incomingAngleDe: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "incoming_angle_de",
       },
 
       incomingWeightNde: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "incoming_weight_nde",
       },
 
       incomingAngleNde: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "incoming_angle_nde",
       },
 
       finalWeightDe: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "final_weight_de",
       },
 
       finalAngleDe: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "final_angle_de",
       },
 
       finalWeightNde: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "final_weight_nde",
       },
 
       finalAngleNde: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "final_angle_nde",
       },
 
       stdToleranceDe: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "std_tolerance_de",
       },
 
       stdToleranceNde: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "std_tolerance_nde",
       },
 

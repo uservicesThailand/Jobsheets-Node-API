@@ -3,8 +3,8 @@ const { body } = require("express-validator");
 const decimalOptional = (field) =>
   body(field)
     .optional({ nullable: true })
-    .isDecimal({ decimal_digits: "0,2" })
-    .withMessage("Invalid decimal (max 2 digits)");
+    .isDecimal({ decimal_digits: "0,3" })
+    .withMessage("Invalid decimal (max 3 digits)");
 
 const enumOptional = (field, allowedValues) =>
   body(field)

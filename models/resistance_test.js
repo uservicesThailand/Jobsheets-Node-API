@@ -23,32 +23,32 @@ module.exports = (sequelize, DataTypes) => {
       },
 
       marking1: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "marking_1",
       },
 
       marking2: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "marking_2",
       },
 
       marking3: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "marking_3",
       },
 
       incoming1: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "incoming_1",
       },
 
       incoming2: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "incoming_2",
       },
 
       incoming3: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "incoming_3",
       },
 
@@ -58,17 +58,17 @@ module.exports = (sequelize, DataTypes) => {
       },
 
       final1: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "final_1",
       },
 
       final2: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "final_2",
       },
 
       final3: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "final_3",
       },
 

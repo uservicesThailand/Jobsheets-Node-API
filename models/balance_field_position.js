@@ -34,42 +34,42 @@ module.exports = (sequelize, DataTypes) => {
       },
 
       beforeUnbalance: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "before_unbalance",
       },
 
       beforeDegree1: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "before_degree_1",
       },
 
       beforeWeight: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "before_weight",
       },
 
       beforeDegree2: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "before_degree_2",
       },
 
       afterUnbalance: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "after_unbalance",
       },
 
       afterDegree1: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "after_degree_1",
       },
 
       afterWeight: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "after_weight",
       },
 
       afterDegree2: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "after_degree_2",
       },
 

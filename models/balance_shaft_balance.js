@@ -28,42 +28,42 @@ module.exports = (sequelize, DataTypes) => {
       },
 
       incomingWeightDe: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "incoming_weight_de",
       },
 
       incomingWeightNde: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "incoming_weight_nde",
       },
 
       incomingPhaseDe: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "incoming_phase_de",
       },
 
       incomingPhaseNde: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "incoming_phase_nde",
       },
 
       finalWeightDe: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "final_weight_de",
       },
 
       finalWeightNde: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "final_weight_nde",
       },
 
       finalPhaseDe: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "final_phase_de",
       },
 
       finalPhaseNde: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 3),
         field: "final_phase_nde",
       },
 
