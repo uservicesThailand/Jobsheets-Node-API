@@ -32,7 +32,7 @@ const upsert = async (inspNo, userKey, body) => {
     const ctx = await resolveFieldContext(inspNo);
     if (!ctx.success) return ctx;
 
-    body.data = prepareData(body.data);
+    body.data = prepareData(body.data, ctx.formMechanicalService?.data);
 
     const payload = {
       ...body,
