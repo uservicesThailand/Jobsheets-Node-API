@@ -84,7 +84,6 @@ const prepareData = (payload = {}, existingData = null) => {
 };
 
 const mapResponse = ({ formMechanicalService }) => {
-  console.log(formMechanicalService.toJSON());
   return {
     basket: formMechanicalService.basket,
     team: formMechanicalService.team,
