@@ -13,6 +13,18 @@ module.exports = (sequelize, DataTypes) => {
         targetKey: "inspId",
       });
 
+      this.belongsTo(models.Uuser, {
+        foreignKey: "createdBy",
+        targetKey: "userKey",
+        as: "createdUser",
+      });
+
+      this.belongsTo(models.Uuser, {
+        foreignKey: "updatedBy",
+        targetKey: "userKey",
+        as: "updatedUser",
+      });
+
       this.hasOne(models.BalanceRotor, {
         foreignKey: "balanceId",
         targetKey: "balId",

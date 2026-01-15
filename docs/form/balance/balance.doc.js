@@ -19,7 +19,7 @@ module.exports = {
 
       responses: {
         201: {
-           description: "Created",
+          description: "Created",
           content: {
             "application/json": {
               example: {
@@ -28,6 +28,10 @@ module.exports = {
                 data: {
                   inspNo: "URY-251111-001",
                   inspSv: "SVRY2501-0001",
+                  updatedBy: "dontstarve together",
+                  createdBy: "dontstarve together",
+                  updateAt: "1999-01-01T12:59:59.000Z",
+                  createdAt: "1999-01-01T12:59:59.000Z",
                 },
               },
             },
@@ -59,6 +63,10 @@ module.exports = {
                 data: {
                   inspNo: "URY-251111-001",
                   inspSv: "SVRY2501-0001",
+                  updatedBy: "dontstarve together",
+                  createdBy: "dontstarve together",
+                  updateAt: "1999-01-01T12:59:59.000Z",
+                  createdAt: "1999-01-01T12:59:59.000Z",
                 },
               },
             },

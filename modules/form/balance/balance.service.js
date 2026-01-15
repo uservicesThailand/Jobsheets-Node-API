@@ -25,17 +25,26 @@ const create = async (inspNo, userKey) => {
       };
     }
 
-    const createdFormBalance = await db.FormBalance.create({
+    const formBalance = await db.FormBalance.create({
       inspId: inspectionId,
       createdBy: userKey,
       updatedBy: userKey,
+    });
+
+    const formWithUser = await db.FormBalance.findByPk(formBalance.balId, {
+      include: [
+        { model: db.Uuser, as: "createdUser" },
+        { model: db.Uuser, as: "updatedUser" },
+      ],
     });
 
     return {
       success: true,
       data: {
         inspection: inspection,
-        formBalance: createdFormBalance,
+        formBalance: formWithUser,
+        createdBy: formWithUser.createdUser,
+        updatedBy: formWithUser.updatedUser,
       },
     };
   } catch (error) {
@@ -51,6 +60,10 @@ const get = async (inspNo) => {
         {
           model: db.FormBalance,
           required: true,
+          include: [
+            { model: db.Uuser, as: "createdUser" },
+            { model: db.Uuser, as: "updatedUser" },
+          ],
         },
       ],
     });
@@ -67,6 +80,8 @@ const get = async (inspNo) => {
       data: {
         inspection: inspection,
         formBalance: inspection.FormBalance,
+        createdBy: inspection.FormBalance.createdUser,
+        updatedBy: inspection.FormBalance.updatedUser,
       },
     };
   } catch (error) {
