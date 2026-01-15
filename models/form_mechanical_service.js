@@ -35,6 +35,23 @@ module.exports = (sequelize, DataTypes) => {
         field: "insp_sv",
       },
 
+      basket: {
+        type: DataTypes.STRING,
+      },
+
+      team: {
+        type: DataTypes.ENUM("1", "2", "3", "4"),
+      },
+
+      status: {
+        type: DataTypes.ENUM("NO_REPAIR", "WAIT_APPROVAL", "SENT_FOR_REPAIR"),
+      },
+
+      data: {
+        type: DataTypes.JSON,
+        allowNull: false,
+      },
+
       createdBy: {
         type: DataTypes.INTEGER(11),
         allowNull: true,
