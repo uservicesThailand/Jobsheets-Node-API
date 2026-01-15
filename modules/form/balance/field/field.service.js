@@ -65,6 +65,7 @@ const save = async (inspNo, body) => {
       ...body,
       balanceId: ctx.formBalance.balId,
     });
+    await createdField.reload();
 
     return {
       success: true,

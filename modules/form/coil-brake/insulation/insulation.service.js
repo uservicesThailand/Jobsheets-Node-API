@@ -61,6 +61,7 @@ const save = async (inspNo, body) => {
 
     payload.coilBrakeTestId = ctx.formCoilBrakeTest.cbtId;
     const insulationTest = await db.InsulationTest.create(payload);
+    await insulationTest.reload();
 
     return {
       success: true,

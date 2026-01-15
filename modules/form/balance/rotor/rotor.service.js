@@ -67,6 +67,7 @@ const saveRotor = async (inspNo, body) => {
       ...body,
       balanceId: ctx.formBalance.balId,
     });
+    await createdRotor.reload();
 
     return {
       success: true,
@@ -111,6 +112,7 @@ const saveRotorBalance = async (inspNo, body) => {
       ...body,
       balanceRotorId: ctx.balanceRotor.rotorId,
     });
+    await rotorBalance.reload();
 
     return {
       success: true,

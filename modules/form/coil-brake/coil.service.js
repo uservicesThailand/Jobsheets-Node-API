@@ -75,11 +75,13 @@ const save = async (inspNo, userKey, body) => {
     };
 
     const formCoilBrakeTest = await db.FormCoilBrakeTest.create(payload);
+    await formCoilBrakeTest.reload();
 
     const coilBrakeTestTypes = await syncBrakeTypes(
       formCoilBrakeTest.cbtId,
       body.brakeTypes
     );
+    
 
     return {
       success: true,

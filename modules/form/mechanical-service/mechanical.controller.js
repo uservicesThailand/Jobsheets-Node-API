@@ -1,0 +1,35 @@
+const service = require("./mechanical.service");
+const { validatePayload } = require("./mechanical.validator");
+const resUtil = require("../../../utils/response.util");
+const { mapResponse } = require("./mechanical.serializer");
+
+const save = async (req, res) => {
+  try {
+    const { inspNo } = req.params;
+
+    const errors = validatePayload(req.body.data);
+
+    if (errors.length) {
+      return resUtil.failResponse(
+        res,
+        errors.map((e) => e),
+        422
+      );
+    }
+
+    const result = await service.upsert(inspNo, req.userKey, req.body);
+    if (!result.success) {
+      return resUtil.failResponse(res, result.message);
+    }
+    return resUtil.successResponse(
+      res,
+      mapResponse(result.data),
+      result.created ? "created successfully" : "updated successfully",
+      result.created ? 201 : 200
+    );
+  } catch (err) {
+    return resUtil.errorResponse(res, err.message);
+  }
+};
+
+module.exports = { save };
