@@ -65,4 +65,45 @@ const upsert = async (inspNo, userKey, body) => {
   }
 };
 
-module.exports = { upsert };
+const get = async (inspNo) => {
+  try {
+    const ctx = await resolveFieldContext(inspNo);
+    if (!ctx.success) return ctx;
+
+    if (!ctx.formMechanicalService) {
+      return {
+        success: false,
+        message: "form mechanical service not found.",
+      };
+    }
+
+    return {
+      success: true,
+      data: { formMechanicalService: ctx.formMechanicalService },
+    };
+  } catch (err) {
+    throw err;
+  }
+};
+
+const remove = async (inspNo) => {
+  try {
+    const ctx = await resolveFieldContext(inspNo);
+    if (!ctx.success) return ctx;
+
+    if (!ctx.formMechanicalService) {
+      return {
+        success: false,
+        message: "form mechanical service not found.",
+      };
+    }
+    await ctx.formMechanicalService.destroy();
+    return {
+      success: true,
+    };
+  } catch (err) {
+    throw err;
+  }
+};
+
+module.exports = { upsert, get, remove };

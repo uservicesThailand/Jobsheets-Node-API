@@ -32,4 +32,37 @@ const save = async (req, res) => {
   }
 };
 
-module.exports = { save };
+const get = async (req, res) => {
+  try {
+    const { inspNo } = req.params;
+
+    const result = await service.get(inspNo);
+    if (!result.success) {
+      return resUtil.failResponse(res, result.message);
+    }
+    return resUtil.successResponse(
+      res,
+      mapResponse(result.data),
+      "fetched successfully",
+      200
+    );
+  } catch (err) {
+    return resUtil.errorResponse(res, err.message);
+  }
+};
+
+const remove = async (req, res) => {
+  try {
+    const { inspNo } = req.params;
+
+    const result = await service.remove(inspNo);
+    if (!result.success) {
+      return resUtil.failResponse(res, result.message);
+    }
+    return resUtil.successResponse(res, null, "deleted successfully", 200);
+  } catch (err) {
+    return resUtil.errorResponse(res, err.message);
+  }
+};
+
+module.exports = { save, get, remove };

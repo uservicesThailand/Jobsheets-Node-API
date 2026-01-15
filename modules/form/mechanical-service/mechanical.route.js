@@ -9,5 +9,7 @@ const router = express.Router();
 router.use("/image", imageRouter);
 
 router.post("/:inspNo", validator.create, validate, controller.save);
+router.get("/:inspNo", controller.get);
+router.delete("/:inspNo", controller.remove);
 
 module.exports = router;
