@@ -28,8 +28,8 @@ module.exports = {
                 data: {
                   inspNo: "URY-251111-001",
                   inspSv: "SVRY2501-0001",
-                  updatedBy: "dontstarve together",
-                  createdBy: "dontstarve together",
+                  updatedBy: "John Doe",
+                  createdBy: "Jane Doe",
                   updatedAt: "1999-01-01T12:59:59.000Z",
                   createdAt: "1999-01-01T12:59:59.000Z",
                 },
@@ -63,8 +63,8 @@ module.exports = {
                 data: {
                   inspNo: "URY-251111-001",
                   inspSv: "SVRY2501-0001",
-                  updatedBy: "dontstarve together",
-                  createdBy: "dontstarve together",
+                  updatedBy: "John Doe",
+                  createdBy: "Jane Doe",
                   updatedAt: "1999-01-01T12:59:59.000Z",
                   createdAt: "1999-01-01T12:59:59.000Z",
                 },

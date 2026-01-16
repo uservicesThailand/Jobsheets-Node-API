@@ -6,5 +6,6 @@ module.exports = {
     ...require("./form/balance/field.doc"),
     ...require("./form/coil/coil.doc"),
     ...require("./form/mechanical-service/mechanical.doc"),
+    ...require("./form/electrical-service/electrical.doc"),
   },
 };
