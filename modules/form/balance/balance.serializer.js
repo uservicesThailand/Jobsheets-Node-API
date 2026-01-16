@@ -4,7 +4,7 @@ const balance = ({ inspection, formBalance, createdBy, updatedBy }) => {
     inspSv: inspection.inspServiceOrder || null,
     updatedBy: `${updatedBy.name} ${updatedBy.lastname}`,
     createdBy: `${createdBy.name} ${createdBy.lastname}`,
-    updateAt: formBalance.updatedAt,
+    updatedAt: formBalance.updatedAt,
     createdAt: formBalance.createdAt,
   };
 };
