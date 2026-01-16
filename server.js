@@ -1,50 +1,49 @@
 // server.js
 /* require('dotenv').config(); */
-const crypto = require('crypto');
-const bcrypt = require('bcrypt');
-const express = require('express');
-const cors = require('cors');
-const { db, db2, db3 } = require('./db');
-const { setupLoginRoutes } = require('./login');
-const axios = require('axios');
-const dayjs = require('dayjs');
-const path = require('path');
-const http = require('http');
-const routes = require('./routes');
+const bcrypt = require("bcrypt");
+const express = require("express");
+const cors = require("cors");
+const { db, db2, db3 } = require("./db");
+const { setupLoginRoutes } = require("./login");
+const axios = require("axios");
+const dayjs = require("dayjs");
+const path = require("path");
+const http = require("http");
+const routes = require("./routes");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Swagger
-const { swaggerUi, swaggerSpec } = require('./config/swagger');
+const { swaggerUi, swaggerSpec } = require("./config/swagger");
 
 // CORS: ใช้โดเมนจริงจาก ENV (คอมมาคั่นได้), dev fallback เป็น localhost
-const allowedOrigins = process.env.FRONTEND_ORIGIN?.split(',').map(s => s.trim()) || [];
+const allowedOrigins =
+  process.env.FRONTEND_ORIGIN?.split(",").map((s) => s.trim()) || [];
 
 app.use(
   cors({
     origin: allowedOrigins,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    credentials: true
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    credentials: true,
   })
 );
 
 app.use(express.json());
-app.use('/api', routes);
-
+app.use("/api", routes);
 
 setupLoginRoutes(app, db, db3);
 
 /* ดึง print */
 /**
-* GET /api/report/inspection/:insp_no
-* ดึงข้อมูลรายงานตาม Inspection No
-*/
+ * GET /api/report/inspection/:insp_no
+ * ดึงข้อมูลรายงานตาม Inspection No
+ */
 
-app.get('/inspection/:insp_no', (req, res) => {
+app.get("/inspection/:insp_no", (req, res) => {
   const { insp_no } = req.params;
   if (!insp_no) {
-    return res.status(400).json({ error: 'missing insp_no' });
+    return res.status(400).json({ error: "missing insp_no" });
   }
 
   const sql = `
@@ -82,11 +81,11 @@ app.get('/inspection/:insp_no', (req, res) => {
 
   db.query(sql, [insp_no], (err, rows) => {
     if (err) {
-      console.error('GET report/inspection by insp_no error:', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
+      console.error("GET report/inspection by insp_no error:", err);
+      return res.status(500).json({ error: "Internal Server Error" });
     }
     if (!rows || rows.length === 0) {
-      return res.status(404).json({ error: 'not found' });
+      return res.status(404).json({ error: "not found" });
     }
     return res.json(rows[0]);
   });
@@ -95,25 +94,25 @@ app.get('/inspection/:insp_no', (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // HTTP server + Socket.IO
 const server = http.createServer(app);
-const { Server } = require('socket.io');
+const { Server } = require("socket.io");
 
 const io = new Server(server, {
   cors: {
     origin: allowedOrigins,
-    methods: ['GET', 'POST'],
-    credentials: true
+    methods: ["GET", "POST"],
+    credentials: true,
   },
-  transports: ['websocket', 'polling'],
+  transports: ["websocket", "polling"],
   pingInterval: 25000,
   pingTimeout: 20000,
-  path: '/socket.io'
+  path: "/socket.io",
 });
 
 // ให้ route ต่าง ๆ ใช้งาน io ได้
-app.set('io', io);
+app.set("io", io);
 
 // ── Socket.IO
-io.on('connection', (socket) => {
+io.on("connection", (socket) => {
   // auto-join จาก auth
   const authUserKey = socket.handshake?.auth?.userKey;
   if (authUserKey) {
@@ -123,62 +122,64 @@ io.on('connection', (socket) => {
   }
 
   // รองรับวิธีเดิม: client ส่ง 'join' มา
-  socket.on('join', (userKey) => {
+  socket.on("join", (userKey) => {
     if (!userKey) return;
     const room = `user:${String(userKey)}`;
     socket.join(room);
     /* console.log(`[WS] ${socket.id} joined ${room}`); */
   });
 
-  socket.on('disconnect', (reason) => {
-    console.log('[WS] disconnected:', socket.id, reason);
+  socket.on("disconnect", (reason) => {
+    console.log("[WS] disconnected:", socket.id, reason);
   });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Upload (multer + sharp + fs) with safer config
-const multer = require('multer');
-const sharp = require('sharp');
-const fs = require('fs');
+const multer = require("multer");
+const sharp = require("sharp");
+const fs = require("fs");
 // กำหนด storage สำหรับ multer (เก็บไฟล์ชั่วคราว)
 const storage = multer.memoryStorage();
 const upload = multer({
   storage: storage,
   limits: {
-    fileSize: 10 * 1024 * 1024 // จำกัด 10MB
+    fileSize: 10 * 1024 * 1024, // จำกัด 10MB
   },
   fileFilter: (req, file, cb) => {
     const allowedTypes = /jpeg|jpg|png|webp/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const extname = allowedTypes.test(
+      path.extname(file.originalname).toLowerCase()
+    );
     const mimetype = allowedTypes.test(file.mimetype);
 
     if (mimetype && extname) {
       return cb(null, true);
     } else {
-      cb(new Error('รองรับเฉพาะไฟล์รูปภาพ (JPEG, PNG, WebP)'));
+      cb(new Error("รองรับเฉพาะไฟล์รูปภาพ (JPEG, PNG, WebP)"));
     }
-  }
+  },
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Global process error logs
-process.on('uncaughtException', err => {
-  console.error('Uncaught Exception:', err);
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught Exception:", err);
 });
 
-process.on('unhandledRejection', err => {
-  console.error('Unhandled Rejection:', err);
+process.on("unhandledRejection", (err) => {
+  console.error("Unhandled Rejection:", err);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Utils (BC)
-const { getBcAccessToken } = require('./bcAuth');
+const { getBcAccessToken } = require("./bcAuth");
 
 function buildDocumentNoFilter(orderNos = []) {
-  if (!orderNos.length) return '';
+  if (!orderNos.length) return "";
   const conditions = orderNos
-    .map(no => `Document_No eq '${String(no).replace(/'/g, "''")}'`)
-    .join(' or ');
+    .map((no) => `Document_No eq '${String(no).replace(/'/g, "''")}'`)
+    .join(" or ");
   return `$filter=${conditions}`;
 }
 
@@ -192,22 +193,22 @@ function chunkArray(array, size) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Swagger & Static
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-app.use('/img', express.static(path.join(__dirname, 'public', 'img_upload')));
-app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.use("/img", express.static(path.join(__dirname, "public", "img_upload")));
+app.use("/uploads", express.static(path.join(__dirname, "public", "uploads")));
 
 // Health
-app.get('/', (req, res) => {
+app.get("/", (req, res) => {
   res.json({
-    service: 'Inspection Management API',
-    version: '1.0.0',
-    status: 'running',
+    service: "Inspection Management API",
+    version: "1.0.0",
+    status: "running",
     uptime: process.uptime(),
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 });
 
-app.get('/health', (req, res) => res.status(200).send('OK'));
+app.get("/health", (req, res) => res.status(200).send("OK"));
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Notify Followers (ปรับใช้ array rooms + user: prefix)
@@ -219,7 +220,7 @@ const notifyFollowers = (insp_id) => {
   `;
   db.query(getFollowersSql, [insp_id], (err, followers = []) => {
     if (err) {
-      console.error('[WS] followers err:', err);
+      console.error("[WS] followers err:", err);
       return;
     }
     if (!followers.length) return;
@@ -233,7 +234,7 @@ const notifyFollowers = (insp_id) => {
       if (err2 || !rows.length) return;
       const data = rows[0];
       const rooms = followers.map(({ user_key }) => `user:${user_key}`);
-      io.to(rooms).emit('notification', data);
+      io.to(rooms).emit("notification", data);
       console.log(`[WS] notify ${rooms.length} followers for insp ${insp_id}`);
     });
   });
@@ -241,7 +242,7 @@ const notifyFollowers = (insp_id) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BC API Join
-app.post('/api/bc/data', async (req, res) => {
+app.post("/api/bc/data", async (req, res) => {
   const selectedYear = req.body.year || new Date().getFullYear();
   const selectedMonth = req.body.month;
   const branch = req.body.branch;
@@ -250,7 +251,7 @@ app.post('/api/bc/data', async (req, res) => {
   let endDate = `${selectedYear}-12-31T23:59:59.999Z`;
 
   if (selectedMonth) {
-    const paddedMonth = String(selectedMonth).padStart(2, '0');
+    const paddedMonth = String(selectedMonth).padStart(2, "0");
     const start = new Date(`${selectedYear}-${paddedMonth}-01T00:00:00.000Z`);
     const end = new Date(start.getFullYear(), start.getMonth() + 1, 0);
     startDate = start.toISOString();
@@ -270,29 +271,30 @@ app.post('/api/bc/data', async (req, res) => {
     const orderRes = await axios.get(orderUrl, {
       headers: {
         Authorization: `Bearer ${token}`,
-        Accept: 'application/json'
-      }
+        Accept: "application/json",
+      },
     });
 
     const allOrders = orderRes.data.value;
 
     const existingOrders = await new Promise((resolve, reject) => {
       db.query(
-        'SELECT insp_service_order FROM tbl_inspection_list WHERE YEAR(insp_created_at) = ?',
+        "SELECT insp_service_order FROM tbl_inspection_list WHERE YEAR(insp_created_at) = ?",
         [selectedYear],
         (err, results) => {
           if (err) reject(err);
-          else resolve(results.map(r => r.insp_service_order));
+          else resolve(results.map((r) => r.insp_service_order));
         }
       );
     });
 
-    const filteredOrders = allOrders.filter(order =>
-      !existingOrders.includes(order.No) &&
-      (!branch || order.USVT_ResponsibilityCenter === branch)
+    const filteredOrders = allOrders.filter(
+      (order) =>
+        !existingOrders.includes(order.No) &&
+        (!branch || order.USVT_ResponsibilityCenter === branch)
     );
 
-    const orderNos = filteredOrders.map(order => order.No);
+    const orderNos = filteredOrders.map((order) => order.No);
     if (!orderNos.length) return res.json([]);
 
     const orderChunks = chunkArray(orderNos, 30);
@@ -307,76 +309,78 @@ app.post('/api/bc/data', async (req, res) => {
       const itemRes = await axios.get(itemUrl, {
         headers: {
           Authorization: `Bearer ${token}`,
-          Accept: 'application/json'
-        }
+          Accept: "application/json",
+        },
       });
 
       allItems = allItems.concat(itemRes.data.value);
     }
 
-    const joined = filteredOrders.map(order => {
-      const relatedItems = allItems.filter(item => item.Document_No === order.No);
+    const joined = filteredOrders.map((order) => {
+      const relatedItems = allItems.filter(
+        (item) => item.Document_No === order.No
+      );
       return {
         ...order,
-        Service_Item_No: relatedItems[0]?.Service_Item_No || '',
-        Item_No: relatedItems[0]?.Item_No || ''
+        Service_Item_No: relatedItems[0]?.Service_Item_No || "",
+        Item_No: relatedItems[0]?.Item_No || "",
       };
     });
 
     res.json(joined);
   } catch (err) {
-    console.error('BC API JOIN Error:', err?.message || err);
-    res.status(500).json({ error: 'เกิดข้อผิดพลาดในการดึงข้อมูลจาก BC' });
+    console.error("BC API JOIN Error:", err?.message || err);
+    res.status(500).json({ error: "เกิดข้อผิดพลาดในการดึงข้อมูลจาก BC" });
   }
 });
 
 //_______________________________________________________________________________
 // Logout Endpoint
-app.post('/api/logout', (req, res) => {
+app.post("/api/logout", (req, res) => {
   const { user_key } = req.body || {};
 
   if (!user_key) {
-    return res.status(400).json({ error: 'ไม่พบ user_key' });
+    return res.status(400).json({ error: "ไม่พบ user_key" });
   }
 
   const sql = `UPDATE u_user SET u_last_logout = NOW() WHERE user_key = ?`;
 
   db.query(sql, [user_key], (err, result) => {
     if (err) {
-      console.error('Database error:', err);
-      return res.status(500).json({ error: 'Database error' });
+      console.error("Database error:", err);
+      return res.status(500).json({ error: "Database error" });
     }
 
     if (result.affectedRows === 0) {
-      return res.status(404).json({ error: 'ไม่พบผู้ใช้' });
+      return res.status(404).json({ error: "ไม่พบผู้ใช้" });
     }
 
-    res.json({ message: 'ออกจากระบบสำเร็จ' });
+    res.json({ message: "ออกจากระบบสำเร็จ" });
   });
 });
 // ====== แทรกในไฟล์แอปหลัก (หลังจาก app.use(express.json()) และมีตัวแปร db แล้ว) ======
 
 // ✅ Middleware ตรวจสิทธิ์ admin/developer จาก X-User-Key
 function requireAdminOrDev(req, res, next) {
-  const adminKey = req.header('X-User-Key');
-  if (!adminKey) return res.status(401).json({ error: 'Unauthorized' });
+  const adminKey = req.header("X-User-Key");
+  if (!adminKey) return res.status(401).json({ error: "Unauthorized" });
 
   const sql = `SELECT u_role FROM u_user WHERE user_key = ? AND user_status = 1`;
   db.query(sql, [adminKey], (err, rows) => {
-    if (err) return res.status(500).json({ error: 'Database error' });
-    if (!rows.length) return res.status(401).json({ error: 'Unauthorized' });
+    if (err) return res.status(500).json({ error: "Database error" });
+    if (!rows.length) return res.status(401).json({ error: "Unauthorized" });
 
-    const role = String(rows[0].u_role || '').toLowerCase();
-    if (role === 'admin' || role === 'developer') return next();
-    return res.status(403).json({ error: 'Forbidden' });
+    const role = String(rows[0].u_role || "").toLowerCase();
+    if (role === "admin" || role === "developer") return next();
+    return res.status(403).json({ error: "Forbidden" });
   });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ADMIN: ลิสต์ผู้ใช้ (ค้นหาได้ด้วย ?q=)
 // GET /api/admin/users
-app.get('/api/admin/users', requireAdminOrDev, (req, res) => {
-  const q = (req.query.q || '').trim();
+app.get("/api/admin/users", requireAdminOrDev, (req, res) => {
+  const q = (req.query.q || "").trim();
   const like = `%${q}%`;
   const sql = `
     SELECT 
@@ -397,8 +401,11 @@ app.get('/api/admin/users', requireAdminOrDev, (req, res) => {
 
   db.query(sql, params, (err, rows) => {
     if (err) {
-      console.error('Database error (/api/admin/users):', err.sqlMessage || err);
-      return res.status(500).json({ error: 'Database error' });
+      console.error(
+        "Database error (/api/admin/users):",
+        err.sqlMessage || err
+      );
+      return res.status(500).json({ error: "Database error" });
     }
     res.json(rows);
   });
@@ -407,64 +414,110 @@ app.get('/api/admin/users', requireAdminOrDev, (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // ADMIN: เพิ่มผู้ใช้ใหม่ (รหัสผ่านเข้ารหัสเป็น bcrypt เท่านั้น)
 // POST /api/admin/users
-app.post('/api/admin/users', requireAdminOrDev, async (req, res) => {
+app.post("/api/admin/users", requireAdminOrDev, async (req, res) => {
   try {
     const {
-      name, lastname, username, password,
-      user_photo = null, user_class = 0, bed_view = null,
-      user_language = null, u_email = null, user_status = 1,
-      user_type = null, u_department = null, branch_log = null,
-      u_add_by = null, line_id = null, u_tel = null, u_role = 'user'
+      name,
+      lastname,
+      username,
+      password,
+      user_photo = null,
+      user_class = 0,
+      bed_view = null,
+      user_language = null,
+      u_email = null,
+      user_status = 1,
+      user_type = null,
+      u_department = null,
+      branch_log = null,
+      u_add_by = null,
+      line_id = null,
+      u_tel = null,
+      u_role = "user",
     } = req.body || {};
 
     if (!username || !password || !name) {
-      return res.status(400).json({ error: 'กรอก name, username, password ให้ครบ' });
+      return res
+        .status(400)
+        .json({ error: "กรอก name, username, password ให้ครบ" });
     }
     if (password.length < 6) {
-      return res.status(400).json({ error: 'รหัสผ่านต้องอย่างน้อย 6 ตัวอักษร' });
+      return res
+        .status(400)
+        .json({ error: "รหัสผ่านต้องอย่างน้อย 6 ตัวอักษร" });
     }
 
     // ห้าม username ซ้ำ
-    db.query(`SELECT user_key FROM u_user WHERE username = ? LIMIT 1`, [username], async (err, rows) => {
-      if (err) return res.status(500).json({ error: 'Database error' });
-      if (rows.length) return res.status(409).json({ error: 'username ซ้ำ' });
+    db.query(
+      `SELECT user_key FROM u_user WHERE username = ? LIMIT 1`,
+      [username],
+      async (err, rows) => {
+        if (err) return res.status(500).json({ error: "Database error" });
+        if (rows.length) return res.status(409).json({ error: "username ซ้ำ" });
 
-      const salt = await bcrypt.genSalt(10);
-      const hash = await bcrypt.hash(password, salt);
+        const salt = await bcrypt.genSalt(10);
+        const hash = await bcrypt.hash(password, salt);
 
-      const insertSql = `
+        const insertSql = `
         INSERT INTO u_user
         (name, lastname, username, password, user_photo, user_class, bed_view,
          user_language, u_email, user_status, user_type, u_department, branch_log,
          u_add_date, u_add_by, u_update_date, line_id, u_tel, u_role)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, NOW(), ?, ?, ?)
       `;
-      const params = [
-        name || null, lastname || null, username, hash, user_photo,
-        +user_class || 0, bed_view, user_language, u_email, +user_status || 1,
-        user_type, u_department, branch_log, u_add_by, line_id, u_tel, u_role
-      ];
+        const params = [
+          name || null,
+          lastname || null,
+          username,
+          hash,
+          user_photo,
+          +user_class || 0,
+          bed_view,
+          user_language,
+          u_email,
+          +user_status || 1,
+          user_type,
+          u_department,
+          branch_log,
+          u_add_by,
+          line_id,
+          u_tel,
+          u_role,
+        ];
 
-      db.query(insertSql, params, (err2, result) => {
-        if (err2) return res.status(500).json({ error: 'Database error' });
-        res.status(201).json({ user_key: result.insertId });
-      });
-    });
+        db.query(insertSql, params, (err2, result) => {
+          if (err2) return res.status(500).json({ error: "Database error" });
+          res.status(201).json({ user_key: result.insertId });
+        });
+      }
+    );
   } catch (e) {
     console.error(e);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: "Server error" });
   }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ADMIN: แก้ไขข้อมูลผู้ใช้/เปิดปิดการใช้งาน/เปลี่ยน role
 // PATCH /api/admin/users/:user_key
-app.patch('/api/admin/users/:user_key', requireAdminOrDev, (req, res) => {
+app.patch("/api/admin/users/:user_key", requireAdminOrDev, (req, res) => {
   const { user_key } = req.params;
   const allowed = [
-    'name', 'lastname', 'user_photo', 'user_class', 'bed_view', 'user_language',
-    'u_email', 'user_status', 'user_type', 'u_department', 'branch_log',
-    'u_add_by', 'line_id', 'u_tel', 'u_role'
+    "name",
+    "lastname",
+    "user_photo",
+    "user_class",
+    "bed_view",
+    "user_language",
+    "u_email",
+    "user_status",
+    "user_type",
+    "u_department",
+    "branch_log",
+    "u_add_by",
+    "line_id",
+    "u_tel",
+    "u_role",
   ];
 
   const fields = [];
@@ -475,64 +528,77 @@ app.patch('/api/admin/users/:user_key', requireAdminOrDev, (req, res) => {
       params.push(req.body[k]);
     }
   });
-  if (!fields.length) return res.status(400).json({ error: 'No updatable fields' });
+  if (!fields.length)
+    return res.status(400).json({ error: "No updatable fields" });
 
   fields.push(`u_update_date = NOW()`);
-  const sql = `UPDATE u_user SET ${fields.join(', ')} WHERE user_key = ?`;
+  const sql = `UPDATE u_user SET ${fields.join(", ")} WHERE user_key = ?`;
   params.push(user_key);
 
   db.query(sql, params, (err, result) => {
-    if (err) return res.status(500).json({ error: 'Database error' });
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'User not found' });
-    res.json({ message: 'updated' });
+    if (err) return res.status(500).json({ error: "Database error" });
+    if (result.affectedRows === 0)
+      return res.status(404).json({ error: "User not found" });
+    res.json({ message: "updated" });
   });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ADMIN: เปลี่ยนรหัสผ่าน (bcrypt)
 // PATCH /api/admin/users/:user_key/password
-app.patch('/api/admin/users/:user_key/password', requireAdminOrDev, async (req, res) => {
-  try {
-    const { user_key } = req.params;
-    const { new_password } = req.body || {};
-    if (!new_password || new_password.length < 6) {
-      return res.status(400).json({ error: 'new_password อย่างน้อย 6 ตัวอักษร' });
-    }
-
-    const salt = await bcrypt.genSalt(10);
-    const hash = await bcrypt.hash(new_password, salt);
-
-    db.query(
-      `UPDATE u_user SET password = ?, u_update_date = NOW() WHERE user_key = ?`,
-      [hash, user_key],
-      (err, result) => {
-        if (err) return res.status(500).json({ error: 'Database error' });
-        if (result.affectedRows === 0) return res.status(404).json({ error: 'User not found' });
-        res.json({ message: 'password updated' });
+app.patch(
+  "/api/admin/users/:user_key/password",
+  requireAdminOrDev,
+  async (req, res) => {
+    try {
+      const { user_key } = req.params;
+      const { new_password } = req.body || {};
+      if (!new_password || new_password.length < 6) {
+        return res
+          .status(400)
+          .json({ error: "new_password อย่างน้อย 6 ตัวอักษร" });
       }
-    );
 
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: 'Server error' });
+      const salt = await bcrypt.genSalt(10);
+      const hash = await bcrypt.hash(new_password, salt);
+
+      db.query(
+        `UPDATE u_user SET password = ?, u_update_date = NOW() WHERE user_key = ?`,
+        [hash, user_key],
+        (err, result) => {
+          if (err) return res.status(500).json({ error: "Database error" });
+          if (result.affectedRows === 0)
+            return res.status(404).json({ error: "User not found" });
+          res.json({ message: "password updated" });
+        }
+      );
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: "Server error" });
+    }
   }
-});
+);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // (ตัวเลือก) ADMIN: ลบผู้ใช้
 // DELETE /api/admin/users/:user_key
-app.delete('/api/admin/users/:user_key', requireAdminOrDev, (req, res) => {
+app.delete("/api/admin/users/:user_key", requireAdminOrDev, (req, res) => {
   const { user_key } = req.params;
-  db.query(`DELETE FROM u_user WHERE user_key = ?`, [user_key], (err, result) => {
-    if (err) return res.status(500).json({ error: 'Database error' });
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'User not found' });
-    res.json({ message: 'deleted' });
-  });
+  db.query(
+    `DELETE FROM u_user WHERE user_key = ?`,
+    [user_key],
+    (err, result) => {
+      if (err) return res.status(500).json({ error: "Database error" });
+      if (result.affectedRows === 0)
+        return res.status(404).json({ error: "User not found" });
+      res.json({ message: "deleted" });
+    }
+  );
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 001-start-POST-inspection
-app.post('/api/inspection', (req, res) => {
+app.post("/api/inspection", (req, res) => {
   const {
     name,
     cusNo,
@@ -544,10 +610,10 @@ app.post('/api/inspection', (req, res) => {
     service_item,
     document_date,
     motor_code,
-    user_id
+    user_id,
   } = req.body;
 
-  const insp_station_now = 'Start';
+  const insp_station_now = "Start";
 
   const insertSql = `
     INSERT INTO tbl_inspection_list (
@@ -567,11 +633,23 @@ app.post('/api/inspection', (req, res) => {
 
   db.query(
     insertSql,
-    [cusNo, name, branch, priority, sale_quote, service_order, service_type, service_item, document_date, motor_code, insp_station_now],
+    [
+      cusNo,
+      name,
+      branch,
+      priority,
+      sale_quote,
+      service_order,
+      service_type,
+      service_item,
+      document_date,
+      motor_code,
+      insp_station_now,
+    ],
     (err, result) => {
       if (err) {
-        console.error('Insert Error:', err);
-        return res.status(500).json({ error: 'ไม่สามารถบันทึกข้อมูลได้' });
+        console.error("Insert Error:", err);
+        return res.status(500).json({ error: "ไม่สามารถบันทึกข้อมูลได้" });
       }
 
       const inspectionId = result.insertId;
@@ -589,7 +667,7 @@ app.post('/api/inspection', (req, res) => {
 
       db.query(logSql, [inspectionId, user_id, logNote], (logErr) => {
         if (logErr) {
-          console.error('Log Error:', logErr);
+          console.error("Log Error:", logErr);
         }
 
         const selectSql = `
@@ -598,7 +676,7 @@ app.post('/api/inspection', (req, res) => {
 
         db.query(selectSql, [inspectionId], (selectErr, rows) => {
           if (selectErr || rows.length === 0) {
-            console.error('Select insp_no Error:', selectErr);
+            console.error("Select insp_no Error:", selectErr);
             return res.json({ success: true, id: inspectionId });
           }
 
@@ -612,13 +690,13 @@ app.post('/api/inspection', (req, res) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 002-GET-Motor
-app.get('/api/motors', (req, res) => {
+app.get("/api/motors", (req, res) => {
   db.query(
-    'SELECT motor_code, motor_name FROM list_motor_type WHERE is_active = 1',
+    "SELECT motor_code, motor_name FROM list_motor_type WHERE is_active = 1",
     (err, results) => {
       if (err) {
-        console.error('Query motor error:', err);
-        return res.status(500).json({ error: 'ไม่สามารถดึง motor ได้' });
+        console.error("Query motor error:", err);
+        return res.status(500).json({ error: "ไม่สามารถดึง motor ได้" });
       }
       res.json(results);
     }
@@ -629,8 +707,8 @@ app.get('/api/motors', (req, res) => {
 // DRY list endpoints
 function createStepEndpoint(path, stationList, label) {
   app.get(path, (req, res) => {
-    const { branch = '' } = req.query;
-    const placeholders = stationList.map(() => '?').join(', ');
+    const { branch = "" } = req.query;
+    const placeholders = stationList.map(() => "?").join(", ");
 
     // ใช้ let เพราะจะมีการต่อสตริงเพิ่ม
     let sql = `
@@ -676,14 +754,14 @@ function createStepEndpoint(path, stationList, label) {
         return res.status(500).json({ error: `ไม่สามารถดึง Step${label} ได้` });
       }
 
-      const formatted = results.map(row => ({
+      const formatted = results.map((row) => ({
         ...row,
         insp_document_date: row.insp_document_date
-          ? dayjs(row.insp_document_date).format('YYYY-MM-DD')
+          ? dayjs(row.insp_document_date).format("YYYY-MM-DD")
           : null,
         insp_created_at: row.insp_created_at
-          ? dayjs(row.insp_created_at).format('YYYY-MM-DD HH:mm:ss')
-          : null
+          ? dayjs(row.insp_created_at).format("YYYY-MM-DD HH:mm:ss")
+          : null,
       }));
 
       res.json(formatted);
@@ -691,15 +769,18 @@ function createStepEndpoint(path, stationList, label) {
   });
 }
 
-createStepEndpoint('/api/StepQA', ['QA BLANK', 'QA Incoming', 'QA final', 'QA appr'], 'QA Incomming');
-createStepEndpoint('/api/StepME', ['ME', 'ME Final'], 'ME');
-createStepEndpoint('/api/StepPlanning', ['PLANNING'], 'Planning');
-createStepEndpoint('/api/StepCS', ['CS', 'CS Prove'], 'CS');
-createStepEndpoint('/api/StepQC', ['QC Incoming', 'QC Final'], 'QC Incoming');
-
+createStepEndpoint(
+  "/api/StepQA",
+  ["QA BLANK", "QA Incoming", "QA final", "QA appr"],
+  "QA Incomming"
+);
+createStepEndpoint("/api/StepME", ["ME", "ME Final"], "ME");
+createStepEndpoint("/api/StepPlanning", ["PLANNING"], "Planning");
+createStepEndpoint("/api/StepCS", ["CS", "CS Prove"], "CS");
+createStepEndpoint("/api/StepQC", ["QC Incoming", "QC Final"], "QC Incoming");
 
 // ─────────────────────────────────────────────────────────────────────────────
-app.post('/api/manpower', (req, res) => {
+app.post("/api/manpower", (req, res) => {
   const { insp_no, manpower } = req.body;
 
   // Validate input
@@ -720,30 +801,30 @@ app.post('/api/manpower', (req, res) => {
 
   db.query(updateManpower, [manpower, insp_no], (err, result) => {
     if (err) {
-      console.error('Update error:', err);
+      console.error("Update error:", err);
       return res.status(500).json({
-        error: 'ไม่สามารถอัปเดตจำนวนคนได้'
+        error: "ไม่สามารถอัปเดตจำนวนคนได้",
       });
     }
 
     // ตรวจสอบว่ามีการ update จริงหรือไม่
     if (result.affectedRows === 0) {
       return res.status(404).json({
-        error: 'ไม่พบข้อมูลที่ต้องการอัปเดต'
+        error: "ไม่พบข้อมูลที่ต้องการอัปเดต",
       });
     }
 
     // ส่ง response สำเร็จ
     res.json({
       success: true,
-      message: 'อัปเดตจำนวนคนสำเร็จ',
-      affectedRows: result.affectedRows
+      message: "อัปเดตจำนวนคนสำเร็จ",
+      affectedRows: result.affectedRows,
     });
   });
 });
 
 // Stations
-app.post('/api/send_station001', (req, res) => {
+app.post("/api/send_station001", (req, res) => {
   const { insp_id, insp_no, next_station, user_id, manpower } = req.body;
 
   const updateSql = `
@@ -759,8 +840,8 @@ app.post('/api/send_station001', (req, res) => {
 
   db.query(updateSql, [next_station, insp_id], (err) => {
     if (err) {
-      console.error('Update error:', err);
-      return res.status(500).json({ error: 'ไม่สามารถอัปเดตสถานีได้' });
+      console.error("Update error:", err);
+      return res.status(500).json({ error: "ไม่สามารถอัปเดตสถานีได้" });
     }
 
     // หา station_step สูงสุดปัจจุบัน
@@ -772,8 +853,8 @@ app.post('/api/send_station001', (req, res) => {
 
     db.query(getMaxStepSql, [insp_id], (err1, result) => {
       if (err1) {
-        console.error('Get max step error:', err1);
-        return res.status(500).json({ error: 'ไม่สามารถหา step ปัจจุบันได้' });
+        console.error("Get max step error:", err1);
+        return res.status(500).json({ error: "ไม่สามารถหา step ปัจจุบันได้" });
       }
 
       const currentMaxStep = result[0].current_max_step;
@@ -788,12 +869,16 @@ app.post('/api/send_station001', (req, res) => {
             AND station_step = ?
         `;
 
-        db.query(updateManpowerSql, [manpower, insp_id, currentMaxStep], (err2) => {
-          if (err2) {
-            console.error('Manpower update error:', err2);
-            // ไม่ return เพราะไม่ให้ manpower error หยุด flow หลัก
+        db.query(
+          updateManpowerSql,
+          [manpower, insp_id, currentMaxStep],
+          (err2) => {
+            if (err2) {
+              console.error("Manpower update error:", err2);
+              // ไม่ return เพราะไม่ให้ manpower error หยุด flow หลัก
+            }
           }
-        });
+        );
       }
 
       // Insert log ใหม่ด้วย station_step ถัดไป
@@ -813,11 +898,11 @@ app.post('/api/send_station001', (req, res) => {
 
       db.query(
         insertLogSql,
-        [insp_id, insp_no, nextStep, next_station, 'PENDING', user_id],
+        [insp_id, insp_no, nextStep, next_station, "PENDING", user_id],
         (err3) => {
           if (err3) {
-            console.error('Log insert error:', err3);
-            return res.status(500).json({ error: 'บันทึก timeline ไม่สำเร็จ' });
+            console.error("Log insert error:", err3);
+            return res.status(500).json({ error: "บันทึก timeline ไม่สำเร็จ" });
           }
           notifyFollowers(insp_id);
           res.json({ success: true });
@@ -827,7 +912,7 @@ app.post('/api/send_station001', (req, res) => {
   });
 });
 
-app.post('/api/accept_station', (req, res) => {
+app.post("/api/accept_station", (req, res) => {
   const { insp_no, insp_id, user_id } = req.body;
 
   const getStationSql = `
@@ -838,8 +923,10 @@ app.post('/api/accept_station', (req, res) => {
 
   db.query(getStationSql, [insp_id], (err, results) => {
     if (err || results.length === 0) {
-      console.error('Fetch station error:', err);
-      return res.status(500).json({ error: 'ไม่พบข้อมูลสถานีหรือเกิดข้อผิดพลาด' });
+      console.error("Fetch station error:", err);
+      return res
+        .status(500)
+        .json({ error: "ไม่พบข้อมูลสถานีหรือเกิดข้อผิดพลาด" });
     }
 
     const currentStation = results[0].insp_station_now;
@@ -853,8 +940,8 @@ app.post('/api/accept_station', (req, res) => {
 
     db.query(updateSql, [insp_id], (err2) => {
       if (err2) {
-        console.error('Update error:', err2);
-        return res.status(500).json({ error: 'ไม่สามารถอัปเดตสถานีได้' });
+        console.error("Update error:", err2);
+        return res.status(500).json({ error: "ไม่สามารถอัปเดตสถานีได้" });
       }
 
       // หา station_step สูงสุดปัจจุบัน
@@ -866,8 +953,10 @@ app.post('/api/accept_station', (req, res) => {
 
       db.query(getMaxStepSql, [insp_id], (err3, stepResult) => {
         if (err3) {
-          console.error('Get max step error:', err3);
-          return res.status(500).json({ error: 'ไม่สามารถหา step ปัจจุบันได้' });
+          console.error("Get max step error:", err3);
+          return res
+            .status(500)
+            .json({ error: "ไม่สามารถหา step ปัจจุบันได้" });
         }
 
         const currentMaxStep = stepResult[0].current_max_step;
@@ -888,11 +977,13 @@ app.post('/api/accept_station', (req, res) => {
 
         db.query(
           insertLogSql,
-          [insp_id, insp_no, nextStep, currentStation, 'accepted', user_id],
+          [insp_id, insp_no, nextStep, currentStation, "accepted", user_id],
           (err4) => {
             if (err4) {
-              console.error('Log insert error:', err4);
-              return res.status(500).json({ error: 'บันทึก timeline ไม่สำเร็จ' });
+              console.error("Log insert error:", err4);
+              return res
+                .status(500)
+                .json({ error: "บันทึก timeline ไม่สำเร็จ" });
             }
 
             notifyFollowers(insp_id);
@@ -904,7 +995,7 @@ app.post('/api/accept_station', (req, res) => {
   });
 });
 
-app.post('/api/rework_station', (req, res) => {
+app.post("/api/rework_station", (req, res) => {
   const { insp_id, insp_no, prev_station, now_station, user_id } = req.body;
 
   const updateSql = `
@@ -920,8 +1011,8 @@ app.post('/api/rework_station', (req, res) => {
 
   db.query(updateSql, [now_station, prev_station, insp_id], (err) => {
     if (err) {
-      console.error('Update error:', err);
-      return res.status(500).json({ error: 'ไม่สามารถอัปเดตสถานีได้' });
+      console.error("Update error:", err);
+      return res.status(500).json({ error: "ไม่สามารถอัปเดตสถานีได้" });
     }
 
     // NOTE: หา station_step สูงสุดปัจจุบัน
@@ -933,13 +1024,12 @@ app.post('/api/rework_station', (req, res) => {
 
     db.query(getMaxStepSql, [insp_id], (err1, result) => {
       if (err1) {
-        console.error('Get max step error:', err1);
-        return res.status(500).json({ error: 'ไม่สามารถหา step ปัจจุบันได้' });
+        console.error("Get max step error:", err1);
+        return res.status(500).json({ error: "ไม่สามารถหา step ปัจจุบันได้" });
       }
 
       const currentMaxStep = result[0].current_max_step;
       const nextStep = currentMaxStep + 1;
-
 
       // Insert log ใหม่ด้วย station_step ถัดไป
       const insertLogSql = `
@@ -958,11 +1048,11 @@ app.post('/api/rework_station', (req, res) => {
 
       db.query(
         insertLogSql,
-        [insp_id, insp_no, nextStep, prev_station, 'REWORK', user_id],
+        [insp_id, insp_no, nextStep, prev_station, "REWORK", user_id],
         (err3) => {
           if (err3) {
-            console.error('Log insert error:', err3);
-            return res.status(500).json({ error: 'บันทึก timeline ไม่สำเร็จ' });
+            console.error("Log insert error:", err3);
+            return res.status(500).json({ error: "บันทึก timeline ไม่สำเร็จ" });
           }
           notifyFollowers(insp_id);
           res.json({ success: true });
@@ -974,18 +1064,18 @@ app.post('/api/rework_station', (req, res) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Lookups & APIs…
-app.get('/api/list_station', (req, res) => {
+app.get("/api/list_station", (req, res) => {
   const sql = `SELECT station_code, station_name FROM list_station WHERE is_active = 1 ORDER BY station_name`;
   db.query(sql, (err, results) => {
     if (err) {
-      console.error('Query station error:', err);
-      return res.status(500).json({ error: 'ไม่สามารถดึงรายการสถานีได้' });
+      console.error("Query station error:", err);
+      return res.status(500).json({ error: "ไม่สามารถดึงรายการสถานีได้" });
     }
     res.json(results);
   });
 });
 
-app.get('/api/inspection/:id', (req, res) => {
+app.get("/api/inspection/:id", (req, res) => {
   const { id } = req.params;
 
   const sql = `
@@ -1022,11 +1112,13 @@ WHERE i.insp_no = ?
 
   db.query(sql, [id], (err, results) => {
     if (err) {
-      console.error('Database error:', err);
-      return res.status(500).json({ error: 'เกิดข้อผิดพลาดในการเชื่อมต่อฐานข้อมูล' });
+      console.error("Database error:", err);
+      return res
+        .status(500)
+        .json({ error: "เกิดข้อผิดพลาดในการเชื่อมต่อฐานข้อมูล" });
     }
     if (results.length === 0) {
-      return res.status(404).json({ error: 'ไม่พบข้อมูลใบงานนี้' });
+      return res.status(404).json({ error: "ไม่พบข้อมูลใบงานนี้" });
     }
     res.json(results[0]);
   });
@@ -1034,46 +1126,62 @@ WHERE i.insp_no = ?
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FormTestReport (บันทึกแล้วส่งสถานีถ้าจำเป็น)
-app.get('/api/forms/FormTestReport/:insp_no', (req, res) => {
+app.get("/api/forms/FormTestReport/:insp_no", (req, res) => {
   const { insp_no } = req.params;
-  db.query(`
+  db.query(
+    `
     SELECT 
       ins.*, 
       tr.*, 
-      updater.name AS updated_by_name,
-      creator.name AS created_by_name
+      CONCAT_WS(' ', updater.name, updater.lastname) AS updatedBy,
+      CONCAT_WS(' ', creator.name, creator.lastname) AS createdBy
     FROM tbl_inspection_list ins
     LEFT JOIN form_test_report tr ON ins.insp_no = tr.insp_no
     LEFT JOIN u_user updater ON tr.updated_by = updater.user_key
     LEFT JOIN u_user creator ON tr.created_by = creator.user_key
     WHERE ins.insp_no = ?
-  `, [insp_no], (err, rows) => {
-    if (err) {
-      console.error('GET form_test_report error:', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
+    `,
+    [insp_no],
+    (err, rows) => {
+      if (err) {
+        console.error("GET form_test_report error:", err);
+        return res.status(500).json({ error: "Internal Server Error" });
+      }
+
+      if (!rows.length) return res.json(null);
+
+      let row = rows[0];
+
+      if (row.updated_at) {
+        row.updatedAt = row.updated_at;
+        row.createdAt = row.created_at;
+      }
+
+      if (row.insp_created_at) {
+        row.insp_created_at = dayjs(row.insp_created_at).format(
+          "DD/MM/YYYY HH:mm"
+        );
+      }
+
+      row.updatedBy = row.updatedBy || row.createdBy || null;
+
+      const { created_by, updated_by, updated_at, created_at, ...cleanRow } =
+        row;
+
+      res.json(cleanRow);
     }
-
-    if (rows.length === 0) return res.json(null);
-
-    const row = rows[0];
-
-    if (row.updated_at) row.updated_at = dayjs(row.updated_at).format('DD/MM/YYYY HH:mm');
-    if (row.insp_created_at) row.insp_created_at = dayjs(row.insp_created_at).format('DD/MM/YYYY HH:mm');
-    if (!row.updated_by_name) row.updated_by_name = row.created_by_name || 'null';
-
-    res.json(row);
-  });
+  );
 });
 
-app.post('/api/forms/FormTestReport/:insp_no', (req, res) => {
+app.post("/api/forms/FormTestReport/:insp_no", (req, res) => {
   const { insp_no } = req.params;
   const payload = req.body;
   const user_id = payload.userKey || req.session?.user_id || 0;
 
   const normalizeDate = (value) => {
-    if (!value || value === '') return null;
+    if (!value || value === "") return null;
     try {
-      return new Date(value).toISOString().slice(0, 19).replace('T', ' ');
+      return new Date(value).toISOString().slice(0, 19).replace("T", " ");
     } catch {
       return null;
     }
@@ -1102,27 +1210,33 @@ app.post('/api/forms/FormTestReport/:insp_no', (req, res) => {
     trp_final_date: normalizeDate(data.finalDate),
     trp_report_date: normalizeDate(data.reportDate),
     trp_direction: data.direction,
-    trp_note: data.note
+    trp_note: data.note,
   });
 
-  db.query('SELECT * FROM form_test_report WHERE insp_no = ?', [insp_no], (err, existing) => {
-    if (err) {
-      console.error('POST form_testreport error (select):', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
-    }
+  db.query(
+    "SELECT * FROM form_test_report WHERE insp_no = ?",
+    [insp_no],
+    (err, existing) => {
+      if (err) {
+        console.error("POST form_testreport error (select):", err);
+        return res.status(500).json({ error: "Internal Server Error" });
+      }
 
-    const saveAndSendStation = () => {
-      if (payload.stationNow === 'Start' && payload.stationTo) {
-        db.query('SELECT insp_id FROM tbl_inspection_list WHERE insp_no = ?', [insp_no], (errFind, result) => {
-          if (errFind || result.length === 0) {
-            console.error('หา insp_id ไม่เจอ:', errFind);
-            return res.status(500).json({ error: 'ไม่พบข้อมูล insp_id' });
-          }
-
-          const insp_id = result[0].insp_id;
-
+      const saveAndSendStation = () => {
+        if (payload.stationNow === "Start" && payload.stationTo) {
           db.query(
-            `
+            "SELECT insp_id FROM tbl_inspection_list WHERE insp_no = ?",
+            [insp_no],
+            (errFind, result) => {
+              if (errFind || result.length === 0) {
+                console.error("หา insp_id ไม่เจอ:", errFind);
+                return res.status(500).json({ error: "ไม่พบข้อมูล insp_id" });
+              }
+
+              const insp_id = result[0].insp_id;
+
+              db.query(
+                `
             UPDATE tbl_inspection_list 
             SET insp_station_prev = insp_station_now, 
                 insp_station_now = ?, 
@@ -1130,15 +1244,17 @@ app.post('/api/forms/FormTestReport/:insp_no', (req, res) => {
                 inspection_updated_at = NOW() 
             WHERE insp_id = ?
             `,
-            [payload.stationTo, insp_id],
-            (errUpdate) => {
-              if (errUpdate) {
-                console.error('Update error (station):', errUpdate);
-                return res.status(500).json({ error: 'ไม่สามารถอัปเดตสถานีได้' });
-              }
+                [payload.stationTo, insp_id],
+                (errUpdate) => {
+                  if (errUpdate) {
+                    console.error("Update error (station):", errUpdate);
+                    return res
+                      .status(500)
+                      .json({ error: "ไม่สามารถอัปเดตสถานีได้" });
+                  }
 
-              db.query(
-                `
+                  db.query(
+                    `
                 INSERT INTO logs_inspection_stations (
                   insp_id,
                   insp_no,
@@ -1150,72 +1266,89 @@ app.post('/api/forms/FormTestReport/:insp_no', (req, res) => {
                   user_id
                 ) VALUES (?, ?, ?, ?, ?, NOW(), NOW(), ?)
                 `,
-                [insp_id, insp_no, '1', payload.stationTo, 'OPEN MOTOR', user_id],
-                (errInsert) => {
-                  if (errInsert) {
-                    console.error('Log insert error (station):', errInsert);
-                    return res.status(500).json({ error: 'บันทึก timeline ไม่สำเร็จ' });
-                  }
+                    [
+                      insp_id,
+                      insp_no,
+                      "1",
+                      payload.stationTo,
+                      "OPEN MOTOR",
+                      user_id,
+                    ],
+                    (errInsert) => {
+                      if (errInsert) {
+                        console.error("Log insert error (station):", errInsert);
+                        return res
+                          .status(500)
+                          .json({ error: "บันทึก timeline ไม่สำเร็จ" });
+                      }
 
-                  notifyFollowers(insp_id);
-                  return res.json({ success: true });
+                      notifyFollowers(insp_id);
+                      return res.json({ success: true });
+                    }
+                  );
                 }
               );
             }
           );
-        });
-      } else {
-        return res.json({ success: true });
-      }
-    };
+        } else {
+          return res.json({ success: true });
+        }
+      };
 
-    if (existing.length > 0) {
-      const updateData = {
-        ...mapFields(payload),
-        updated_by: user_id,
-        updated_at: new Date()
-      };
-      db.query('UPDATE form_test_report SET ? WHERE insp_no = ?', [updateData, insp_no], (err2) => {
-        if (err2) {
-          console.error('POST form_testreport error (update):', err2);
-          return res.status(500).json({ error: 'Internal Server Error' });
-        }
-        saveAndSendStation();
-      });
-    } else {
-      const insertData = {
-        ...mapFields(payload),
-        insp_no,
-        created_by: user_id,
-        created_at: new Date()
-      };
-      db.query('INSERT INTO form_test_report SET ?', [insertData], (err3) => {
-        if (err3) {
-          console.error('POST form_testreport error (insert):', err3);
-          return res.status(500).json({ error: 'Internal Server Error' });
-        }
-        saveAndSendStation();
-      });
+      if (existing.length > 0) {
+        const updateData = {
+          ...mapFields(payload),
+          updated_by: user_id,
+          updated_at: new Date(),
+        };
+        db.query(
+          "UPDATE form_test_report SET ? WHERE insp_no = ?",
+          [updateData, insp_no],
+          (err2) => {
+            if (err2) {
+              console.error("POST form_testreport error (update):", err2);
+              return res.status(500).json({ error: "Internal Server Error" });
+            }
+            saveAndSendStation();
+          }
+        );
+      } else {
+        const insertData = {
+          ...mapFields(payload),
+          insp_no,
+          created_by: user_id,
+          created_at: new Date(),
+        };
+        db.query("INSERT INTO form_test_report SET ?", [insertData], (err3) => {
+          if (err3) {
+            console.error("POST form_testreport error (insert):", err3);
+            return res.status(500).json({ error: "Internal Server Error" });
+          }
+          saveAndSendStation();
+        });
+      }
     }
-  });
+  );
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Upload endpoints
-app.post('/api/upload2', upload.single('file'), async (req, res) => {
+app.post("/api/upload2", upload.single("file"), async (req, res) => {
   try {
     const { inspNo } = req.body;
     if (!inspNo || !req.file) {
-      return res.status(400).json({ error: 'Missing inspNo or file' });
+      return res.status(400).json({ error: "Missing inspNo or file" });
     }
 
     // sanitize filename
-    const safeOriginal = req.file.originalname.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
+    const safeOriginal = req.file.originalname
+      .replace(/\s+/g, "_")
+      .replace(/[^a-zA-Z0-9._-]/g, "");
     const fileName = safeOriginal || `img_${Date.now()}.jpg`;
-    const outputPath = path.join(__dirname, 'public', 'img_upload', fileName);
+    const outputPath = path.join(__dirname, "public", "img_upload", fileName);
 
     if (fs.existsSync(outputPath)) {
-      return res.status(409).json({ error: 'ไฟล์นี้มีอยู่แล้ว' });
+      return res.status(409).json({ error: "ไฟล์นี้มีอยู่แล้ว" });
     }
 
     await sharp(req.file.buffer).jpeg({ quality: 70 }).toFile(outputPath);
@@ -1227,25 +1360,25 @@ app.post('/api/upload2', upload.single('file'), async (req, res) => {
     `;
     db.query(updateSql, [fileName, inspNo], (err) => {
       if (err) {
-        console.error('DB update error:', err);
-        return res.status(500).json({ error: 'Database update failed' });
+        console.error("DB update error:", err);
+        return res.status(500).json({ error: "Database update failed" });
       }
       res.json({ success: true, filename: fileName });
     });
   } catch (err) {
-    console.error('Upload error:', err);
-    res.status(500).json({ error: 'Image upload failed' });
+    console.error("Upload error:", err);
+    res.status(500).json({ error: "Image upload failed" });
   }
 });
 
-app.delete('/api/upload2', (req, res) => {
+app.delete("/api/upload2", (req, res) => {
   const { filename, inspNo } = req.body;
-  const filePath = path.join(__dirname, 'public', 'img_upload', filename);
+  const filePath = path.join(__dirname, "public", "img_upload", filename);
 
   fs.unlink(filePath, (err) => {
     if (err) {
-      console.error('Delete file error:', err);
-      return res.status(500).json({ error: 'Delete failed' });
+      console.error("Delete file error:", err);
+      return res.status(500).json({ error: "Delete failed" });
     }
 
     const updateSql = `
@@ -1255,8 +1388,8 @@ app.delete('/api/upload2', (req, res) => {
     `;
     db.query(updateSql, [filename, inspNo], (err2) => {
       if (err2) {
-        console.error('DB update after delete failed:', err2);
-        return res.status(500).json({ error: 'DB update failed' });
+        console.error("DB update after delete failed:", err2);
+        return res.status(500).json({ error: "DB update failed" });
       }
       res.json({ success: true });
     });
@@ -1271,9 +1404,9 @@ function withUserId(req) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FormMotorNameplate (insert ใหม่เสมอ + GET ดึงแถวล่าสุด ด้วย insp_no)
-app.get('/api/forms/FormMotorNameplate/:insp_no', (req, res) => {
+app.get("/api/forms/FormMotorNameplate/:insp_no", (req, res) => {
   const { insp_no } = req.params;
-  if (!insp_no) return res.status(400).json({ error: 'missing insp_no' });
+  if (!insp_no) return res.status(400).json({ error: "missing insp_no" });
 
   const sql = `
   SELECT fmn.*, u.name, u.lastname
@@ -1285,19 +1418,19 @@ app.get('/api/forms/FormMotorNameplate/:insp_no', (req, res) => {
 `;
   db.query(sql, [insp_no], (err, rows) => {
     if (err) {
-      console.error('GET form_motor_nameplate error:', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
+      console.error("GET form_motor_nameplate error:", err);
+      return res.status(500).json({ error: "Internal Server Error" });
     }
     res.json(rows.length ? rows[0] : null);
   });
 });
 
-app.post('/api/forms/FormMotorNameplate/:insp_no', (req, res) => {
+app.post("/api/forms/FormMotorNameplate/:insp_no", (req, res) => {
   const { insp_no } = req.params;
-  if (!insp_no) return res.status(400).json({ error: 'missing insp_no' });
+  if (!insp_no) return res.status(400).json({ error: "missing insp_no" });
 
   const payload = req.body || {};
-  const user_id = req.headers['user_key'];
+  const user_id = req.headers["user_key"];
 
   const insertData = {
     ...payload, // คาดว่าเป็นฟิลด์ fmn_*
@@ -1308,299 +1441,421 @@ app.post('/api/forms/FormMotorNameplate/:insp_no', (req, res) => {
     updated_at: new Date(),
   };
 
-  db.query('INSERT INTO form_motor_nameplate SET ?', [insertData], (err, result) => {
-    if (err) {
-      console.error('POST form_motor_nameplate error (insert):', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
+  db.query(
+    "INSERT INTO form_motor_nameplate SET ?",
+    [insertData],
+    (err, result) => {
+      if (err) {
+        console.error("POST form_motor_nameplate error (insert):", err);
+        return res.status(500).json({ error: "Internal Server Error" });
+      }
+      res.status(201).json({ success: true, mnp_id: result.insertId });
     }
-    res.status(201).json({ success: true, mnp_id: result.insertId });
-  });
+  );
 });
 
 // FormStaticTest
-app.get('/api/forms/FormStaticTest/:insp_id', (req, res) => {
+app.get("/api/forms/FormStaticTest/:insp_id", (req, res) => {
   const { insp_id } = req.params;
-  db.query('SELECT * FROM form_static_test WHERE insp_id = ?', [insp_id], (err, rows) => {
-    if (err) {
-      console.error('GET form_static_test error:', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
+  db.query(
+    "SELECT * FROM form_static_test WHERE insp_id = ?",
+    [insp_id],
+    (err, rows) => {
+      if (err) {
+        console.error("GET form_static_test error:", err);
+        return res.status(500).json({ error: "Internal Server Error" });
+      }
+      res.json(rows.length > 0 ? rows[0] : null);
     }
-    res.json(rows.length > 0 ? rows[0] : null);
-  });
+  );
 });
 
-app.post('/api/forms/FormStaticTest/:insp_id', (req, res) => {
+app.post("/api/forms/FormStaticTest/:insp_id", (req, res) => {
   const { insp_id } = req.params;
   const payload = req.body;
   const user_id = withUserId(req);
-  db.query('SELECT * FROM form_static_test WHERE insp_id = ?', [insp_id], (err, existing) => {
-    if (err) {
-      console.error('POST form_static_test error (select):', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
+  db.query(
+    "SELECT * FROM form_static_test WHERE insp_id = ?",
+    [insp_id],
+    (err, existing) => {
+      if (err) {
+        console.error("POST form_static_test error (select):", err);
+        return res.status(500).json({ error: "Internal Server Error" });
+      }
+      if (existing.length > 0) {
+        db.query(
+          "UPDATE form_static_test SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?",
+          [payload, user_id, insp_id],
+          (err2) => {
+            if (err2) {
+              console.error("POST form_static_test error (update):", err2);
+              return res.status(500).json({ error: "Internal Server Error" });
+            }
+            res.json({ success: true });
+          }
+        );
+      } else {
+        db.query(
+          "INSERT INTO form_static_test SET ?, insp_id=?, created_by=?, created_at=NOW()",
+          [payload, insp_id, user_id],
+          (err3) => {
+            if (err3) {
+              console.error("POST form_static_test error (insert):", err3);
+              return res.status(500).json({ error: "Internal Server Error" });
+            }
+            res.json({ success: true });
+          }
+        );
+      }
     }
-    if (existing.length > 0) {
-      db.query('UPDATE form_static_test SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?', [payload, user_id, insp_id], (err2) => {
-        if (err2) {
-          console.error('POST form_static_test error (update):', err2);
-          return res.status(500).json({ error: 'Internal Server Error' });
-        }
-        res.json({ success: true });
-      });
-    } else {
-      db.query('INSERT INTO form_static_test SET ?, insp_id=?, created_by=?, created_at=NOW()', [payload, insp_id, user_id], (err3) => {
-        if (err3) {
-          console.error('POST form_static_test error (insert):', err3);
-          return res.status(500).json({ error: 'Internal Server Error' });
-        }
-        res.json({ success: true });
-      });
-    }
-  });
+  );
 });
 
 // FormEquipmentTest
-app.get('/api/forms/FormEquipmentTest/:insp_id', (req, res) => {
+app.get("/api/forms/FormEquipmentTest/:insp_id", (req, res) => {
   const { insp_id } = req.params;
-  db.query('SELECT * FROM form_equipment_test WHERE insp_id = ?', [insp_id], (err, rows) => {
-    if (err) {
-      console.error('GET form_equipment_test error:', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
+  db.query(
+    "SELECT * FROM form_equipment_test WHERE insp_id = ?",
+    [insp_id],
+    (err, rows) => {
+      if (err) {
+        console.error("GET form_equipment_test error:", err);
+        return res.status(500).json({ error: "Internal Server Error" });
+      }
+      res.json(rows.length > 0 ? rows[0] : null);
     }
-    res.json(rows.length > 0 ? rows[0] : null);
-  });
+  );
 });
 
-app.post('/api/forms/FormEquipmentTest/:insp_id', (req, res) => {
+app.post("/api/forms/FormEquipmentTest/:insp_id", (req, res) => {
   const { insp_id } = req.params;
   const payload = req.body;
   const user_id = withUserId(req);
-  db.query('SELECT * FROM form_equipment_test WHERE insp_id = ?', [insp_id], (err, existing) => {
-    if (err) {
-      console.error('POST form_equipment_test error (select):', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
+  db.query(
+    "SELECT * FROM form_equipment_test WHERE insp_id = ?",
+    [insp_id],
+    (err, existing) => {
+      if (err) {
+        console.error("POST form_equipment_test error (select):", err);
+        return res.status(500).json({ error: "Internal Server Error" });
+      }
+      if (existing.length > 0) {
+        db.query(
+          "UPDATE form_equipment_test SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?",
+          [payload, user_id, insp_id],
+          (err2) => {
+            if (err2) {
+              console.error("POST form_equipment_test error (update):", err2);
+              return res.status(500).json({ error: "Internal Server Error" });
+            }
+            res.json({ success: true });
+          }
+        );
+      } else {
+        db.query(
+          "INSERT INTO form_equipment_test SET ?, insp_id=?, created_by=?, created_at=NOW()",
+          [payload, insp_id, user_id],
+          (err3) => {
+            if (err3) {
+              console.error("POST form_equipment_test error (insert):", err3);
+              return res.status(500).json({ error: "Internal Server Error" });
+            }
+            res.json({ success: true });
+          }
+        );
+      }
     }
-    if (existing.length > 0) {
-      db.query('UPDATE form_equipment_test SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?', [payload, user_id, insp_id], (err2) => {
-        if (err2) {
-          console.error('POST form_equipment_test error (update):', err2);
-          return res.status(500).json({ error: 'Internal Server Error' });
-        }
-        res.json({ success: true });
-      });
-    } else {
-      db.query('INSERT INTO form_equipment_test SET ?, insp_id=?, created_by=?, created_at=NOW()', [payload, insp_id, user_id], (err3) => {
-        if (err3) {
-          console.error('POST form_equipment_test error (insert):', err3);
-          return res.status(500).json({ error: 'Internal Server Error' });
-        }
-        res.json({ success: true });
-      });
-    }
-  });
+  );
 });
 
 // FormDynamicTest
-app.get('/api/forms/FormDynamicTest/:insp_id', (req, res) => {
+app.get("/api/forms/FormDynamicTest/:insp_id", (req, res) => {
   const { insp_id } = req.params;
-  db.query('SELECT * FROM form_dynamic_test WHERE insp_id = ?', [insp_id], (err, rows) => {
-    if (err) {
-      console.error('GET form_dynamic_test error:', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
+  db.query(
+    "SELECT * FROM form_dynamic_test WHERE insp_id = ?",
+    [insp_id],
+    (err, rows) => {
+      if (err) {
+        console.error("GET form_dynamic_test error:", err);
+        return res.status(500).json({ error: "Internal Server Error" });
+      }
+      res.json(rows.length > 0 ? rows[0] : null);
     }
-    res.json(rows.length > 0 ? rows[0] : null);
-  });
+  );
 });
-app.post('/api/forms/FormDynamicTest/:insp_id', (req, res) => {
+app.post("/api/forms/FormDynamicTest/:insp_id", (req, res) => {
   const { insp_id } = req.params;
   const payload = req.body;
   const user_id = withUserId(req);
-  db.query('SELECT * FROM form_dynamic_test WHERE insp_id = ?', [insp_id], (err, existing) => {
-    if (err) {
-      console.error('POST form_dynamic_test error (select):', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
+  db.query(
+    "SELECT * FROM form_dynamic_test WHERE insp_id = ?",
+    [insp_id],
+    (err, existing) => {
+      if (err) {
+        console.error("POST form_dynamic_test error (select):", err);
+        return res.status(500).json({ error: "Internal Server Error" });
+      }
+      if (existing.length > 0) {
+        db.query(
+          "UPDATE form_dynamic_test SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?",
+          [payload, user_id, insp_id],
+          (err2) => {
+            if (err2) {
+              console.error("POST form_dynamic_test error (update):", err2);
+              return res.status(500).json({ error: "Internal Server Error" });
+            }
+            res.json({ success: true });
+          }
+        );
+      } else {
+        db.query(
+          "INSERT INTO form_dynamic_test SET ?, insp_id=?, created_by=?, created_at=NOW()",
+          [payload, insp_id, user_id],
+          (err3) => {
+            if (err3) {
+              console.error("POST form_dynamic_test error (insert):", err3);
+              return res.status(500).json({ error: "Internal Server Error" });
+            }
+            res.json({ success: true });
+          }
+        );
+      }
     }
-    if (existing.length > 0) {
-      db.query('UPDATE form_dynamic_test SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?', [payload, user_id, insp_id], (err2) => {
-        if (err2) {
-          console.error('POST form_dynamic_test error (update):', err2);
-          return res.status(500).json({ error: 'Internal Server Error' });
-        }
-        res.json({ success: true });
-      });
-    } else {
-      db.query('INSERT INTO form_dynamic_test SET ?, insp_id=?, created_by=?, created_at=NOW()', [payload, insp_id, user_id], (err3) => {
-        if (err3) {
-          console.error('POST form_dynamic_test error (insert):', err3);
-          return res.status(500).json({ error: 'Internal Server Error' });
-        }
-        res.json({ success: true });
-      });
-    }
-  });
+  );
 });
 
 // FormHousingShaft
-app.get('/api/forms/FormHousingShaft/:insp_id', (req, res) => {
+app.get("/api/forms/FormHousingShaft/:insp_id", (req, res) => {
   const { insp_id } = req.params;
-  db.query('SELECT * FROM form_housing_shaft WHERE insp_id = ?', [insp_id], (err, rows) => {
-    if (err) {
-      console.error('GET form_housing_shaft error:', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
+  db.query(
+    "SELECT * FROM form_housing_shaft WHERE insp_id = ?",
+    [insp_id],
+    (err, rows) => {
+      if (err) {
+        console.error("GET form_housing_shaft error:", err);
+        return res.status(500).json({ error: "Internal Server Error" });
+      }
+      res.json(rows.length > 0 ? rows[0] : null);
     }
-    res.json(rows.length > 0 ? rows[0] : null);
-  });
+  );
 });
-app.post('/api/forms/FormHousingShaft/:insp_id', (req, res) => {
+app.post("/api/forms/FormHousingShaft/:insp_id", (req, res) => {
   const { insp_id } = req.params;
   const payload = req.body;
   const user_id = withUserId(req);
-  db.query('SELECT * FROM form_housing_shaft WHERE insp_id = ?', [insp_id], (err, existing) => {
-    if (err) {
-      console.error('POST form_housing_shaft error (select):', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
+  db.query(
+    "SELECT * FROM form_housing_shaft WHERE insp_id = ?",
+    [insp_id],
+    (err, existing) => {
+      if (err) {
+        console.error("POST form_housing_shaft error (select):", err);
+        return res.status(500).json({ error: "Internal Server Error" });
+      }
+      if (existing.length > 0) {
+        db.query(
+          "UPDATE form_housing_shaft SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?",
+          [payload, user_id, insp_id],
+          (err2) => {
+            if (err2) {
+              console.error("POST form_housing_shaft error (update):", err2);
+              return res.status(500).json({ error: "Internal Server Error" });
+            }
+            res.json({ success: true });
+          }
+        );
+      } else {
+        db.query(
+          "INSERT INTO form_housing_shaft SET ?, insp_id=?, created_by=?, created_at=NOW()",
+          [payload, insp_id, user_id],
+          (err3) => {
+            if (err3) {
+              console.error("POST form_housing_shaft error (insert):", err3);
+              return res.status(500).json({ error: "Internal Server Error" });
+            }
+            res.json({ success: true });
+          }
+        );
+      }
     }
-    if (existing.length > 0) {
-      db.query('UPDATE form_housing_shaft SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?', [payload, user_id, insp_id], (err2) => {
-        if (err2) {
-          console.error('POST form_housing_shaft error (update):', err2);
-          return res.status(500).json({ error: 'Internal Server Error' });
-        }
-        res.json({ success: true });
-      });
-    } else {
-      db.query('INSERT INTO form_housing_shaft SET ?, insp_id=?, created_by=?, created_at=NOW()', [payload, insp_id, user_id], (err3) => {
-        if (err3) {
-          console.error('POST form_housing_shaft error (insert):', err3);
-          return res.status(500).json({ error: 'Internal Server Error' });
-        }
-        res.json({ success: true });
-      });
-    }
-  });
+  );
 });
 
 // FormRequisition
-app.get('/api/forms/FormRequisition/:insp_id', (req, res) => {
+app.get("/api/forms/FormRequisition/:insp_id", (req, res) => {
   const { insp_id } = req.params;
-  db.query('SELECT * FROM form_requisition WHERE insp_id = ?', [insp_id], (err, rows) => {
-    if (err) {
-      console.error('GET form_requisition error:', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
+  db.query(
+    "SELECT * FROM form_requisition WHERE insp_id = ?",
+    [insp_id],
+    (err, rows) => {
+      if (err) {
+        console.error("GET form_requisition error:", err);
+        return res.status(500).json({ error: "Internal Server Error" });
+      }
+      res.json(rows.length > 0 ? rows[0] : null);
     }
-    res.json(rows.length > 0 ? rows[0] : null);
-  });
+  );
 });
-app.post('/api/forms/FormRequisition/:insp_id', (req, res) => {
+app.post("/api/forms/FormRequisition/:insp_id", (req, res) => {
   const { insp_id } = req.params;
   const payload = req.body;
   const user_id = withUserId(req);
-  db.query('SELECT * FROM form_requisition WHERE insp_id = ?', [insp_id], (err, existing) => {
-    if (err) {
-      console.error('POST form_requisition error (select):', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
+  db.query(
+    "SELECT * FROM form_requisition WHERE insp_id = ?",
+    [insp_id],
+    (err, existing) => {
+      if (err) {
+        console.error("POST form_requisition error (select):", err);
+        return res.status(500).json({ error: "Internal Server Error" });
+      }
+      if (existing.length > 0) {
+        db.query(
+          "UPDATE form_requisition SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?",
+          [payload, user_id, insp_id],
+          (err2) => {
+            if (err2) {
+              console.error("POST form_requisition error (update):", err2);
+              return res.status(500).json({ error: "Internal Server Error" });
+            }
+            res.json({ success: true });
+          }
+        );
+      } else {
+        db.query(
+          "INSERT INTO form_requisition SET ?, insp_id=?, created_by=?, created_at=NOW()",
+          [payload, insp_id, user_id],
+          (err3) => {
+            if (err3) {
+              console.error("POST form_requisition error (insert):", err3);
+              return res.status(500).json({ error: "Internal Server Error" });
+            }
+            res.json({ success: true });
+          }
+        );
+      }
     }
-    if (existing.length > 0) {
-      db.query('UPDATE form_requisition SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?', [payload, user_id, insp_id], (err2) => {
-        if (err2) {
-          console.error('POST form_requisition error (update):', err2);
-          return res.status(500).json({ error: 'Internal Server Error' });
-        }
-        res.json({ success: true });
-      });
-    } else {
-      db.query('INSERT INTO form_requisition SET ?, insp_id=?, created_by=?, created_at=NOW()', [payload, insp_id, user_id], (err3) => {
-        if (err3) {
-          console.error('POST form_requisition error (insert):', err3);
-          return res.status(500).json({ error: 'Internal Server Error' });
-        }
-        res.json({ success: true });
-      });
-    }
-  });
+  );
 });
 
 // FormBalance
-app.get('/api/forms/FormBalance/:insp_id', (req, res) => {
+app.get("/api/forms/FormBalance/:insp_id", (req, res) => {
   const { insp_id } = req.params;
-  db.query('SELECT * FROM form_balance WHERE insp_id = ?', [insp_id], (err, rows) => {
-    if (err) {
-      console.error('GET form_balance error:', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
+  db.query(
+    "SELECT * FROM form_balance WHERE insp_id = ?",
+    [insp_id],
+    (err, rows) => {
+      if (err) {
+        console.error("GET form_balance error:", err);
+        return res.status(500).json({ error: "Internal Server Error" });
+      }
+      res.json(rows.length > 0 ? rows[0] : null);
     }
-    res.json(rows.length > 0 ? rows[0] : null);
-  });
+  );
 });
-app.post('/api/forms/FormBalance/:insp_id', (req, res) => {
+app.post("/api/forms/FormBalance/:insp_id", (req, res) => {
   const { insp_id } = req.params;
   const payload = req.body;
   const user_id = withUserId(req);
-  db.query('SELECT * FROM form_balance WHERE insp_id = ?', [insp_id], (err, existing) => {
-    if (err) {
-      console.error('POST form_balance error (select):', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
+  db.query(
+    "SELECT * FROM form_balance WHERE insp_id = ?",
+    [insp_id],
+    (err, existing) => {
+      if (err) {
+        console.error("POST form_balance error (select):", err);
+        return res.status(500).json({ error: "Internal Server Error" });
+      }
+      if (existing.length > 0) {
+        db.query(
+          "UPDATE form_balance SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?",
+          [payload, user_id, insp_id],
+          (err2) => {
+            if (err2) {
+              console.error("POST form_balance error (update):", err2);
+              return res.status(500).json({ error: "Internal Server Error" });
+            }
+            res.json({ success: true });
+          }
+        );
+      } else {
+        db.query(
+          "INSERT INTO form_balance SET ?, insp_id=?, created_by=?, created_at=NOW()",
+          [payload, insp_id, user_id],
+          (err3) => {
+            if (err3) {
+              console.error("POST form_balance error (insert):", err3);
+              return res.status(500).json({ error: "Internal Server Error" });
+            }
+            res.json({ success: true });
+          }
+        );
+      }
     }
-    if (existing.length > 0) {
-      db.query('UPDATE form_balance SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?', [payload, user_id, insp_id], (err2) => {
-        if (err2) {
-          console.error('POST form_balance error (update):', err2);
-          return res.status(500).json({ error: 'Internal Server Error' });
-        }
-        res.json({ success: true });
-      });
-    } else {
-      db.query('INSERT INTO form_balance SET ?, insp_id=?, created_by=?, created_at=NOW()', [payload, insp_id, user_id], (err3) => {
-        if (err3) {
-          console.error('POST form_balance error (insert):', err3);
-          return res.status(500).json({ error: 'Internal Server Error' });
-        }
-        res.json({ success: true });
-      });
-    }
-  });
+  );
 });
 
 // FormElectricalServices
-app.get('/api/forms/FormElectricalServices/:insp_id', (req, res) => {
+app.get("/api/forms/FormElectricalServices/:insp_id", (req, res) => {
   const { insp_id } = req.params;
-  db.query('SELECT * FROM form_electrical_services WHERE insp_id = ?', [insp_id], (err, rows) => {
-    if (err) {
-      console.error('GET form_electrical_services error:', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
+  db.query(
+    "SELECT * FROM form_electrical_services WHERE insp_id = ?",
+    [insp_id],
+    (err, rows) => {
+      if (err) {
+        console.error("GET form_electrical_services error:", err);
+        return res.status(500).json({ error: "Internal Server Error" });
+      }
+      res.json(rows.length > 0 ? rows[0] : null);
     }
-    res.json(rows.length > 0 ? rows[0] : null);
-  });
+  );
 });
-app.post('/api/forms/FormElectricalServices/:insp_id', (req, res) => {
+app.post("/api/forms/FormElectricalServices/:insp_id", (req, res) => {
   const { insp_id } = req.params;
   const payload = req.body;
   const user_id = withUserId(req);
-  db.query('SELECT * FROM form_electrical_services WHERE insp_id = ?', [insp_id], (err, existing) => {
-    if (err) {
-      console.error('POST form_electrical_services error (select):', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
+  db.query(
+    "SELECT * FROM form_electrical_services WHERE insp_id = ?",
+    [insp_id],
+    (err, existing) => {
+      if (err) {
+        console.error("POST form_electrical_services error (select):", err);
+        return res.status(500).json({ error: "Internal Server Error" });
+      }
+      if (existing.length > 0) {
+        db.query(
+          "UPDATE form_electrical_services SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?",
+          [payload, user_id, insp_id],
+          (err2) => {
+            if (err2) {
+              console.error(
+                "POST form_electrical_services error (update):",
+                err2
+              );
+              return res.status(500).json({ error: "Internal Server Error" });
+            }
+            res.json({ success: true });
+          }
+        );
+      } else {
+        db.query(
+          "INSERT INTO form_electrical_services SET ?, insp_id=?, created_by=?, created_at=NOW()",
+          [payload, insp_id, user_id],
+          (err3) => {
+            if (err3) {
+              console.error(
+                "POST form_electrical_services error (insert):",
+                err3
+              );
+              return res.status(500).json({ error: "Internal Server Error" });
+            }
+            res.json({ success: true });
+          }
+        );
+      }
     }
-    if (existing.length > 0) {
-      db.query('UPDATE form_electrical_services SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?', [payload, user_id, insp_id], (err2) => {
-        if (err2) {
-          console.error('POST form_electrical_services error (update):', err2);
-          return res.status(500).json({ error: 'Internal Server Error' });
-        }
-        res.json({ success: true });
-      });
-    } else {
-      db.query('INSERT INTO form_electrical_services SET ?, insp_id=?, created_by=?, created_at=NOW()', [payload, insp_id, user_id], (err3) => {
-        if (err3) {
-          console.error('POST form_electrical_services error (insert):', err3);
-          return res.status(500).json({ error: 'Internal Server Error' });
-        }
-        res.json({ success: true });
-      });
-    }
-  });
+  );
 });
 
 // FormInstruments
-app.get('/api/forms/FormInstruments/:insp_id', (req, res) => {
+app.get("/api/forms/FormInstruments/:insp_id", (req, res) => {
   const { insp_id } = req.params;
   const sql = `
     SELECT fi.*, u.name, u.lastname, lc.lc_equipment_name, lc.lc_model, lc.lc_no
@@ -1612,104 +1867,133 @@ app.get('/api/forms/FormInstruments/:insp_id', (req, res) => {
   `;
   db.query(sql, [insp_id], (err, rows) => {
     if (err) {
-      console.error('GET form_instruments error:', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
+      console.error("GET form_instruments error:", err);
+      return res.status(500).json({ error: "Internal Server Error" });
     }
     res.json(rows || []);
   });
 });
 
-app.post('/api/forms/FormInstruments/:insp_id', (req, res) => {
+app.post("/api/forms/FormInstruments/:insp_id", (req, res) => {
   const { insp_id } = req.params;
   const payload = req.body;
   const user_id = withUserId(req);
-  db.query('SELECT * FROM form_instruments WHERE insp_id = ?', [insp_id], (err, existing) => {
-    if (err) {
-      console.error('POST form_instruments error (select):', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
+  db.query(
+    "SELECT * FROM form_instruments WHERE insp_id = ?",
+    [insp_id],
+    (err, existing) => {
+      if (err) {
+        console.error("POST form_instruments error (select):", err);
+        return res.status(500).json({ error: "Internal Server Error" });
+      }
+      if (existing.length > 0) {
+        db.query(
+          "UPDATE form_instruments SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?",
+          [payload, user_id, insp_id],
+          (err2) => {
+            if (err2) {
+              console.error("POST form_instruments error (update):", err2);
+              return res.status(500).json({ error: "Internal Server Error" });
+            }
+            res.json({ success: true });
+          }
+        );
+      } else {
+        db.query(
+          "INSERT INTO form_instruments SET ?, insp_id=?, created_by=?, created_at=NOW()",
+          [payload, insp_id, user_id],
+          (err3) => {
+            if (err3) {
+              console.error("POST form_instruments error (insert):", err3);
+              return res.status(500).json({ error: "Internal Server Error" });
+            }
+            res.json({ success: true });
+          }
+        );
+      }
     }
-    if (existing.length > 0) {
-      db.query('UPDATE form_instruments SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?', [payload, user_id, insp_id], (err2) => {
-        if (err2) {
-          console.error('POST form_instruments error (update):', err2);
-          return res.status(500).json({ error: 'Internal Server Error' });
-        }
-        res.json({ success: true });
-      });
-    } else {
-      db.query('INSERT INTO form_instruments SET ?, insp_id=?, created_by=?, created_at=NOW()', [payload, insp_id, user_id], (err3) => {
-        if (err3) {
-          console.error('POST form_instruments error (insert):', err3);
-          return res.status(500).json({ error: 'Internal Server Error' });
-        }
-        res.json({ success: true });
-      });
-    }
-  });
+  );
 });
 
 // FormCoilBrakeTest
-app.get('/api/forms/FormCoilBrakeTest/:insp_id', (req, res) => {
+app.get("/api/forms/FormCoilBrakeTest/:insp_id", (req, res) => {
   const { insp_id } = req.params;
-  db.query('SELECT * FROM form_coil_brake_test WHERE insp_id = ?', [insp_id], (err, rows) => {
-    if (err) {
-      console.error('GET form_coil_brake_test error:', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
+  db.query(
+    "SELECT * FROM form_coil_brake_test WHERE insp_id = ?",
+    [insp_id],
+    (err, rows) => {
+      if (err) {
+        console.error("GET form_coil_brake_test error:", err);
+        return res.status(500).json({ error: "Internal Server Error" });
+      }
+      res.json(rows.length > 0 ? rows[0] : null);
     }
-    res.json(rows.length > 0 ? rows[0] : null);
-  });
+  );
 });
-app.post('/api/forms/FormCoilBrakeTest/:insp_id', (req, res) => {
+app.post("/api/forms/FormCoilBrakeTest/:insp_id", (req, res) => {
   const { insp_id } = req.params;
   const payload = req.body;
   const user_id = withUserId(req);
-  db.query('SELECT * FROM form_coil_brake_test WHERE insp_id = ?', [insp_id], (err, existing) => {
-    if (err) {
-      console.error('POST form_coil_brake_test error (select):', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
+  db.query(
+    "SELECT * FROM form_coil_brake_test WHERE insp_id = ?",
+    [insp_id],
+    (err, existing) => {
+      if (err) {
+        console.error("POST form_coil_brake_test error (select):", err);
+        return res.status(500).json({ error: "Internal Server Error" });
+      }
+      if (existing.length > 0) {
+        db.query(
+          "UPDATE form_coil_brake_test SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?",
+          [payload, user_id, insp_id],
+          (err2) => {
+            if (err2) {
+              console.error("POST form_coil_brake_test error (update):", err2);
+              return res.status(500).json({ error: "Internal Server Error" });
+            }
+            res.json({ success: true });
+          }
+        );
+      } else {
+        db.query(
+          "INSERT INTO form_coil_brake_test SET ?, insp_id=?, created_by=?, created_at=NOW()",
+          [payload, insp_id, user_id],
+          (err3) => {
+            if (err3) {
+              console.error("POST form_coil_brake_test error (insert):", err3);
+              return res.status(500).json({ error: "Internal Server Error" });
+            }
+            res.json({ success: true });
+          }
+        );
+      }
     }
-    if (existing.length > 0) {
-      db.query('UPDATE form_coil_brake_test SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?', [payload, user_id, insp_id], (err2) => {
-        if (err2) {
-          console.error('POST form_coil_brake_test error (update):', err2);
-          return res.status(500).json({ error: 'Internal Server Error' });
-        }
-        res.json({ success: true });
-      });
-    } else {
-      db.query('INSERT INTO form_coil_brake_test SET ?, insp_id=?, created_by=?, created_at=NOW()', [payload, insp_id, user_id], (err3) => {
-        if (err3) {
-          console.error('POST form_coil_brake_test error (insert):', err3);
-          return res.status(500).json({ error: 'Internal Server Error' });
-        }
-        res.json({ success: true });
-      });
-    }
-  });
+  );
 });
 
 // helper: เซฟ dataURL -> ไฟล์ แล้วคืน URL
 function saveDataUrl(dataUrl, filenameBase) {
-  if (!dataUrl || typeof dataUrl !== 'string') return null;
+  if (!dataUrl || typeof dataUrl !== "string") return null;
   const m = dataUrl.match(/^data:(image\/[\w+.-]+);base64,([A-Za-z0-9+/=]+)$/);
   if (!m) return null;
-  const mime = m[1]; const b64 = m[2];
-  const ext = (mime.split('/')[1] || 'png').toLowerCase();
-  const dir = path.join(process.cwd(), 'public', 'uploads', 'signatures');
+  const mime = m[1];
+  const b64 = m[2];
+  const ext = (mime.split("/")[1] || "png").toLowerCase();
+  const dir = path.join(process.cwd(), "public", "uploads", "signatures");
   fs.mkdirSync(dir, { recursive: true });
   const fname = `${filenameBase}.${ext}`;
-  fs.writeFileSync(path.join(dir, fname), Buffer.from(b64, 'base64'));
+  fs.writeFileSync(path.join(dir, fname), Buffer.from(b64, "base64"));
   // ปรับ path ตาม static you serve
   return `/uploads/signatures/${fname}`;
 }
 
 const toIso = (v) => (v ? new Date(v).toISOString() : null);
-const emptyToNull = (v) => (v === '' ? null : v);
+const emptyToNull = (v) => (v === "" ? null : v);
 
 /** GET: ดึงแถวล่าสุดของฟอร์มลายเซ็นตาม insp_no */
-app.get('/api/forms/FormApproval/:insp_no', (req, res) => {
+app.get("/api/forms/FormApproval/:insp_no", (req, res) => {
   const { insp_no } = req.params;
-  if (!insp_no) return res.status(400).json({ error: 'missing insp_no' });
+  if (!insp_no) return res.status(400).json({ error: "missing insp_no" });
 
   const sql = `
     SELECT *
@@ -1723,8 +2007,8 @@ app.get('/api/forms/FormApproval/:insp_no', (req, res) => {
 
   db.query(sql, [insp_no], (err, rows) => {
     if (err) {
-      console.error('GET form_approval error:', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
+      console.error("GET form_approval error:", err);
+      return res.status(500).json({ error: "Internal Server Error" });
     }
     if (!rows.length) return res.json(null);
 
@@ -1744,7 +2028,7 @@ app.get('/api/forms/FormApproval/:insp_no', (req, res) => {
       mech_sign: r.mech_sign_url ?? null,
 
       approve_name: r.approve_name ?? null,
-      approve_date: toIso(r.approve_date),          // ✅ เติมให้ครบ
+      approve_date: toIso(r.approve_date), // ✅ เติมให้ครบ
       approve_sign: r.approve_sign_url ?? null,
 
       // context ของเอกสาร
@@ -1766,11 +2050,11 @@ app.get('/api/forms/FormApproval/:insp_no', (req, res) => {
 });
 
 /** POST: สร้าง/อัปเดตฟอร์มลายเซ็นตาม insp_no (แถวเดียวต่องาน) */
-app.post('/api/forms/FormApproval/:insp_no', (req, res) => {
+app.post("/api/forms/FormApproval/:insp_no", (req, res) => {
   const { insp_no } = req.params;
-  const userKey = req.headers['user_key'] || req.headers['x-user-key'];
-  if (!insp_no) return res.status(400).json({ error: 'missing insp_no' });
-  if (!userKey) return res.status(400).json({ error: 'missing user_key' });
+  const userKey = req.headers["user_key"] || req.headers["x-user-key"];
+  if (!insp_no) return res.status(400).json({ error: "missing insp_no" });
+  if (!userKey) return res.status(400).json({ error: "missing user_key" });
 
   const p = req.body || {};
   const nowTag = Date.now();
@@ -1778,11 +2062,14 @@ app.post('/api/forms/FormApproval/:insp_no', (req, res) => {
   // สร้าง URL ของลายเซ็น (ถ้ามาเป็น base64 จะถูกแปลง)
   const toUrl = (val, tag) => {
     if (!val) return null;
-    if (typeof val === 'string' && val.startsWith('data:image/')) {
+    if (typeof val === "string" && val.startsWith("data:image/")) {
       return saveDataUrl(val, `${insp_no}-${tag}-${nowTag}`);
     }
     // เป็น URL อยู่แล้ว (http, https, หรือ path เริ่มด้วย /)
-    if (/^(https?:)?\/\//.test(val) || (typeof val === 'string' && val.startsWith('/'))) {
+    if (
+      /^(https?:)?\/\//.test(val) ||
+      (typeof val === "string" && val.startsWith("/"))
+    ) {
       return val;
     }
     return null;
@@ -1795,19 +2082,19 @@ app.post('/api/forms/FormApproval/:insp_no', (req, res) => {
 
     incoming_name: emptyToNull(p.incoming_name),
     incoming_date: p.incoming_date ? new Date(p.incoming_date) : null,
-    incoming_sign_url: toUrl(p.incoming_sign, 'incoming'),
+    incoming_sign_url: toUrl(p.incoming_sign, "incoming"),
 
     final_name: emptyToNull(p.final_name),
     final_date: p.final_date ? new Date(p.final_date) : null,
-    final_sign_url: toUrl(p.final_sign, 'final'),
+    final_sign_url: toUrl(p.final_sign, "final"),
 
     mech_name: emptyToNull(p.mech_name),
     mech_date: p.mech_date ? new Date(p.mech_date) : null,
-    mech_sign_url: toUrl(p.mech_sign, 'mech'),
+    mech_sign_url: toUrl(p.mech_sign, "mech"),
 
     approve_name: emptyToNull(p.approve_name),
     approve_date: p.approve_date ? new Date(p.approve_date) : null,
-    approve_sign_url: toUrl(p.approve_sign, 'approve'),
+    approve_sign_url: toUrl(p.approve_sign, "approve"),
 
     updated_by: userKey,
   };
@@ -1823,498 +2110,708 @@ app.post('/api/forms/FormApproval/:insp_no', (req, res) => {
 
   db.query(sqlFind, [insp_no], (err, rows) => {
     if (err) {
-      console.error('POST form_approval find error:', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
+      console.error("POST form_approval find error:", err);
+      return res.status(500).json({ error: "Internal Server Error" });
     }
 
     if (!rows.length) {
       // INSERT (ครั้งแรกของงานนี้)
       const insertData = { ...row, created_by: userKey };
       const fields = Object.keys(insertData);
-      const placeholders = fields.map(() => '?').join(',');
-      const sqlIns = `INSERT INTO form_approval (${fields.join(',')}) VALUES (${placeholders})`;
-      db.query(sqlIns, fields.map(k => insertData[k]), (e2, r2) => {
-        if (e2) {
-          console.error('POST form_approval insert error:', e2);
-          return res.status(500).json({ error: 'Internal Server Error' });
+      const placeholders = fields.map(() => "?").join(",");
+      const sqlIns = `INSERT INTO form_approval (${fields.join(
+        ","
+      )}) VALUES (${placeholders})`;
+      db.query(
+        sqlIns,
+        fields.map((k) => insertData[k]),
+        (e2, r2) => {
+          if (e2) {
+            console.error("POST form_approval insert error:", e2);
+            return res.status(500).json({ error: "Internal Server Error" });
+          }
+          // ดึงกลับไปให้ฟรอนต์
+          db.query(
+            "SELECT * FROM form_approval WHERE apr_id = ?",
+            [r2.insertId],
+            (e3, r3) => {
+              if (e3 || !r3?.length) return res.json(null);
+              const x = r3[0];
+              return res.json({
+                incoming_name: x.incoming_name,
+                incoming_date: toIso(x.incoming_date),
+                incoming_sign: x.incoming_sign_url,
+                final_name: x.final_name,
+                final_date: toIso(x.final_date),
+                final_sign: x.final_sign_url,
+                mech_name: x.mech_name,
+                mech_date: toIso(x.mech_date),
+                mech_sign: x.mech_sign_url,
+                approve_name: x.approve_name,
+                approve_date: toIso(x.approve_date),
+                approve_sign: x.approve_sign_url,
+                insp_no: x.insp_no,
+                insp_sv: x.insp_sv,
+                meta: {
+                  apr_id: x.apr_id,
+                  created_at: toIso(x.created_at),
+                  updated_at: toIso(x.updated_at),
+                  created_by: x.created_by ?? null,
+                  updated_by: x.updated_by ?? null,
+                },
+              });
+            }
+          );
         }
-        // ดึงกลับไปให้ฟรอนต์
-        db.query('SELECT * FROM form_approval WHERE apr_id = ?', [r2.insertId], (e3, r3) => {
-          if (e3 || !r3?.length) return res.json(null);
-          const x = r3[0];
-          return res.json({
-            incoming_name: x.incoming_name,
-            incoming_date: toIso(x.incoming_date),
-            incoming_sign: x.incoming_sign_url,
-            final_name: x.final_name,
-            final_date: toIso(x.final_date),
-            final_sign: x.final_sign_url,
-            mech_name: x.mech_name,
-            mech_date: toIso(x.mech_date),
-            mech_sign: x.mech_sign_url,
-            approve_name: x.approve_name,
-            approve_date: toIso(x.approve_date),
-            approve_sign: x.approve_sign_url,
-            insp_no: x.insp_no,
-            insp_sv: x.insp_sv,
-            meta: {
-              apr_id: x.apr_id,
-              created_at: toIso(x.created_at),
-              updated_at: toIso(x.updated_at),
-              created_by: x.created_by ?? null,
-              updated_by: x.updated_by ?? null,
-            },
-          });
-        });
-      });
+      );
     } else {
       // UPDATE (แก้ไขแถวล่าสุด)
       const apr_id = rows[0].apr_id;
 
       // หมายเหตุ: ถ้าไม่อยากล้างรูปเมื่อฟรอนต์ส่งค่าว่าง ให้ใช้ตรรกะเฉพาะเจาะจงที่นี่
-      const fields = Object.keys(row).map(k => `${k} = ?`).join(', ');
+      const fields = Object.keys(row)
+        .map((k) => `${k} = ?`)
+        .join(", ");
       const sqlUpd = `UPDATE form_approval SET ${fields}, updated_at = CURRENT_TIMESTAMP WHERE apr_id = ?`;
 
-      db.query(sqlUpd, [...Object.keys(row).map(k => row[k]), apr_id], (e2) => {
-        if (e2) {
-          console.error('POST form_approval update error:', e2);
-          return res.status(500).json({ error: 'Internal Server Error' });
+      db.query(
+        sqlUpd,
+        [...Object.keys(row).map((k) => row[k]), apr_id],
+        (e2) => {
+          if (e2) {
+            console.error("POST form_approval update error:", e2);
+            return res.status(500).json({ error: "Internal Server Error" });
+          }
+          db.query(
+            "SELECT * FROM form_approval WHERE apr_id = ?",
+            [apr_id],
+            (e3, r3) => {
+              if (e3 || !r3?.length) return res.json(null);
+              const x = r3[0];
+              return res.json({
+                incoming_name: x.incoming_name,
+                incoming_date: toIso(x.incoming_date),
+                incoming_sign: x.incoming_sign_url,
+                final_name: x.final_name,
+                final_date: toIso(x.final_date),
+                final_sign: x.final_sign_url,
+                mech_name: x.mech_name,
+                mech_date: toIso(x.mech_date),
+                mech_sign: x.mech_sign_url,
+                approve_name: x.approve_name,
+                approve_date: toIso(x.approve_date),
+                approve_sign: x.approve_sign_url,
+                insp_no: x.insp_no,
+                insp_sv: x.insp_sv,
+                meta: {
+                  apr_id: x.apr_id,
+                  created_at: toIso(x.created_at),
+                  updated_at: toIso(x.updated_at),
+                  created_by: x.created_by ?? null,
+                  updated_by: x.updated_by ?? null,
+                },
+              });
+            }
+          );
         }
-        db.query('SELECT * FROM form_approval WHERE apr_id = ?', [apr_id], (e3, r3) => {
-          if (e3 || !r3?.length) return res.json(null);
-          const x = r3[0];
-          return res.json({
-            incoming_name: x.incoming_name,
-            incoming_date: toIso(x.incoming_date),
-            incoming_sign: x.incoming_sign_url,
-            final_name: x.final_name,
-            final_date: toIso(x.final_date),
-            final_sign: x.final_sign_url,
-            mech_name: x.mech_name,
-            mech_date: toIso(x.mech_date),
-            mech_sign: x.mech_sign_url,
-            approve_name: x.approve_name,
-            approve_date: toIso(x.approve_date),
-            approve_sign: x.approve_sign_url,
-            insp_no: x.insp_no,
-            insp_sv: x.insp_sv,
-            meta: {
-              apr_id: x.apr_id,
-              created_at: toIso(x.created_at),
-              updated_at: toIso(x.updated_at),
-              created_by: x.created_by ?? null,
-              updated_by: x.updated_by ?? null,
-            },
-          });
-        });
-      });
+      );
     }
   });
 });
 
 // FormMechanicalServices
-app.get('/api/forms/FormMechanicalServices/:insp_id', (req, res) => {
+app.get("/api/forms/FormMechanicalServices/:insp_id", (req, res) => {
   const { insp_id } = req.params;
-  db.query('SELECT * FROM form_mechanical_services WHERE insp_id = ?', [insp_id], (err, rows) => {
-    if (err) {
-      console.error('GET form_mechanical_services error:', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
+  db.query(
+    "SELECT * FROM form_mechanical_services WHERE insp_id = ?",
+    [insp_id],
+    (err, rows) => {
+      if (err) {
+        console.error("GET form_mechanical_services error:", err);
+        return res.status(500).json({ error: "Internal Server Error" });
+      }
+      res.json(rows.length > 0 ? rows[0] : null);
     }
-    res.json(rows.length > 0 ? rows[0] : null);
-  });
+  );
 });
-app.post('/api/forms/FormMechanicalServices/:insp_id', (req, res) => {
+app.post("/api/forms/FormMechanicalServices/:insp_id", (req, res) => {
   const { insp_id } = req.params;
   const payload = req.body;
   const user_id = withUserId(req);
-  db.query('SELECT * FROM form_mechanical_services WHERE insp_id = ?', [insp_id], (err, existing) => {
-    if (err) {
-      console.error('POST form_mechanical_services error (select):', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
+  db.query(
+    "SELECT * FROM form_mechanical_services WHERE insp_id = ?",
+    [insp_id],
+    (err, existing) => {
+      if (err) {
+        console.error("POST form_mechanical_services error (select):", err);
+        return res.status(500).json({ error: "Internal Server Error" });
+      }
+      if (existing.length > 0) {
+        db.query(
+          "UPDATE form_mechanical_services SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?",
+          [payload, user_id, insp_id],
+          (err2) => {
+            if (err2) {
+              console.error(
+                "POST form_mechanical_services error (update):",
+                err2
+              );
+              return res.status(500).json({ error: "Internal Server Error" });
+            }
+            res.json({ success: true });
+          }
+        );
+      } else {
+        db.query(
+          "INSERT INTO form_mechanical_services SET ?, insp_id=?, created_by=?, created_at=NOW()",
+          [payload, insp_id, user_id],
+          (err3) => {
+            if (err3) {
+              console.error(
+                "POST form_mechanical_services error (insert):",
+                err3
+              );
+              return res.status(500).json({ error: "Internal Server Error" });
+            }
+            res.json({ success: true });
+          }
+        );
+      }
     }
-    if (existing.length > 0) {
-      db.query('UPDATE form_mechanical_services SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?', [payload, user_id, insp_id], (err2) => {
-        if (err2) {
-          console.error('POST form_mechanical_services error (update):', err2);
-          return res.status(500).json({ error: 'Internal Server Error' });
-        }
-        res.json({ success: true });
-      });
-    } else {
-      db.query('INSERT INTO form_mechanical_services SET ?, insp_id=?, created_by=?, created_at=NOW()', [payload, insp_id, user_id], (err3) => {
-        if (err3) {
-          console.error('POST form_mechanical_services error (insert):', err3);
-          return res.status(500).json({ error: 'Internal Server Error' });
-        }
-        res.json({ success: true });
-      });
-    }
-  });
+  );
 });
 
 // FormMechanicalInspectionData
-app.get('/api/forms/FormMechanicalInspectionData/:insp_id', (req, res) => {
+app.get("/api/forms/FormMechanicalInspectionData/:insp_id", (req, res) => {
   const { insp_id } = req.params;
-  db.query('SELECT * FROM form_mechanical_inspection_data WHERE insp_id = ?', [insp_id], (err, rows) => {
-    if (err) {
-      console.error('GET form_mechanical_inspection_data error:', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
+  db.query(
+    "SELECT * FROM form_mechanical_inspection_data WHERE insp_id = ?",
+    [insp_id],
+    (err, rows) => {
+      if (err) {
+        console.error("GET form_mechanical_inspection_data error:", err);
+        return res.status(500).json({ error: "Internal Server Error" });
+      }
+      res.json(rows.length > 0 ? rows[0] : null);
     }
-    res.json(rows.length > 0 ? rows[0] : null);
-  });
+  );
 });
-app.post('/api/forms/FormMechanicalInspectionData/:insp_id', (req, res) => {
+app.post("/api/forms/FormMechanicalInspectionData/:insp_id", (req, res) => {
   const { insp_id } = req.params;
   const payload = req.body;
   const user_id = withUserId(req);
-  db.query('SELECT * FROM form_mechanical_inspection_data WHERE insp_id = ?', [insp_id], (err, existing) => {
-    if (err) {
-      console.error('POST form_mechanical_inspection_data error (select):', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
+  db.query(
+    "SELECT * FROM form_mechanical_inspection_data WHERE insp_id = ?",
+    [insp_id],
+    (err, existing) => {
+      if (err) {
+        console.error(
+          "POST form_mechanical_inspection_data error (select):",
+          err
+        );
+        return res.status(500).json({ error: "Internal Server Error" });
+      }
+      if (existing.length > 0) {
+        db.query(
+          "UPDATE form_mechanical_inspection_data SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?",
+          [payload, user_id, insp_id],
+          (err2) => {
+            if (err2) {
+              console.error(
+                "POST form_mechanical_inspection_data error (update):",
+                err2
+              );
+              return res.status(500).json({ error: "Internal Server Error" });
+            }
+            res.json({ success: true });
+          }
+        );
+      } else {
+        db.query(
+          "INSERT INTO form_mechanical_inspection_data SET ?, insp_id=?, created_by=?, created_at=NOW()",
+          [payload, insp_id, user_id],
+          (err3) => {
+            if (err3) {
+              console.error(
+                "POST form_mechanical_inspection_data error (insert):",
+                err3
+              );
+              return res.status(500).json({ error: "Internal Server Error" });
+            }
+            res.json({ success: true });
+          }
+        );
+      }
     }
-    if (existing.length > 0) {
-      db.query('UPDATE form_mechanical_inspection_data SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?', [payload, user_id, insp_id], (err2) => {
-        if (err2) {
-          console.error('POST form_mechanical_inspection_data error (update):', err2);
-          return res.status(500).json({ error: 'Internal Server Error' });
-        }
-        res.json({ success: true });
-      });
-    } else {
-      db.query('INSERT INTO form_mechanical_inspection_data SET ?, insp_id=?, created_by=?, created_at=NOW()', [payload, insp_id, user_id], (err3) => {
-        if (err3) {
-          console.error('POST form_mechanical_inspection_data error (insert):', err3);
-          return res.status(500).json({ error: 'Internal Server Error' });
-        }
-        res.json({ success: true });
-      });
-    }
-  });
+  );
 });
 
 // FormLaserAlignment
-app.get('/api/forms/FormLaserAlignment/:insp_id', (req, res) => {
+app.get("/api/forms/FormLaserAlignment/:insp_id", (req, res) => {
   const { insp_id } = req.params;
-  db.query('SELECT * FROM form_laser_alignment WHERE insp_id = ?', [insp_id], (err, rows) => {
-    if (err) {
-      console.error('GET form_laser_alignment error:', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
+  db.query(
+    "SELECT * FROM form_laser_alignment WHERE insp_id = ?",
+    [insp_id],
+    (err, rows) => {
+      if (err) {
+        console.error("GET form_laser_alignment error:", err);
+        return res.status(500).json({ error: "Internal Server Error" });
+      }
+      res.json(rows.length > 0 ? rows[0] : null);
     }
-    res.json(rows.length > 0 ? rows[0] : null);
-  });
+  );
 });
-app.post('/api/forms/FormLaserAlignment/:insp_id', (req, res) => {
+app.post("/api/forms/FormLaserAlignment/:insp_id", (req, res) => {
   const { insp_id } = req.params;
   const payload = req.body;
   const user_id = withUserId(req);
-  db.query('SELECT * FROM form_laser_alignment WHERE insp_id = ?', [insp_id], (err, existing) => {
-    if (err) {
-      console.error('POST form_laser_alignment error (select):', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
+  db.query(
+    "SELECT * FROM form_laser_alignment WHERE insp_id = ?",
+    [insp_id],
+    (err, existing) => {
+      if (err) {
+        console.error("POST form_laser_alignment error (select):", err);
+        return res.status(500).json({ error: "Internal Server Error" });
+      }
+      if (existing.length > 0) {
+        db.query(
+          "UPDATE form_laser_alignment SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?",
+          [payload, user_id, insp_id],
+          (err2) => {
+            if (err2) {
+              console.error("POST form_laser_alignment error (update):", err2);
+              return res.status(500).json({ error: "Internal Server Error" });
+            }
+            res.json({ success: true });
+          }
+        );
+      } else {
+        db.query(
+          "INSERT INTO form_laser_alignment SET ?, insp_id=?, created_by=?, created_at=NOW()",
+          [payload, insp_id, user_id],
+          (err3) => {
+            if (err3) {
+              console.error("POST form_laser_alignment error (insert):", err3);
+              return res.status(500).json({ error: "Internal Server Error" });
+            }
+            res.json({ success: true });
+          }
+        );
+      }
     }
-    if (existing.length > 0) {
-      db.query('UPDATE form_laser_alignment SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?', [payload, user_id, insp_id], (err2) => {
-        if (err2) {
-          console.error('POST form_laser_alignment error (update):', err2);
-          return res.status(500).json({ error: 'Internal Server Error' });
-        }
-        res.json({ success: true });
-      });
-    } else {
-      db.query('INSERT INTO form_laser_alignment SET ?, insp_id=?, created_by=?, created_at=NOW()', [payload, insp_id, user_id], (err3) => {
-        if (err3) {
-          console.error('POST form_laser_alignment error (insert):', err3);
-          return res.status(500).json({ error: 'Internal Server Error' });
-        }
-        res.json({ success: true });
-      });
-    }
-  });
+  );
 });
 
 // FormVibrationAfterInstalled
-app.get('/api/forms/FormVibrationAfterInstalled/:insp_id', (req, res) => {
+app.get("/api/forms/FormVibrationAfterInstalled/:insp_id", (req, res) => {
   const { insp_id } = req.params;
-  db.query('SELECT * FROM form_vibration_after_installed WHERE insp_id = ?', [insp_id], (err, rows) => {
-    if (err) {
-      console.error('GET form_vibration_after_installed error:', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
+  db.query(
+    "SELECT * FROM form_vibration_after_installed WHERE insp_id = ?",
+    [insp_id],
+    (err, rows) => {
+      if (err) {
+        console.error("GET form_vibration_after_installed error:", err);
+        return res.status(500).json({ error: "Internal Server Error" });
+      }
+      res.json(rows.length > 0 ? rows[0] : null);
     }
-    res.json(rows.length > 0 ? rows[0] : null);
-  });
+  );
 });
-app.post('/api/forms/FormVibrationAfterInstalled/:insp_id', (req, res) => {
+app.post("/api/forms/FormVibrationAfterInstalled/:insp_id", (req, res) => {
   const { insp_id } = req.params;
   const payload = req.body;
   const user_id = withUserId(req);
-  db.query('SELECT * FROM form_vibration_after_installed WHERE insp_id = ?', [insp_id], (err, existing) => {
-    if (err) {
-      console.error('POST form_vibration_after_installed error (select):', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
+  db.query(
+    "SELECT * FROM form_vibration_after_installed WHERE insp_id = ?",
+    [insp_id],
+    (err, existing) => {
+      if (err) {
+        console.error(
+          "POST form_vibration_after_installed error (select):",
+          err
+        );
+        return res.status(500).json({ error: "Internal Server Error" });
+      }
+      if (existing.length > 0) {
+        db.query(
+          "UPDATE form_vibration_after_installed SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?",
+          [payload, user_id, insp_id],
+          (err2) => {
+            if (err2) {
+              console.error(
+                "POST form_vibration_after_installed error (update):",
+                err2
+              );
+              return res.status(500).json({ error: "Internal Server Error" });
+            }
+            res.json({ success: true });
+          }
+        );
+      } else {
+        db.query(
+          "INSERT INTO form_vibration_after_installed SET ?, insp_id=?, created_by=?, created_at=NOW()",
+          [payload, insp_id, user_id],
+          (err3) => {
+            if (err3) {
+              console.error(
+                "POST form_vibration_after_installed error (insert):",
+                err3
+              );
+              return res.status(500).json({ error: "Internal Server Error" });
+            }
+            res.json({ success: true });
+          }
+        );
+      }
     }
-    if (existing.length > 0) {
-      db.query('UPDATE form_vibration_after_installed SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?', [payload, user_id, insp_id], (err2) => {
-        if (err2) {
-          console.error('POST form_vibration_after_installed error (update):', err2);
-          return res.status(500).json({ error: 'Internal Server Error' });
-        }
-        res.json({ success: true });
-      });
-    } else {
-      db.query('INSERT INTO form_vibration_after_installed SET ?, insp_id=?, created_by=?, created_at=NOW()', [payload, insp_id, user_id], (err3) => {
-        if (err3) {
-          console.error('POST form_vibration_after_installed error (insert):', err3);
-          return res.status(500).json({ error: 'Internal Server Error' });
-        }
-        res.json({ success: true });
-      });
-    }
-  });
+  );
 });
 
 // FormCoreLossHotSpot
-app.get('/api/forms/FormCoreLossHotSpot/:insp_id', (req, res) => {
+app.get("/api/forms/FormCoreLossHotSpot/:insp_id", (req, res) => {
   const { insp_id } = req.params;
-  db.query('SELECT * FROM form_core_loss_hot_spot WHERE insp_id = ?', [insp_id], (err, rows) => {
-    if (err) {
-      console.error('GET form_core_loss_hot_spot error:', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
+  db.query(
+    "SELECT * FROM form_core_loss_hot_spot WHERE insp_id = ?",
+    [insp_id],
+    (err, rows) => {
+      if (err) {
+        console.error("GET form_core_loss_hot_spot error:", err);
+        return res.status(500).json({ error: "Internal Server Error" });
+      }
+      res.json(rows.length > 0 ? rows[0] : null);
     }
-    res.json(rows.length > 0 ? rows[0] : null);
-  });
+  );
 });
-app.post('/api/forms/FormCoreLossHotSpot/:insp_id', (req, res) => {
+app.post("/api/forms/FormCoreLossHotSpot/:insp_id", (req, res) => {
   const { insp_id } = req.params;
   const payload = req.body;
   const user_id = withUserId(req);
-  db.query('SELECT * FROM form_core_loss_hot_spot WHERE insp_id = ?', [insp_id], (err, existing) => {
-    if (err) {
-      console.error('POST form_core_loss_hot_spot error (select):', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
+  db.query(
+    "SELECT * FROM form_core_loss_hot_spot WHERE insp_id = ?",
+    [insp_id],
+    (err, existing) => {
+      if (err) {
+        console.error("POST form_core_loss_hot_spot error (select):", err);
+        return res.status(500).json({ error: "Internal Server Error" });
+      }
+      if (existing.length > 0) {
+        db.query(
+          "UPDATE form_core_loss_hot_spot SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?",
+          [payload, user_id, insp_id],
+          (err2) => {
+            if (err2) {
+              console.error(
+                "POST form_core_loss_hot_spot error (update):",
+                err2
+              );
+              return res.status(500).json({ error: "Internal Server Error" });
+            }
+            res.json({ success: true });
+          }
+        );
+      } else {
+        db.query(
+          "INSERT INTO form_core_loss_hot_spot SET ?, insp_id=?, created_by=?, created_at=NOW()",
+          [payload, insp_id, user_id],
+          (err3) => {
+            if (err3) {
+              console.error(
+                "POST form_core_loss_hot_spot error (insert):",
+                err3
+              );
+              return res.status(500).json({ error: "Internal Server Error" });
+            }
+            res.json({ success: true });
+          }
+        );
+      }
     }
-    if (existing.length > 0) {
-      db.query('UPDATE form_core_loss_hot_spot SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?', [payload, user_id, insp_id], (err2) => {
-        if (err2) {
-          console.error('POST form_core_loss_hot_spot error (update):', err2);
-          return res.status(500).json({ error: 'Internal Server Error' });
-        }
-        res.json({ success: true });
-      });
-    } else {
-      db.query('INSERT INTO form_core_loss_hot_spot SET ?, insp_id=?, created_by=?, created_at=NOW()', [payload, insp_id, user_id], (err3) => {
-        if (err3) {
-          console.error('POST form_core_loss_hot_spot error (insert):', err3);
-          return res.status(500).json({ error: 'Internal Server Error' });
-        }
-        res.json({ success: true });
-      });
-    }
-  });
+  );
 });
 
 // FormRewind
-app.get('/api/forms/FormRewind/:insp_id', (req, res) => {
+app.get("/api/forms/FormRewind/:insp_id", (req, res) => {
   const { insp_id } = req.params;
-  db.query('SELECT * FROM form_rewind WHERE insp_id = ?', [insp_id], (err, rows) => {
-    if (err) {
-      console.error('GET form_rewind error:', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
+  db.query(
+    "SELECT * FROM form_rewind WHERE insp_id = ?",
+    [insp_id],
+    (err, rows) => {
+      if (err) {
+        console.error("GET form_rewind error:", err);
+        return res.status(500).json({ error: "Internal Server Error" });
+      }
+      res.json(rows.length > 0 ? rows[0] : null);
     }
-    res.json(rows.length > 0 ? rows[0] : null);
-  });
+  );
 });
-app.post('/api/forms/FormRewind/:insp_id', (req, res) => {
+app.post("/api/forms/FormRewind/:insp_id", (req, res) => {
   const { insp_id } = req.params;
   const payload = req.body;
   const user_id = withUserId(req);
-  db.query('SELECT * FROM form_rewind WHERE insp_id = ?', [insp_id], (err, existing) => {
-    if (err) {
-      console.error('POST form_rewind error (select):', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
+  db.query(
+    "SELECT * FROM form_rewind WHERE insp_id = ?",
+    [insp_id],
+    (err, existing) => {
+      if (err) {
+        console.error("POST form_rewind error (select):", err);
+        return res.status(500).json({ error: "Internal Server Error" });
+      }
+      if (existing.length > 0) {
+        db.query(
+          "UPDATE form_rewind SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?",
+          [payload, user_id, insp_id],
+          (err2) => {
+            if (err2) {
+              console.error("POST form_rewind error (update):", err2);
+              return res.status(500).json({ error: "Internal Server Error" });
+            }
+            res.json({ success: true });
+          }
+        );
+      } else {
+        db.query(
+          "INSERT INTO form_rewind SET ?, insp_id=?, created_by=?, created_at=NOW()",
+          [payload, insp_id, user_id],
+          (err3) => {
+            if (err3) {
+              console.error("POST form_rewind error (insert):", err3);
+              return res.status(500).json({ error: "Internal Server Error" });
+            }
+            res.json({ success: true });
+          }
+        );
+      }
     }
-    if (existing.length > 0) {
-      db.query('UPDATE form_rewind SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?', [payload, user_id, insp_id], (err2) => {
-        if (err2) {
-          console.error('POST form_rewind error (update):', err2);
-          return res.status(500).json({ error: 'Internal Server Error' });
-        }
-        res.json({ success: true });
-      });
-    } else {
-      db.query('INSERT INTO form_rewind SET ?, insp_id=?, created_by=?, created_at=NOW()', [payload, insp_id, user_id], (err3) => {
-        if (err3) {
-          console.error('POST form_rewind error (insert):', err3);
-          return res.status(500).json({ error: 'Internal Server Error' });
-        }
-        res.json({ success: true });
-      });
-    }
-  });
+  );
 });
 
 // FormMachine
-app.get('/api/forms/FormMachine/:insp_id', (req, res) => {
+app.get("/api/forms/FormMachine/:insp_id", (req, res) => {
   const { insp_id } = req.params;
-  db.query('SELECT * FROM form_machine WHERE insp_id = ?', [insp_id], (err, rows) => {
-    if (err) {
-      console.error('GET form_machine error:', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
+  db.query(
+    "SELECT * FROM form_machine WHERE insp_id = ?",
+    [insp_id],
+    (err, rows) => {
+      if (err) {
+        console.error("GET form_machine error:", err);
+        return res.status(500).json({ error: "Internal Server Error" });
+      }
+      res.json(rows.length > 0 ? rows[0] : null);
     }
-    res.json(rows.length > 0 ? rows[0] : null);
-  });
+  );
 });
-app.post('/api/forms/FormMachine/:insp_id', (req, res) => {
+app.post("/api/forms/FormMachine/:insp_id", (req, res) => {
   const { insp_id } = req.params;
   const payload = req.body;
   const user_id = withUserId(req);
-  db.query('SELECT * FROM form_machine WHERE insp_id = ?', [insp_id], (err, existing) => {
-    if (err) {
-      console.error('POST form_machine error (select):', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
+  db.query(
+    "SELECT * FROM form_machine WHERE insp_id = ?",
+    [insp_id],
+    (err, existing) => {
+      if (err) {
+        console.error("POST form_machine error (select):", err);
+        return res.status(500).json({ error: "Internal Server Error" });
+      }
+      if (existing.length > 0) {
+        db.query(
+          "UPDATE form_machine SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?",
+          [payload, user_id, insp_id],
+          (err2) => {
+            if (err2) {
+              console.error("POST form_machine error (update):", err2);
+              return res.status(500).json({ error: "Internal Server Error" });
+            }
+            res.json({ success: true });
+          }
+        );
+      } else {
+        db.query(
+          "INSERT INTO form_machine SET ?, insp_id=?, created_by=?, created_at=NOW()",
+          [payload, insp_id, user_id],
+          (err3) => {
+            if (err3) {
+              console.error("POST form_machine error (insert):", err3);
+              return res.status(500).json({ error: "Internal Server Error" });
+            }
+            res.json({ success: true });
+          }
+        );
+      }
     }
-    if (existing.length > 0) {
-      db.query('UPDATE form_machine SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?', [payload, user_id, insp_id], (err2) => {
-        if (err2) {
-          console.error('POST form_machine error (update):', err2);
-          return res.status(500).json({ error: 'Internal Server Error' });
-        }
-        res.json({ success: true });
-      });
-    } else {
-      db.query('INSERT INTO form_machine SET ?, insp_id=?, created_by=?, created_at=NOW()', [payload, insp_id, user_id], (err3) => {
-        if (err3) {
-          console.error('POST form_machine error (insert):', err3);
-          return res.status(500).json({ error: 'Internal Server Error' });
-        }
-        res.json({ success: true });
-      });
-    }
-  });
+  );
 });
 
 // FormPartData
-app.get('/api/forms/FormPartData/:insp_id', (req, res) => {
+app.get("/api/forms/FormPartData/:insp_id", (req, res) => {
   const { insp_id } = req.params;
-  db.query('SELECT * FROM form_part_data WHERE insp_id = ?', [insp_id], (err, rows) => {
-    if (err) {
-      console.error('GET form_part_data error:', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
+  db.query(
+    "SELECT * FROM form_part_data WHERE insp_id = ?",
+    [insp_id],
+    (err, rows) => {
+      if (err) {
+        console.error("GET form_part_data error:", err);
+        return res.status(500).json({ error: "Internal Server Error" });
+      }
+      res.json(rows.length > 0 ? rows[0] : null);
     }
-    res.json(rows.length > 0 ? rows[0] : null);
-  });
+  );
 });
-app.post('/api/forms/FormPartData/:insp_id', (req, res) => {
+app.post("/api/forms/FormPartData/:insp_id", (req, res) => {
   const { insp_id } = req.params;
   const payload = req.body;
   const user_id = withUserId(req);
-  db.query('SELECT * FROM form_part_data WHERE insp_id = ?', [insp_id], (err, existing) => {
-    if (err) {
-      console.error('POST form_part_data error (select):', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
+  db.query(
+    "SELECT * FROM form_part_data WHERE insp_id = ?",
+    [insp_id],
+    (err, existing) => {
+      if (err) {
+        console.error("POST form_part_data error (select):", err);
+        return res.status(500).json({ error: "Internal Server Error" });
+      }
+      if (existing.length > 0) {
+        db.query(
+          "UPDATE form_part_data SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?",
+          [payload, user_id, insp_id],
+          (err2) => {
+            if (err2) {
+              console.error("POST form_part_data error (update):", err2);
+              return res.status(500).json({ error: "Internal Server Error" });
+            }
+            res.json({ success: true });
+          }
+        );
+      } else {
+        db.query(
+          "INSERT INTO form_part_data SET ?, insp_id=?, created_by=?, created_at=NOW()",
+          [payload, insp_id, user_id],
+          (err3) => {
+            if (err3) {
+              console.error("POST form_partdata error (insert):", err3);
+              return res.status(500).json({ error: "Internal Server Error" });
+            }
+            res.json({ success: true });
+          }
+        );
+      }
     }
-    if (existing.length > 0) {
-      db.query('UPDATE form_part_data SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?', [payload, user_id, insp_id], (err2) => {
-        if (err2) {
-          console.error('POST form_part_data error (update):', err2);
-          return res.status(500).json({ error: 'Internal Server Error' });
-        }
-        res.json({ success: true });
-      });
-    } else {
-      db.query('INSERT INTO form_part_data SET ?, insp_id=?, created_by=?, created_at=NOW()', [payload, insp_id, user_id], (err3) => {
-        if (err3) {
-          console.error('POST form_partdata error (insert):', err3);
-          return res.status(500).json({ error: 'Internal Server Error' });
-        }
-        res.json({ success: true });
-      });
-    }
-  });
+  );
 });
 
 // FormAttachments
-app.get('/api/forms/FormAttachments/:insp_id', (req, res) => {
+app.get("/api/forms/FormAttachments/:insp_id", (req, res) => {
   const { insp_id } = req.params;
-  db.query('SELECT * FROM form_attachments WHERE insp_id = ?', [insp_id], (err, rows) => {
-    if (err) {
-      console.error('GET form_attachments error:', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
+  db.query(
+    "SELECT * FROM form_attachments WHERE insp_id = ?",
+    [insp_id],
+    (err, rows) => {
+      if (err) {
+        console.error("GET form_attachments error:", err);
+        return res.status(500).json({ error: "Internal Server Error" });
+      }
+      res.json(rows.length > 0 ? rows[0] : null);
     }
-    res.json(rows.length > 0 ? rows[0] : null);
-  });
+  );
 });
-app.post('/api/forms/FormAttachments/:insp_id', (req, res) => {
+app.post("/api/forms/FormAttachments/:insp_id", (req, res) => {
   const { insp_id } = req.params;
   const payload = req.body;
   const user_id = withUserId(req);
-  db.query('SELECT * FROM form_attachments WHERE insp_id = ?', [insp_id], (err, existing) => {
-    if (err) {
-      console.error('POST form_attachments error (select):', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
+  db.query(
+    "SELECT * FROM form_attachments WHERE insp_id = ?",
+    [insp_id],
+    (err, existing) => {
+      if (err) {
+        console.error("POST form_attachments error (select):", err);
+        return res.status(500).json({ error: "Internal Server Error" });
+      }
+      if (existing.length > 0) {
+        db.query(
+          "UPDATE form_attachments SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?",
+          [payload, user_id, insp_id],
+          (err2) => {
+            if (err2) {
+              console.error("POST form_attachments error (update):", err2);
+              return res.status(500).json({ error: "Internal Server Error" });
+            }
+            res.json({ success: true });
+          }
+        );
+      } else {
+        db.query(
+          "INSERT INTO form_attachments SET ?, insp_id=?, created_by=?, created_at=NOW()",
+          [payload, insp_id, user_id],
+          (err3) => {
+            if (err3) {
+              console.error("POST form_attachments error (insert):", err3);
+              return res.status(500).json({ error: "Internal Server Error" });
+            }
+            res.json({ success: true });
+          }
+        );
+      }
     }
-    if (existing.length > 0) {
-      db.query('UPDATE form_attachments SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?', [payload, user_id, insp_id], (err2) => {
-        if (err2) {
-          console.error('POST form_attachments error (update):', err2);
-          return res.status(500).json({ error: 'Internal Server Error' });
-        }
-        res.json({ success: true });
-      });
-    } else {
-      db.query('INSERT INTO form_attachments SET ?, insp_id=?, created_by=?, created_at=NOW()', [payload, insp_id, user_id], (err3) => {
-        if (err3) {
-          console.error('POST form_attachments error (insert):', err3);
-          return res.status(500).json({ error: 'Internal Server Error' });
-        }
-        res.json({ success: true });
-      });
-    }
-  });
+  );
 });
 
 // FormPhotoManager
-app.get('/api/forms/FormPhotoManager/:insp_id', (req, res) => {
+app.get("/api/forms/FormPhotoManager/:insp_id", (req, res) => {
   const { insp_id } = req.params;
-  db.query('SELECT * FROM form_photo_manager WHERE insp_id = ?', [insp_id], (err, rows) => {
-    if (err) {
-      console.error('GET form_photo_manager error:', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
+  db.query(
+    "SELECT * FROM form_photo_manager WHERE insp_id = ?",
+    [insp_id],
+    (err, rows) => {
+      if (err) {
+        console.error("GET form_photo_manager error:", err);
+        return res.status(500).json({ error: "Internal Server Error" });
+      }
+      res.json(rows.length > 0 ? rows[0] : null);
     }
-    res.json(rows.length > 0 ? rows[0] : null);
-  });
+  );
 });
-app.post('/api/forms/FormPhotoManager/:insp_id', (req, res) => {
+app.post("/api/forms/FormPhotoManager/:insp_id", (req, res) => {
   const { insp_id } = req.params;
   const payload = req.body;
   const user_id = withUserId(req);
-  db.query('SELECT * FROM form_photo_manager WHERE insp_id = ?', [insp_id], (err, existing) => {
-    if (err) {
-      console.error('POST form_photo_manager error (select):', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
+  db.query(
+    "SELECT * FROM form_photo_manager WHERE insp_id = ?",
+    [insp_id],
+    (err, existing) => {
+      if (err) {
+        console.error("POST form_photo_manager error (select):", err);
+        return res.status(500).json({ error: "Internal Server Error" });
+      }
+      if (existing.length > 0) {
+        db.query(
+          "UPDATE form_photo_manager SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?",
+          [payload, user_id, insp_id],
+          (err2) => {
+            if (err2) {
+              console.error("POST form_photo_manager error (update):", err2);
+              return res.status(500).json({ error: "Internal Server Error" });
+            }
+            res.json({ success: true });
+          }
+        );
+      } else {
+        db.query(
+          "INSERT INTO form_photo_manager SET ?, insp_id=?, created_by=?, created_at=NOW()",
+          [payload, insp_id, user_id],
+          (err3) => {
+            if (err3) {
+              console.error("POST form_photo_manager error (insert):", err3);
+              return res.status(500).json({ error: "Internal Server Error" });
+            }
+            res.json({ success: true });
+          }
+        );
+      }
     }
-    if (existing.length > 0) {
-      db.query('UPDATE form_photo_manager SET ?, updated_by=?, updated_at=NOW() WHERE insp_id = ?', [payload, user_id, insp_id], (err2) => {
-        if (err2) {
-          console.error('POST form_photo_manager error (update):', err2);
-          return res.status(500).json({ error: 'Internal Server Error' });
-        }
-        res.json({ success: true });
-      });
-    } else {
-      db.query('INSERT INTO form_photo_manager SET ?, insp_id=?, created_by=?, created_at=NOW()', [payload, insp_id, user_id], (err3) => {
-        if (err3) {
-          console.error('POST form_photo_manager error (insert):', err3);
-          return res.status(500).json({ error: 'Internal Server Error' });
-        }
-        res.json({ success: true });
-      });
-    }
-  });
+  );
 });
 
 // Tag list (prefer trp_motor_code from latest form_test_report when exists)
-app.get('/api/tagList', (req, res) => {
-  const { branch = '' } = req.query;
+app.get("/api/tagList", (req, res) => {
+  const { branch = "" } = req.query;
 
   const params = [];
   let sql = `
@@ -2362,16 +2859,16 @@ app.get('/api/tagList', (req, res) => {
 
   db.query(sql, params, (err, results) => {
     if (err) {
-      console.error('Query error:', err);
-      return res.status(500).json({ error: 'ไม่สามารถดึง tagList ได้' });
+      console.error("Query error:", err);
+      return res.status(500).json({ error: "ไม่สามารถดึง tagList ได้" });
     }
     res.json(results || []);
   });
 });
 
 // Company list
-app.get('/company/list', (req, res) => {
-  const { branch = '' } = req.query; //  รับ branch จาก query string
+app.get("/company/list", (req, res) => {
+  const { branch = "" } = req.query; //  รับ branch จาก query string
 
   let sql = `
     SELECT DISTINCT insp_customer_no, insp_customer_name
@@ -2388,15 +2885,15 @@ app.get('/company/list', (req, res) => {
 
   db.query(sql, params, (err, results) => {
     if (err) {
-      console.error('Query error:', err);
-      return res.status(500).json({ error: 'ไม่สามารถดึง company list ได้' });
+      console.error("Query error:", err);
+      return res.status(500).json({ error: "ไม่สามารถดึง company list ได้" });
     }
     res.json(results);
   });
 });
 
 // Search SV
-app.post('/api/searchSV', (req, res) => {
+app.post("/api/searchSV", (req, res) => {
   const { order_id } = req.body;
   const sql = `
     SELECT 
@@ -2414,19 +2911,23 @@ app.post('/api/searchSV', (req, res) => {
   `;
   db.query(sql, [order_id], (err, results) => {
     if (err) {
-      console.error('searchSV error:', err);
-      return res.status(500).json({ error: 'ไม่สามารถค้นหาข้อมูลด้วย Service Order ได้' });
+      console.error("searchSV error:", err);
+      return res
+        .status(500)
+        .json({ error: "ไม่สามารถค้นหาข้อมูลด้วย Service Order ได้" });
     }
-    res.json(results.map(row => ({
-      ...row,
-      insp_created_at: row.insp_created_at?.toISOString().slice(0, 10),
-      insp_document_date: row.insp_document_date?.toISOString().slice(0, 10)
-    })));
+    res.json(
+      results.map((row) => ({
+        ...row,
+        insp_created_at: row.insp_created_at?.toISOString().slice(0, 10),
+        insp_document_date: row.insp_document_date?.toISOString().slice(0, 10),
+      }))
+    );
   });
 });
 
 // Search Customer
-app.post('/api/searchCustomer', (req, res) => {
+app.post("/api/searchCustomer", (req, res) => {
   const { company_code } = req.body;
   const sql = `
     SELECT 
@@ -2444,20 +2945,24 @@ app.post('/api/searchCustomer', (req, res) => {
   `;
   db.query(sql, [company_code], (err, results) => {
     if (err) {
-      console.error('searchCustomer error:', err);
-      return res.status(500).json({ error: 'ไม่สามารถค้นหาข้อมูลด้วย Customer No ได้' });
+      console.error("searchCustomer error:", err);
+      return res
+        .status(500)
+        .json({ error: "ไม่สามารถค้นหาข้อมูลด้วย Customer No ได้" });
     }
-    res.json(results.map(row => ({
-      ...row,
-      insp_created_at: row.insp_created_at?.toISOString().slice(0, 10),
-      insp_document_date: row.insp_document_date?.toISOString().slice(0, 10)
-    })));
+    res.json(
+      results.map((row) => ({
+        ...row,
+        insp_created_at: row.insp_created_at?.toISOString().slice(0, 10),
+        insp_document_date: row.insp_document_date?.toISOString().slice(0, 10),
+      }))
+    );
   });
 });
 
 // Station counts (filter by branch if provided)
-app.get('/api/station-counts', (req, res) => {
-  const { branch = '' } = req.query; // ✅ รับ branch จาก query string
+app.get("/api/station-counts", (req, res) => {
+  const { branch = "" } = req.query; // ✅ รับ branch จาก query string
 
   let sql = `
     SELECT insp_station_now AS station, COUNT(*) AS count
@@ -2475,27 +2980,30 @@ app.get('/api/station-counts', (req, res) => {
 
   db.query(sql, params, (err, results) => {
     if (err) {
-      console.error('Query error:', err);
-      return res.status(500).json({ error: 'ไม่สามารถดึงข้อมูลสถานีได้' });
+      console.error("Query error:", err);
+      return res.status(500).json({ error: "ไม่สามารถดึงข้อมูลสถานีได้" });
     }
     res.json(results);
   });
 });
 
 // User profile get/update
-app.get('/api/user/:id', (req, res) => {
+app.get("/api/user/:id", (req, res) => {
   const userId = req.params.id;
   const sql = `SELECT user_key, name, lastname, u_tel, line_id, u_email, user_photo, user_type, user_language FROM u_user WHERE user_key = ?`;
   db.query(sql, [userId], (err, results) => {
-    if (err) return res.status(500).json({ error: 'ไม่สามารถดึงข้อมูลผู้ใช้ได้' });
-    if (results.length === 0) return res.status(404).json({ error: 'ไม่พบผู้ใช้' });
+    if (err)
+      return res.status(500).json({ error: "ไม่สามารถดึงข้อมูลผู้ใช้ได้" });
+    if (results.length === 0)
+      return res.status(404).json({ error: "ไม่พบผู้ใช้" });
     res.json(results[0]);
   });
 });
 
-app.put('/api/user/:id', (req, res) => {
+app.put("/api/user/:id", (req, res) => {
   const userId = req.params.id;
-  const { name, lastname, u_email, u_tel, lineId, user_photo, user_language } = req.body;
+  const { name, lastname, u_email, u_tel, lineId, user_photo, user_language } =
+    req.body;
 
   const sql = `
     UPDATE u_user 
@@ -2512,36 +3020,52 @@ app.put('/api/user/:id', (req, res) => {
 
   db.query(
     sql,
-    [name, lastname, u_email, u_tel, lineId, user_photo || null, user_language, userId],
+    [
+      name,
+      lastname,
+      u_email,
+      u_tel,
+      lineId,
+      user_photo || null,
+      user_language,
+      userId,
+    ],
     (err) => {
-      if (err) return res.status(500).json({ error: 'อัปเดตข้อมูลไม่สำเร็จ' });
-      res.json({ message: 'อัปเดตข้อมูลสำเร็จ' });
+      if (err) return res.status(500).json({ error: "อัปเดตข้อมูลไม่สำเร็จ" });
+      res.json({ message: "อัปเดตข้อมูลสำเร็จ" });
     }
   );
 });
 
 // Upload profile image
-app.post('/api/upload-profile-image/:userId', upload.single('image'), async (req, res) => {
-  try {
-    const userId = req.params.userId;
-    const file = req.file;
-    if (!file) return res.status(400).json({ error: 'No file uploaded' });
+app.post(
+  "/api/upload-profile-image/:userId",
+  upload.single("image"),
+  async (req, res) => {
+    try {
+      const userId = req.params.userId;
+      const file = req.file;
+      if (!file) return res.status(400).json({ error: "No file uploaded" });
 
-    const fileName = `user-${userId}.jpg`;
-    const outputPath = path.join(__dirname, 'public', 'img_upload', fileName);
+      const fileName = `user-${userId}.jpg`;
+      const outputPath = path.join(__dirname, "public", "img_upload", fileName);
 
-    if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
+      if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
 
-    await sharp(file.buffer).resize(300).jpeg({ quality: 80 }).toFile(outputPath);
-    res.json({ fileName });
-  } catch (err) {
-    console.error('Upload failed:', err);
-    res.status(500).json({ error: 'Upload failed' });
+      await sharp(file.buffer)
+        .resize(300)
+        .jpeg({ quality: 80 })
+        .toFile(outputPath);
+      res.json({ fileName });
+    } catch (err) {
+      console.error("Upload failed:", err);
+      res.status(500).json({ error: "Upload failed" });
+    }
   }
-});
+);
 
 // Notifications list with pagination
-app.get('/api/notifications/list/:userKey', (req, res) => {
+app.get("/api/notifications/list/:userKey", (req, res) => {
   const userKey = req.params.userKey;
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 10;
@@ -2567,30 +3091,30 @@ app.get('/api/notifications/list/:userKey', (req, res) => {
 
   db.query(countSql, [userKey], (err, countResult) => {
     if (err) {
-      console.error('Error counting notifications:', err);
-      return res.status(500).json({ error: 'Database error (count)' });
+      console.error("Error counting notifications:", err);
+      return res.status(500).json({ error: "Database error (count)" });
     }
 
     const total = countResult[0].total;
 
     db.query(dataSql, [userKey, limit, offset], (err2, results) => {
       if (err2) {
-        console.error('Error fetching notifications:', err2);
-        return res.status(500).json({ error: 'Database error (data)' });
+        console.error("Error fetching notifications:", err2);
+        return res.status(500).json({ error: "Database error (data)" });
       }
 
       res.json({
         total,
         page,
         totalPages: Math.ceil(total / limit),
-        data: results
+        data: results,
       });
     });
   });
 });
 
 // Unread notifications
-app.get('/api/notifications/:userKey', (req, res) => {
+app.get("/api/notifications/:userKey", (req, res) => {
   const userKey = req.params.userKey;
   const sql = `
     SELECT i.insp_id, i.insp_no, i.insp_service_order, i.insp_customer_name, i.inspection_updated_at
@@ -2603,18 +3127,18 @@ app.get('/api/notifications/:userKey', (req, res) => {
   `;
   db.query(sql, [userKey], (err, results) => {
     if (err) {
-      console.error('Error fetching notifications:', err);
-      return res.status(500).json({ error: 'Database error' });
+      console.error("Error fetching notifications:", err);
+      return res.status(500).json({ error: "Database error" });
     }
     res.json(results);
   });
 });
 
 // Mark read
-app.post('/api/notifications/read', (req, res) => {
+app.post("/api/notifications/read", (req, res) => {
   const { user_key, insp_id } = req.body;
   if (!user_key || !insp_id) {
-    return res.status(400).json({ error: 'Missing user_key or insp_id' });
+    return res.status(400).json({ error: "Missing user_key or insp_id" });
   }
   const sql = `
     UPDATE tbl_inspection_follow
@@ -2623,15 +3147,15 @@ app.post('/api/notifications/read', (req, res) => {
   `;
   db.query(sql, [user_key, insp_id], (err) => {
     if (err) {
-      console.error('Failed to mark as read:', err);
-      return res.status(500).json({ error: 'Database error' });
+      console.error("Failed to mark as read:", err);
+      return res.status(500).json({ error: "Database error" });
     }
     res.json({ success: true });
   });
 });
 
 // Follow / Unfollow / Status
-app.post('/api/follow', (req, res) => {
+app.post("/api/follow", (req, res) => {
   const { user_key, insp_id, insp_no } = req.body;
   const sql = `
     INSERT INTO tbl_inspection_follow (user_key, insp_id, insp_no, is_active, followed_at)
@@ -2639,36 +3163,36 @@ app.post('/api/follow', (req, res) => {
     ON DUPLICATE KEY UPDATE is_active = 1, followed_at = NOW()
   `;
   db.query(sql, [user_key, insp_id, insp_no], (err) => {
-    if (err) return res.status(500).json({ error: 'DB error' });
+    if (err) return res.status(500).json({ error: "DB error" });
     res.json({ success: true });
   });
 });
-app.post('/api/follow/unfollow', (req, res) => {
+app.post("/api/follow/unfollow", (req, res) => {
   const { user_key, insp_id } = req.body;
   const sql = `UPDATE tbl_inspection_follow SET is_active = 0 WHERE user_key = ? AND insp_id = ?`;
   db.query(sql, [user_key, insp_id], (err) => {
-    if (err) return res.status(500).json({ error: 'DB error' });
+    if (err) return res.status(500).json({ error: "DB error" });
     res.json({ success: true });
   });
 });
-app.get('/api/follow/status', (req, res) => {
+app.get("/api/follow/status", (req, res) => {
   const { user_key, insp_id } = req.query;
   const sql = `
     SELECT is_active FROM tbl_inspection_follow
     WHERE user_key = ? AND insp_id = ?
   `;
   db.query(sql, [user_key, insp_id], (err, results) => {
-    if (err) return res.status(500).json({ error: 'DB error' });
+    if (err) return res.status(500).json({ error: "DB error" });
     const is_following = results.length > 0 && results[0].is_active === 1;
     res.json({ is_following });
   });
 });
 
 // Timeline station
-app.get('/api/timeline/station', (req, res) => {
+app.get("/api/timeline/station", (req, res) => {
   const { insp_id } = req.query;
   if (!insp_id) {
-    return res.status(400).json({ error: 'กรุณาระบุ insp_id' });
+    return res.status(400).json({ error: "กรุณาระบุ insp_id" });
   }
 
   const stationSQL = `
@@ -2698,14 +3222,16 @@ app.get('/api/timeline/station', (req, res) => {
 
   db.query(stationSQL, [insp_id], (err1, stations) => {
     if (err1) {
-      console.error('DB error (stations):', err1);
-      return res.status(500).json({ error: 'ไม่สามารถดึง timeline ได้' });
+      console.error("DB error (stations):", err1);
+      return res.status(500).json({ error: "ไม่สามารถดึง timeline ได้" });
     }
 
     db.query(startSQL, [insp_id], (err2, startRows) => {
       if (err2) {
-        console.error('DB error (start):', err2);
-        return res.status(500).json({ error: 'ไม่สามารถดึง start timeline ได้' });
+        console.error("DB error (start):", err2);
+        return res
+          .status(500)
+          .json({ error: "ไม่สามารถดึง start timeline ได้" });
       }
 
       const timeline = [];
@@ -2713,29 +3239,29 @@ app.get('/api/timeline/station', (req, res) => {
       if (startRows.length > 0) {
         const start = startRows[0];
         timeline.push({
-          station_name: 'Start',
-          station_status: 'Created',
+          station_name: "Start",
+          station_status: "Created",
           station_note: null,
           timestamp: start.lpj_created_at
-            ? dayjs(start.lpj_created_at).format('DD/MM/YYYY HH:mm')
-            : '',
+            ? dayjs(start.lpj_created_at).format("DD/MM/YYYY HH:mm")
+            : "",
           done: true,
           by: start.user_name ? `${start.user_name}` : null,
-          photo: start.user_photo || null
+          photo: start.user_photo || null,
         });
       }
 
-      const mapped = stations.map(row => ({
+      const mapped = stations.map((row) => ({
         station_step: row.station_step,
         station_name: row.station_name,
         station_status: row.station_status,
         station_note: row.station_note,
         timestamp: row.station_timestamp
-          ? dayjs(row.station_timestamp).format('DD/MM/YYYY HH:mm')
-          : '',
-        done: row.station_status !== 'In Progress',
+          ? dayjs(row.station_timestamp).format("DD/MM/YYYY HH:mm")
+          : "",
+        done: row.station_status !== "In Progress",
         by: row.user_name ? `${row.user_name}` : null,
-        photo: row.user_photo || null
+        photo: row.user_photo || null,
       }));
 
       res.json([...timeline, ...mapped]);
@@ -2744,9 +3270,9 @@ app.get('/api/timeline/station', (req, res) => {
 });
 
 // Certificates
-app.get('/api/certificates', (req, res) => {
+app.get("/api/certificates", (req, res) => {
   const branch = req.query.branch;
-  if (!branch) return res.status(400).json({ error: 'missing branch' });
+  if (!branch) return res.status(400).json({ error: "missing branch" });
 
   const sql = `
     SELECT lc.*
@@ -2774,7 +3300,7 @@ app.get('/api/certificates', (req, res) => {
 });
 
 // Teams
-app.get('/api/teams', (req, res) => {
+app.get("/api/teams", (req, res) => {
   const branch = req.query.branch;
   const sql = `
     SELECT 
@@ -2789,7 +3315,7 @@ app.get('/api/teams', (req, res) => {
   });
 });
 
-app.get('/api/teams/members', (req, res) => {
+app.get("/api/teams/members", (req, res) => {
   const branch = req.query.branch;
   const sql = `
     SELECT 
@@ -2817,18 +3343,19 @@ app.get('/api/teams/members', (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // ToDoList endpoints (ใช้ header: X-User-Key)
 function requireUserKey(req, res) {
-  const k = req.header('X-User-Key');
+  const k = req.header("X-User-Key");
   if (!k) {
-    res.status(401).json({ error: 'missing X-User-Key header' });
+    res.status(401).json({ error: "missing X-User-Key header" });
     return null;
   }
   return String(k);
 }
 
 // GET /api/todolist  — รายการของ user นี้ (ไม่รวมที่ลบ)
-app.get('/api/todolist', (req, res) => {
+app.get("/api/todolist", (req, res) => {
   try {
-    const userKey = req.get('X-User-Key') || req.query.user_key || req.body?.user_key;
+    const userKey =
+      req.get("X-User-Key") || req.query.user_key || req.body?.user_key;
     if (!userKey) return res.json([]); // ❗️ไม่เจอคีย์ → ส่งว่าง แทน 400/500
 
     const sql = `
@@ -2844,51 +3371,57 @@ app.get('/api/todolist', (req, res) => {
     `;
     db.query(sql, [String(userKey)], (err, rows) => {
       if (err) {
-        console.error('GET /api/todolist error:', err);
+        console.error("GET /api/todolist error:", err);
         return res.json([]); // ❗️ง่ายสุด: DB พลาด ก็ส่งว่าง (ชั่วคราว)
       }
       res.json(Array.isArray(rows) ? rows : []);
     });
   } catch (e) {
-    console.error('GET /api/todolist fatal:', e);
+    console.error("GET /api/todolist fatal:", e);
     res.json([]); // ❗️กันตกทุกกรณี
   }
 });
 
 // POST /api/todolist  — สร้างใหม่
-app.post('/api/todolist', (req, res) => {
-  const userKey = requireUserKey(req, res); if (!userKey) return;
+app.post("/api/todolist", (req, res) => {
+  const userKey = requireUserKey(req, res);
+  if (!userKey) return;
 
   const { title, note, date, time, allDay } = req.body || {};
   if (!title || !String(title).trim()) {
-    return res.status(400).json({ error: 'กรุณากรอก Title' });
+    return res.status(400).json({ error: "กรุณากรอก Title" });
   }
   const sql = `
     INSERT INTO todolist (title, note, date, time, status, user_key_add, allDay)
     VALUES (?, ?, ?, ?, 'pending', ?, ?)
   `;
-  db.query(sql, [title.trim(), note || null, date || null, time || null, userKey, allDay], (err, result) => {
-    if (err) return res.status(500).json({ error: 'Database error' });
-    res.json({
-      id: result.insertId,
-      title: title.trim(),
-      note: note || null,
-      date: date || null,
-      time: time || null,
-      status: 'pending'
-    });
-  });
+  db.query(
+    sql,
+    [title.trim(), note || null, date || null, time || null, userKey, allDay],
+    (err, result) => {
+      if (err) return res.status(500).json({ error: "Database error" });
+      res.json({
+        id: result.insertId,
+        title: title.trim(),
+        note: note || null,
+        date: date || null,
+        time: time || null,
+        status: "pending",
+      });
+    }
+  );
 });
 
 // PUT /api/todolist/:id  — แก้ไข
-app.put('/api/todolist/:id', (req, res) => {
-  const userKey = requireUserKey(req, res); if (!userKey) return;
+app.put("/api/todolist/:id", (req, res) => {
+  const userKey = requireUserKey(req, res);
+  if (!userKey) return;
 
   const id = parseInt(req.params.id, 10);
   const { title, note, date, time, allDay } = req.body || {};
-  if (!id) return res.status(400).json({ error: 'invalid id' });
+  if (!id) return res.status(400).json({ error: "invalid id" });
   if (!title || !String(title).trim()) {
-    return res.status(400).json({ error: 'กรุณากรอก Title' });
+    return res.status(400).json({ error: "กรุณากรอก Title" });
   }
 
   const sql = `
@@ -2896,29 +3429,43 @@ app.put('/api/todolist/:id', (req, res) => {
     SET title = ?, note = ?, date = ?, time = ?,  allDay = ?
     WHERE todo_id = ? AND user_key_add = ? AND is_deleted = 0
   `;
-  db.query(sql, [title.trim(), note || null, date || null, time || null, allDay, id, userKey], (err, result) => {
-    if (err) return res.status(500).json({ error: 'Database error' });
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'ไม่พบรายการ หรือไม่มีสิทธิ์' });
-
-    res.json({
+  db.query(
+    sql,
+    [
+      title.trim(),
+      note || null,
+      date || null,
+      time || null,
+      allDay,
       id,
-      title: title.trim(),
-      note: note || null,
-      date: date || null,
-      time: time || null
-    });
-  });
+      userKey,
+    ],
+    (err, result) => {
+      if (err) return res.status(500).json({ error: "Database error" });
+      if (result.affectedRows === 0)
+        return res.status(404).json({ error: "ไม่พบรายการ หรือไม่มีสิทธิ์" });
+
+      res.json({
+        id,
+        title: title.trim(),
+        note: note || null,
+        date: date || null,
+        time: time || null,
+      });
+    }
+  );
 });
 
 // PATCH /api/todolist/:id/status  — เปลี่ยนสถานะ (pending/done)
-app.patch('/api/todolist/:id/status', (req, res) => {
-  const userKey = requireUserKey(req, res); if (!userKey) return;
+app.patch("/api/todolist/:id/status", (req, res) => {
+  const userKey = requireUserKey(req, res);
+  if (!userKey) return;
 
   const id = parseInt(req.params.id, 10);
   const { status } = req.body || {};
-  if (!id) return res.status(400).json({ error: 'invalid id' });
-  if (!['pending', 'done'].includes(status)) {
-    return res.status(400).json({ error: 'invalid status' });
+  if (!id) return res.status(400).json({ error: "invalid id" });
+  if (!["pending", "done"].includes(status)) {
+    return res.status(400).json({ error: "invalid status" });
   }
 
   const sql = `
@@ -2927,18 +3474,20 @@ app.patch('/api/todolist/:id/status', (req, res) => {
     WHERE todo_id = ? AND user_key_add = ? AND is_deleted = 0
   `;
   db.query(sql, [status, id, userKey], (err, result) => {
-    if (err) return res.status(500).json({ error: 'Database error' });
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'ไม่พบรายการ หรือไม่มีสิทธิ์' });
+    if (err) return res.status(500).json({ error: "Database error" });
+    if (result.affectedRows === 0)
+      return res.status(404).json({ error: "ไม่พบรายการ หรือไม่มีสิทธิ์" });
     res.json({ id, status });
   });
 });
 
 // DELETE /api/todolist/:id  — ลบแบบ soft delete
-app.delete('/api/todolist/:id', (req, res) => {
-  const userKey = requireUserKey(req, res); if (!userKey) return;
+app.delete("/api/todolist/:id", (req, res) => {
+  const userKey = requireUserKey(req, res);
+  if (!userKey) return;
 
   const id = parseInt(req.params.id, 10);
-  if (!id) return res.status(400).json({ error: 'invalid id' });
+  if (!id) return res.status(400).json({ error: "invalid id" });
 
   const sql = `
     UPDATE todolist
@@ -2946,31 +3495,31 @@ app.delete('/api/todolist/:id', (req, res) => {
     WHERE todo_id = ? AND user_key_add = ?
   `;
   db.query(sql, [id, userKey], (err, result) => {
-    if (err) return res.status(500).json({ error: 'Database error' });
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'ไม่พบรายการ หรือไม่มีสิทธิ์' });
+    if (err) return res.status(500).json({ error: "Database error" });
+    if (result.affectedRows === 0)
+      return res.status(404).json({ error: "ไม่พบรายการ หรือไม่มีสิทธิ์" });
     res.json({ id, deleted: true });
   });
 });
 
-
 // บันทึกหรืออัพเดทจำนวนฟอร์ม
-app.post('/api/forms/scm-number', (req, res) => {
+app.post("/api/forms/scm-number", (req, res) => {
   const { insp_no, number } = req.body;
 
   // Validate input
   if (!insp_no || number === undefined || number === null) {
     return res.status(400).json({
-      error: 'กรุณาระบุ insp_no และ number'
+      error: "กรุณาระบุ insp_no และ number",
     });
   }
 
   // ตรวจสอบว่ามีข้อมูลอยู่แล้วหรือไม่
-  const checkSql = 'SELECT scm_num_id FROM form_scm_number WHERE insp_no = ?';
+  const checkSql = "SELECT scm_num_id FROM form_scm_number WHERE insp_no = ?";
 
   db3.query(checkSql, [insp_no], (err, results) => {
     if (err) {
-      console.error('Check error:', err);
-      return res.status(500).json({ error: 'ไม่สามารถตรวจสอบข้อมูลได้' });
+      console.error("Check error:", err);
+      return res.status(500).json({ error: "ไม่สามารถตรวจสอบข้อมูลได้" });
     }
 
     if (results.length > 0) {
@@ -2984,14 +3533,14 @@ app.post('/api/forms/scm-number', (req, res) => {
 
       db3.query(updateSql, [number, insp_no], (err2) => {
         if (err2) {
-          console.error('Update error:', err2);
-          return res.status(500).json({ error: 'ไม่สามารถอัปเดตข้อมูลได้' });
+          console.error("Update error:", err2);
+          return res.status(500).json({ error: "ไม่สามารถอัปเดตข้อมูลได้" });
         }
 
         res.json({
           success: true,
-          message: 'อัปเดตจำนวนฟอร์มสำเร็จ',
-          action: 'updated'
+          message: "อัปเดตจำนวนฟอร์มสำเร็จ",
+          action: "updated",
         });
       });
     } else {
@@ -3003,15 +3552,15 @@ app.post('/api/forms/scm-number', (req, res) => {
 
       db3.query(insertSql, [number, insp_no], (err2, result) => {
         if (err2) {
-          console.error('Insert error:', err2);
-          return res.status(500).json({ error: 'ไม่สามารถบันทึกข้อมูลได้' });
+          console.error("Insert error:", err2);
+          return res.status(500).json({ error: "ไม่สามารถบันทึกข้อมูลได้" });
         }
 
         res.json({
           success: true,
-          message: 'บันทึกจำนวนฟอร์มสำเร็จ',
-          action: 'created',
-          id: result.insertId
+          message: "บันทึกจำนวนฟอร์มสำเร็จ",
+          action: "created",
+          id: result.insertId,
         });
       });
     }
@@ -3019,15 +3568,15 @@ app.post('/api/forms/scm-number', (req, res) => {
 });
 
 // ดึงข้อมูลจำนวนฟอร์ม
-app.get('/api/forms/scm-number/:insp_no', (req, res) => {
+app.get("/api/forms/scm-number/:insp_no", (req, res) => {
   const { insp_no } = req.params;
 
-  const sql = 'SELECT * FROM form_scm_number WHERE insp_no = ?';
+  const sql = "SELECT * FROM form_scm_number WHERE insp_no = ?";
 
   db3.query(sql, [insp_no], (err, results) => {
     if (err) {
-      console.error('Get error:', err);
-      return res.status(500).json({ error: 'ไม่สามารถดึงข้อมูลได้' });
+      console.error("Get error:", err);
+      return res.status(500).json({ error: "ไม่สามารถดึงข้อมูลได้" });
     }
 
     if (results.length === 0) {
@@ -3039,7 +3588,7 @@ app.get('/api/forms/scm-number/:insp_no', (req, res) => {
 });
 
 // ดึงข้อมูล form_scm_inspection_headers ตาม insp_no
-app.get('/api/forms/form_scm_inspection_headers/:insp_no', (req, res) => {
+app.get("/api/forms/form_scm_inspection_headers/:insp_no", (req, res) => {
   const { insp_no } = req.params;
 
   const sql = `
@@ -3054,11 +3603,11 @@ app.get('/api/forms/form_scm_inspection_headers/:insp_no', (req, res) => {
 
   db3.query(sql, [insp_no], (err, results) => {
     if (err) {
-      console.error('Get driven equipment error:', err);
+      console.error("Get driven equipment error:", err);
       return res.status(500).json({
         success: false,
-        error: 'ไม่สามารถดึงข้อมูลได้',
-        message: err.message
+        error: "ไม่สามารถดึงข้อมูลได้",
+        message: err.message,
       });
     }
 
@@ -3068,7 +3617,7 @@ app.get('/api/forms/form_scm_inspection_headers/:insp_no', (req, res) => {
         success: true,
         data: [],
         count: 0,
-        message: 'ไม่พบข้อมูล'
+        message: "ไม่พบข้อมูล",
       });
     }
 
@@ -3077,7 +3626,7 @@ app.get('/api/forms/form_scm_inspection_headers/:insp_no', (req, res) => {
       success: true,
       data: results,
       count: results.length,
-      insp_no: insp_no
+      insp_no: insp_no,
     });
   });
 });
@@ -3086,18 +3635,17 @@ app.get('/api/forms/form_scm_inspection_headers/:insp_no', (req, res) => {
 การจัดการรูปภาพ 
 */
 // สร้างโฟลเดอร์สำหรับเก็บรูป
-const UPLOAD_DIR = path.join(__dirname, 'uploads');
+const UPLOAD_DIR = path.join(__dirname, "uploads");
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-
 
 // Mock Database (ในโปรเจคจริงใช้ MySQL, PostgreSQL, MongoDB ฯลฯ)
 const imageDatabase = [];
 
 // 1. Endpoint สำหรับอัพโหลดไฟล์และบีบอัด
-app.post('/api/upload', upload.single('image'), async (req, res) => {
+app.post("/api/upload", upload.single("image"), async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ error: 'กรุณาเลือกไฟล์รูปภาพ' });
+      return res.status(400).json({ error: "กรุณาเลือกไฟล์รูปภาพ" });
     }
 
     const timestamp = Date.now();
@@ -3110,45 +3658,47 @@ app.post('/api/upload', upload.single('image'), async (req, res) => {
 
     // บีบอัดเป็น JPEG (ได้ผลจริง)
     await sharp(req.file.buffer)
-      .resize(1920, 1920, { // จำกัดขนาดสูงสุด (optional)
-        fit: 'inside',
-        withoutEnlargement: true
+      .resize(1920, 1920, {
+        // จำกัดขนาดสูงสุด (optional)
+        fit: "inside",
+        withoutEnlargement: true,
       })
       .jpeg({
-        quality: 80,        // 🎯 ลดคุณภาพ 20% = ไฟล์เล็กลง 50-70%
-        progressive: true,  // โหลดเร็วขึ้น
-        mozjpeg: true      // บีบอัดดีกว่า
+        quality: 80, // 🎯 ลดคุณภาพ 20% = ไฟล์เล็กลง 50-70%
+        progressive: true, // โหลดเร็วขึ้น
+        mozjpeg: true, // บีบอัดดีกว่า
       })
       .toFile(filepath);
 
     // เช็คขนาดไฟล์ที่บันทึก
     const stats = await fs.promises.stat(filepath);
-    const compressionRatio = ((1 - stats.size / req.file.size) * 100).toFixed(1);
+    const compressionRatio = ((1 - stats.size / req.file.size) * 100).toFixed(
+      1
+    );
 
     res.json({
       success: true,
-      message: 'อัพโหลดสำเร็จ',
+      message: "อัพโหลดสำเร็จ",
       data: {
         filename: filename,
         path: `/uploads/${filename}`,
         originalName: req.file.originalname,
         originalSize: req.file.size,
         compressedSize: stats.size,
-        savedSpace: `${compressionRatio}%`
-      }
+        savedSpace: `${compressionRatio}%`,
+      },
     });
-
   } catch (error) {
-    console.error('Upload error:', error);
+    console.error("Upload error:", error);
     res.status(500).json({
-      error: 'เกิดข้อผิดพลาดในการอัพโหลด',
-      details: error.message
+      error: "เกิดข้อผิดพลาดในการอัพโหลด",
+      details: error.message,
     });
   }
 });
 
 // 2. Endpoint สำหรับบันทึกโปรเจคลงฐานข้อมูล
-app.post('/api/form-scm-images', async (req, res) => {
+app.post("/api/form-scm-images", async (req, res) => {
   try {
     const {
       inspNo,
@@ -3158,21 +3708,32 @@ app.post('/api/form-scm-images', async (req, res) => {
       before_image_3_path,
       after_image_1_path,
       after_image_2_path,
-      after_image_3_path
+      after_image_3_path,
     } = req.body;
 
     if (!inspNo || !inspSV) {
-      return res.status(400).json({ error: 'กรุณาระบุ inspNo และ inspSV' });
+      return res.status(400).json({ error: "กรุณาระบุ inspNo และ inspSV" });
     }
 
-    if (!before_image_1_path && !before_image_2_path && !before_image_3_path &&
-      !after_image_1_path && !after_image_2_path && !after_image_3_path) {
-      return res.status(400).json({ error: 'กรุณาอัพโหลดรูปภาพอย่างน้อย 1 รูป' });
+    if (
+      !before_image_1_path &&
+      !before_image_2_path &&
+      !before_image_3_path &&
+      !after_image_1_path &&
+      !after_image_2_path &&
+      !after_image_3_path
+    ) {
+      return res
+        .status(400)
+        .json({ error: "กรุณาอัพโหลดรูปภาพอย่างน้อย 1 รูป" });
     }
 
     // ตรวจสอบว่ามี record อยู่แล้วหรือไม่
-    const checkQuery = 'SELECT id FROM form_scm_images WHERE insp_no = ? AND insp_sv = ?';
-    const [existing] = await db3.promise().execute(checkQuery, [inspNo, inspSV]);
+    const checkQuery =
+      "SELECT id FROM form_scm_images WHERE insp_no = ? AND insp_sv = ?";
+    const [existing] = await db3
+      .promise()
+      .execute(checkQuery, [inspNo, inspSV]);
 
     let result;
 
@@ -3190,28 +3751,29 @@ app.post('/api/form-scm-images', async (req, res) => {
         WHERE insp_no = ? AND insp_sv = ?
       `;
 
-      [result] = await db3.promise().execute(updateQuery, [
-        before_image_1_path,
-        before_image_2_path,
-        before_image_3_path,
-        after_image_1_path,
-        after_image_2_path,
-        after_image_3_path,
-        inspNo,
-        inspSV
-      ]);
+      [result] = await db3
+        .promise()
+        .execute(updateQuery, [
+          before_image_1_path,
+          before_image_2_path,
+          before_image_3_path,
+          after_image_1_path,
+          after_image_2_path,
+          after_image_3_path,
+          inspNo,
+          inspSV,
+        ]);
 
       res.json({
         success: true,
-        message: 'อัปเดตข้อมูลสำเร็จ',
+        message: "อัปเดตข้อมูลสำเร็จ",
         data: {
           id: existing[0].id,
           inspNo,
           inspSV,
-          action: 'updated'
-        }
+          action: "updated",
+        },
       });
-
     } else {
       // Insert record ใหม่
       const insertQuery = `
@@ -3221,40 +3783,41 @@ app.post('/api/form-scm-images', async (req, res) => {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
       `;
 
-      [result] = await db3.promise().execute(insertQuery, [
-        inspNo,
-        inspSV,
-        before_image_1_path,
-        before_image_2_path,
-        before_image_3_path,
-        after_image_1_path,
-        after_image_2_path,
-        after_image_3_path
-      ]);
+      [result] = await db3
+        .promise()
+        .execute(insertQuery, [
+          inspNo,
+          inspSV,
+          before_image_1_path,
+          before_image_2_path,
+          before_image_3_path,
+          after_image_1_path,
+          after_image_2_path,
+          after_image_3_path,
+        ]);
 
       res.json({
         success: true,
-        message: 'บันทึกโปรเจคสำเร็จ',
+        message: "บันทึกโปรเจคสำเร็จ",
         data: {
           id: result.insertId,
           inspNo,
           inspSV,
-          action: 'created'
-        }
+          action: "created",
+        },
       });
     }
-
   } catch (error) {
-    console.error('Save project error:', error);
+    console.error("Save project error:", error);
     res.status(500).json({
-      error: 'เกิดข้อผิดพลาดในการบันทึกข้อมูล',
-      details: error.message
+      error: "เกิดข้อผิดพลาดในการบันทึกข้อมูล",
+      details: error.message,
     });
   }
 });
 
 // API สำหรับบันทึกรูปภาพหลายรูป
-app.post('/api/save-images-location', async (req, res) => {
+app.post("/api/save-images-location", async (req, res) => {
   try {
     const {
       inspNo,
@@ -3263,15 +3826,15 @@ app.post('/api/save-images-location', async (req, res) => {
       customerName,
       customerNo,
       imagePaths,
-      location
+      location,
     } = req.body;
 
     if (!inspNo || !inspSV) {
-      return res.status(400).json({ error: 'กรุณาระบุ inspNo และ inspSV' });
+      return res.status(400).json({ error: "กรุณาระบุ inspNo และ inspSV" });
     }
 
     if (!imagePaths || imagePaths.length === 0) {
-      return res.status(400).json({ error: 'กรุณาระบุ imagePaths' });
+      return res.status(400).json({ error: "กรุณาระบุ imagePaths" });
     }
 
     const insertedIds = [];
@@ -3284,46 +3847,47 @@ app.post('/api/save-images-location', async (req, res) => {
         VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
       `;
 
-      const [result] = await db3.promise().execute(insertQuery, [
-        inspNo,
-        inspSV,
-        userKey,
-        customerName,
-        customerNo,
-        imagePath,
-        location || 'SCM'
-      ]);
+      const [result] = await db3
+        .promise()
+        .execute(insertQuery, [
+          inspNo,
+          inspSV,
+          userKey,
+          customerName,
+          customerNo,
+          imagePath,
+          location || "SCM",
+        ]);
 
       insertedIds.push(result.insertId);
     }
 
     res.json({
       success: true,
-      message: 'บันทึกรูปภาพสำเร็จ',
+      message: "บันทึกรูปภาพสำเร็จ",
       data: {
         count: insertedIds.length,
         ids: insertedIds,
         inspNo,
-        inspSV
-      }
+        inspSV,
+      },
     });
-
   } catch (error) {
-    console.error('Save images error:', error);
+    console.error("Save images error:", error);
     res.status(500).json({
-      error: 'เกิดข้อผิดพลาดในการบันทึกข้อมูล',
-      details: error.message
+      error: "เกิดข้อผิดพลาดในการบันทึกข้อมูล",
+      details: error.message,
     });
   }
 });
 
 // API สำหรับบันทึก/อัปเดต description ของรูปภาพ
-app.put('/api/update-image-description', async (req, res) => {
+app.put("/api/update-image-description", async (req, res) => {
   try {
     const { id, description } = req.body;
 
     if (!id) {
-      return res.status(400).json({ error: 'กรุณาระบุ id ของรูปภาพ' });
+      return res.status(400).json({ error: "กรุณาระบุ id ของรูปภาพ" });
     }
 
     const updateQuery = `
@@ -3332,58 +3896,56 @@ app.put('/api/update-image-description', async (req, res) => {
       WHERE id = ?
     `;
 
-    const [result] = await db3.promise().execute(updateQuery, [
-      description || null,
-      id
-    ]);
+    const [result] = await db3
+      .promise()
+      .execute(updateQuery, [description || null, id]);
 
     if (result.affectedRows === 0) {
-      return res.status(404).json({ error: 'ไม่พบรูปภาพที่ต้องการอัปเดต' });
+      return res.status(404).json({ error: "ไม่พบรูปภาพที่ต้องการอัปเดต" });
     }
 
     res.json({
       success: true,
-      message: 'บันทึก description สำเร็จ',
+      message: "บันทึก description สำเร็จ",
       data: {
         id,
-        description
-      }
+        description,
+      },
     });
-
   } catch (error) {
-    console.error('Update description error:', error);
+    console.error("Update description error:", error);
     res.status(500).json({
-      error: 'เกิดข้อผิดพลาดในการบันทึก description',
-      details: error.message
+      error: "เกิดข้อผิดพลาดในการบันทึก description",
+      details: error.message,
     });
   }
 });
 
 // API สำหรับอัพเดทรูปภาพเป็น del = 1 (soft delete)
-app.put('/api/update-image-location/del', async (req, res) => {
+app.put("/api/update-image-location/del", async (req, res) => {
   try {
-    console.log('Request body:', req.body); // 🔍 Debug ดูข้อมูลที่รับ
+    console.log("Request body:", req.body); // 🔍 Debug ดูข้อมูลที่รับ
 
     const { id } = req.body;
 
     if (!id) {
-      console.log('Error: No ID provided'); // 🔍 Debug
+      console.log("Error: No ID provided"); // 🔍 Debug
       return res.status(400).json({
         success: false,
-        error: 'กรุณาระบุ ID ของรูปภาพ'
+        error: "กรุณาระบุ ID ของรูปภาพ",
       });
     }
 
     // ตรวจสอบว่ามีรูปภาพนี้อยู่ในระบบหรือไม่
-    const checkQuery = 'SELECT * FROM images_location WHERE id = ?';
+    const checkQuery = "SELECT * FROM images_location WHERE id = ?";
     const [existing] = await db3.promise().execute(checkQuery, [id]);
 
-    console.log('Found images:', existing.length); // 🔍 Debug
+    console.log("Found images:", existing.length); // 🔍 Debug
 
     if (existing.length === 0) {
       return res.status(404).json({
         success: false,
-        error: 'ไม่พบรูปภาพที่ต้องการอัพเดท'
+        error: "ไม่พบรูปภาพที่ต้องการอัพเดท",
       });
     }
 
@@ -3395,26 +3957,24 @@ app.put('/api/update-image-location/del', async (req, res) => {
     `;
 
     const [updateResult] = await db3.promise().execute(updateQuery, [id]);
-    console.log('Update result:', updateResult); // 🔍 Debug
+    console.log("Update result:", updateResult); // 🔍 Debug
 
     // ดึงข้อมูลที่อัพเดทแล้ว
-    const [updated] = await db3.promise().execute(
-      'SELECT * FROM images_location WHERE id = ?',
-      [id]
-    );
+    const [updated] = await db3
+      .promise()
+      .execute("SELECT * FROM images_location WHERE id = ?", [id]);
 
     res.json({
       success: true,
-      message: 'ลบรูปภาพสำเร็จ (soft delete)',
-      data: updated[0]
+      message: "ลบรูปภาพสำเร็จ (soft delete)",
+      data: updated[0],
     });
-
   } catch (error) {
-    console.error('Update image error:', error);
+    console.error("Update image error:", error);
     res.status(500).json({
       success: false,
-      error: 'เกิดข้อผิดพลาดในการอัพเดทข้อมูล',
-      details: error.message
+      error: "เกิดข้อผิดพลาดในการอัพเดทข้อมูล",
+      details: error.message,
     });
   }
 });
@@ -3422,31 +3982,31 @@ app.put('/api/update-image-location/del', async (req, res) => {
 // ========================================
 // API 1: กู้คืนรูปภาพทีละรูป (del = 0)
 // ========================================
-app.put('/api/restore-image', async (req, res) => {
+app.put("/api/restore-image", async (req, res) => {
   try {
-    console.log('📥 Request body:', req.body);
+    console.log("📥 Request body:", req.body);
 
     const { id } = req.body;
 
     // ตรวจสอบ input
     if (!id) {
-      console.log('❌ Error: No ID provided');
+      console.log("❌ Error: No ID provided");
       return res.status(400).json({
         success: false,
-        error: 'กรุณาระบุ ID ของรูปภาพ'
+        error: "กรุณาระบุ ID ของรูปภาพ",
       });
     }
 
     // ตรวจสอบว่ามีรูปภาพนี้อยู่ในระบบและถูกลบหรือไม่
-    const checkQuery = 'SELECT * FROM images_location WHERE id = ? AND del = 1';
+    const checkQuery = "SELECT * FROM images_location WHERE id = ? AND del = 1";
     const [existing] = await db3.promise().execute(checkQuery, [id]);
 
-    console.log('🔍 Found deleted images:', existing.length);
+    console.log("🔍 Found deleted images:", existing.length);
 
     if (existing.length === 0) {
       return res.status(404).json({
         success: false,
-        error: 'ไม่พบรูปภาพที่ถูกลบ'
+        error: "ไม่พบรูปภาพที่ถูกลบ",
       });
     }
 
@@ -3458,26 +4018,24 @@ app.put('/api/restore-image', async (req, res) => {
     `;
 
     const [updateResult] = await db3.promise().execute(updateQuery, [id]);
-    console.log('✅ Update result:', updateResult);
+    console.log("✅ Update result:", updateResult);
 
     // ดึงข้อมูลที่อัพเดทแล้ว
-    const [updated] = await db3.promise().execute(
-      'SELECT * FROM images_location WHERE id = ?',
-      [id]
-    );
+    const [updated] = await db3
+      .promise()
+      .execute("SELECT * FROM images_location WHERE id = ?", [id]);
 
     res.json({
       success: true,
-      message: 'กู้คืนรูปภาพสำเร็จ',
-      data: updated[0]
+      message: "กู้คืนรูปภาพสำเร็จ",
+      data: updated[0],
     });
-
   } catch (error) {
-    console.error('❌ Restore image error:', error);
+    console.error("❌ Restore image error:", error);
     res.status(500).json({
       success: false,
-      error: 'เกิดข้อผิดพลาดในการกู้คืนข้อมูล',
-      details: error.message
+      error: "เกิดข้อผิดพลาดในการกู้คืนข้อมูล",
+      details: error.message,
     });
   }
 });
@@ -3485,31 +4043,34 @@ app.put('/api/restore-image', async (req, res) => {
 // ========================================
 // API 2: กู้คืนรูปภาพทั้งหมดของ insp_no (del = 0)
 // ========================================
-app.put('/api/restore-all-images', async (req, res) => {
+app.put("/api/restore-all-images", async (req, res) => {
   try {
-    console.log('📥 Request body:', req.body);
+    console.log("📥 Request body:", req.body);
 
     const { inspNo } = req.body;
 
     // ตรวจสอบ input
     if (!inspNo) {
-      console.log('❌ Error: No inspNo provided');
+      console.log("❌ Error: No inspNo provided");
       return res.status(400).json({
         success: false,
-        error: 'กรุณาระบุ Inspection Number'
+        error: "กรุณาระบุ Inspection Number",
       });
     }
 
     // ตรวจสอบว่ามีรูปภาพที่ถูกลบหรือไม่
-    const checkQuery = 'SELECT * FROM images_location WHERE insp_no = ? AND del = 1';
+    const checkQuery =
+      "SELECT * FROM images_location WHERE insp_no = ? AND del = 1";
     const [deletedImages] = await db3.promise().execute(checkQuery, [inspNo]);
 
-    console.log(`🔍 Found ${deletedImages.length} deleted images for inspNo: ${inspNo}`);
+    console.log(
+      `🔍 Found ${deletedImages.length} deleted images for inspNo: ${inspNo}`
+    );
 
     if (deletedImages.length === 0) {
       return res.status(404).json({
         success: false,
-        error: 'ไม่พบรูปภาพที่ถูกลบสำหรับ Inspection Number นี้'
+        error: "ไม่พบรูปภาพที่ถูกลบสำหรับ Inspection Number นี้",
       });
     }
 
@@ -3528,22 +4089,21 @@ app.put('/api/restore-all-images', async (req, res) => {
       message: `กู้คืนรูปภาพทั้งหมดสำเร็จ`,
       data: {
         restoredCount: updateResult.affectedRows,
-        inspNo: inspNo
-      }
+        inspNo: inspNo,
+      },
     });
-
   } catch (error) {
-    console.error('❌ Restore all images error:', error);
+    console.error("❌ Restore all images error:", error);
     res.status(500).json({
       success: false,
-      error: 'เกิดข้อผิดพลาดในการกู้คืนข้อมูล',
-      details: error.message
+      error: "เกิดข้อผิดพลาดในการกู้คืนข้อมูล",
+      details: error.message,
     });
   }
 });
 
 // API สำหรับดึงรูปภาพที่ถูกลบ (del = 1)
-app.get('/api/deleted-images/:inspNo', async (req, res) => {
+app.get("/api/deleted-images/:inspNo", async (req, res) => {
   try {
     const { inspNo } = req.params;
 
@@ -3558,22 +4118,21 @@ app.get('/api/deleted-images/:inspNo', async (req, res) => {
     res.json({
       success: true,
       data: deletedImages,
-      count: deletedImages.length
+      count: deletedImages.length,
     });
-
   } catch (error) {
-    console.error('Get deleted images error:', error);
+    console.error("Get deleted images error:", error);
     res.status(500).json({
       success: false,
-      error: 'เกิดข้อผิดพลาดในการดึงข้อมูล',
-      details: error.message
+      error: "เกิดข้อผิดพลาดในการดึงข้อมูล",
+      details: error.message,
     });
   }
 });
 
 // 3. Endpoint สำหรับดึงข้อมูลโปรเจคตาม inspNo และ inspSV
 // Endpoint สำหรับดึงข้อมูลรูปภาพ SCM ตาม inspNo
-app.get('/api/forms/FormScmImage/:inspNo', async (req, res) => {
+app.get("/api/forms/FormScmImage/:inspNo", async (req, res) => {
   try {
     const { inspNo } = req.params;
     const { location } = req.query;
@@ -3581,7 +4140,7 @@ app.get('/api/forms/FormScmImage/:inspNo', async (req, res) => {
     if (!inspNo) {
       return res.status(400).json({
         success: false,
-        error: 'กรุณาระบุ inspNo'
+        error: "กรุณาระบุ inspNo",
       });
     }
 
@@ -3593,7 +4152,7 @@ app.get('/api/forms/FormScmImage/:inspNo', async (req, res) => {
     let params = [inspNo];
 
     // เช็คว่า location มีค่าและไม่ใช่ string ว่าง
-    if (location && location.trim() !== '') {
+    if (location && location.trim() !== "") {
       // ถ้ามี location ให้กรองเฉพาะ location นั้น
       query += ` AND location = ?`;
       params.push(location.trim());
@@ -3611,61 +4170,59 @@ app.get('/api/forms/FormScmImage/:inspNo', async (req, res) => {
       return res.json({
         success: true,
         data: null, // เปลี่ยนเป็น null เพื่อให้เช็คง่ายในหน้าบ้าน
-        message: 'ไม่พบข้อมูลรูปภาพ'
+        message: "ไม่พบข้อมูลรูปภาพ",
       });
     }
 
     res.json({
       success: true,
-      data: rows
+      data: rows,
     });
-
   } catch (error) {
-    console.error('Get SCM images error:', error);
+    console.error("Get SCM images error:", error);
     res.status(500).json({
       success: false,
-      error: 'เกิดข้อผิดพลาดในการดึงข้อมูล',
-      details: error.message
+      error: "เกิดข้อผิดพลาดในการดึงข้อมูล",
+      details: error.message,
     });
   }
 });
 
 // 4. Endpoint สำหรับดึงรายการโปรเจคทั้งหมด
-app.get('/api/form-scm-images', async (req, res) => {
+app.get("/api/form-scm-images", async (req, res) => {
   try {
-    const query = 'SELECT * FROM form_scm_images ORDER BY created_at DESC';
+    const query = "SELECT * FROM form_scm_images ORDER BY created_at DESC";
     const [rows] = await db3.promise().execute(query);
 
     res.json({
       success: true,
-      data: rows
+      data: rows,
     });
-
   } catch (error) {
-    console.error('Get projects error:', error);
+    console.error("Get projects error:", error);
     res.status(500).json({
-      error: 'เกิดข้อผิดพลาดในการดึงข้อมูล',
-      details: error.message
+      error: "เกิดข้อผิดพลาดในการดึงข้อมูล",
+      details: error.message,
     });
   }
 });
 
 // 4. เสิร์ฟไฟล์รูปภาพ (static files)
-app.use('/uploads', express.static(UPLOAD_DIR));
+app.use("/uploads", express.static(UPLOAD_DIR));
 
 // 5. Endpoint สำหรับลบโปรเจค
-app.delete('/api/form-scm-images/:id', async (req, res) => {
+app.delete("/api/form-scm-images/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
     // ดึงข้อมูลรูปภาพก่อนลบเพื่อลบไฟล์
-    const selectQuery = 'SELECT * FROM form_scm_images WHERE id = ?';
+    const selectQuery = "SELECT * FROM form_scm_images WHERE id = ?";
     const [rows] = await db3.promise().execute(selectQuery, [id]);
 
     if (rows.length === 0) {
       return res.status(404).json({
         success: false,
-        message: 'ไม่พบข้อมูล'
+        message: "ไม่พบข้อมูล",
       });
     }
 
@@ -3678,12 +4235,12 @@ app.delete('/api/form-scm-images/:id', async (req, res) => {
       project.before_image_3_path,
       project.after_image_1_path,
       project.after_image_2_path,
-      project.after_image_3_path
+      project.after_image_3_path,
     ];
 
-    imagePaths.forEach(imagePath => {
+    imagePaths.forEach((imagePath) => {
       if (imagePath) {
-        const filename = imagePath.replace('/uploads/', '');
+        const filename = imagePath.replace("/uploads/", "");
         const filepath = path.join(UPLOAD_DIR, filename);
         if (fs.existsSync(filepath)) {
           fs.unlinkSync(filepath);
@@ -3692,37 +4249,36 @@ app.delete('/api/form-scm-images/:id', async (req, res) => {
     });
 
     // ลบข้อมูลจากฐานข้อมูล
-    const deleteQuery = 'DELETE FROM form_scm_images WHERE id = ?';
+    const deleteQuery = "DELETE FROM form_scm_images WHERE id = ?";
     await db3.promise().execute(deleteQuery, [id]);
 
     res.json({
       success: true,
-      message: 'ลบข้อมูลสำเร็จ'
+      message: "ลบข้อมูลสำเร็จ",
     });
-
   } catch (error) {
-    console.error('Delete project error:', error);
+    console.error("Delete project error:", error);
     res.status(500).json({
-      error: 'เกิดข้อผิดพลาดในการลบข้อมูล',
-      details: error.message
+      error: "เกิดข้อผิดพลาดในการลบข้อมูล",
+      details: error.message,
     });
   }
 });
 
 // API สำหรับลบไฟล์รูปภาพ
-app.delete('/api/delete-image', async (req, res) => {
+app.delete("/api/delete-image", async (req, res) => {
   try {
     const { path: imagePath } = req.body;
 
     if (!imagePath) {
       return res.status(400).json({
         success: false,
-        message: 'ไม่พบ path ของรูปภาพ'
+        message: "ไม่พบ path ของรูปภาพ",
       });
     }
 
     // แปลง path เป็น filename
-    const filename = imagePath.replace('/uploads/', '');
+    const filename = imagePath.replace("/uploads/", "");
     const filepath = path.join(UPLOAD_DIR, filename);
 
     // ตรวจสอบว่าไฟล์มีอยู่จริง
@@ -3732,30 +4288,29 @@ app.delete('/api/delete-image', async (req, res) => {
 
       res.json({
         success: true,
-        message: 'ลบไฟล์สำเร็จ'
+        message: "ลบไฟล์สำเร็จ",
       });
     } else {
       res.json({
         success: true,
-        message: 'ไม่พบไฟล์ (อาจถูกลบไปแล้ว)'
+        message: "ไม่พบไฟล์ (อาจถูกลบไปแล้ว)",
       });
     }
-
   } catch (error) {
-    console.error('Delete image error:', error);
+    console.error("Delete image error:", error);
     res.status(500).json({
       success: false,
-      error: 'เกิดข้อผิดพลาดในการลบไฟล์',
-      details: error.message
+      error: "เกิดข้อผิดพลาดในการลบไฟล์",
+      details: error.message,
     });
   }
 });
 
 // Endpoint เดิม - ส่งเฉพาะ has_row = 0
-app.get('/api/formList', (req, res) => {
-  const { branch = '', year } = req.query;
-  console.log('branch:' + branch);
-  console.log('year:' + year);
+app.get("/api/formList", (req, res) => {
+  const { branch = "", year } = req.query;
+  console.log("branch:" + branch);
+  console.log("year:" + year);
 
   const params = [];
   let sql = `
@@ -3775,7 +4330,7 @@ app.get('/api/formList', (req, res) => {
   `;
 
   if (branch) {
-    const branchCode = branch.startsWith('U') ? branch.substring(1) : branch;
+    const branchCode = branch.startsWith("U") ? branch.substring(1) : branch;
     sql += ` AND LEFT(i.mt_id, 2) = ?`;
     params.push(branchCode);
   }
@@ -3792,8 +4347,8 @@ app.get('/api/formList', (req, res) => {
 
   db2.query(sql, params, (err, results) => {
     if (err) {
-      console.error('Query error:', err);
-      return res.status(500).json({ error: 'ไม่สามารถดึง tagList ได้' });
+      console.error("Query error:", err);
+      return res.status(500).json({ error: "ไม่สามารถดึง tagList ได้" });
     }
 
     if (results.length === 0) {
@@ -3801,7 +4356,7 @@ app.get('/api/formList', (req, res) => {
     }
 
     // ดึง service_order ทั้งหมดมาเช็คครั้งเดียว
-    const serviceOrders = results.map(r => r.insp_service_order);
+    const serviceOrders = results.map((r) => r.insp_service_order);
 
     const checkSql = `
       SELECT DISTINCT insp_service_order 
@@ -3811,19 +4366,21 @@ app.get('/api/formList', (req, res) => {
 
     db3.query(checkSql, [serviceOrders], (err, checkResults) => {
       if (err) {
-        console.error('Error checking db3:', err);
-        return res.status(500).json({ error: 'ไม่สามารถตรวจสอบข้อมูลใน db3 ได้' });
+        console.error("Error checking db3:", err);
+        return res
+          .status(500)
+          .json({ error: "ไม่สามารถตรวจสอบข้อมูลใน db3 ได้" });
       }
 
       // สร้าง Set ของ service_order ที่มีอยู่ใน db3
       const existingOrders = new Set(
-        checkResults.map(r => r.insp_service_order)
+        checkResults.map((r) => r.insp_service_order)
       );
 
       // กรองเฉพาะที่ไม่มีใน db3 (has_row = 0)
       const filteredResults = results
-        .filter(row => !existingOrders.has(row.insp_service_order))
-        .map(row => ({ ...row, has_row: 0 }));
+        .filter((row) => !existingOrders.has(row.insp_service_order))
+        .map((row) => ({ ...row, has_row: 0 }));
 
       res.json(filteredResults);
     });
@@ -3831,8 +4388,8 @@ app.get('/api/formList', (req, res) => {
 });
 
 // Endpoint ใหม่ - ส่งเฉพาะ has_row = 1
-app.get('/api/formListSynced', (req, res) => {
-  const { branch = '', year } = req.query;
+app.get("/api/formListSynced", (req, res) => {
+  const { branch = "", year } = req.query;
   const params = [];
 
   let sql = `
@@ -3850,7 +4407,7 @@ app.get('/api/formListSynced', (req, res) => {
   `;
 
   if (branch) {
-    const branchCode = branch.startsWith('U') ? branch.substring(1) : branch;
+    const branchCode = branch.startsWith("U") ? branch.substring(1) : branch;
     sql += ` AND LEFT(i.mt_id, 2) = ?`;
     params.push(branchCode);
   }
@@ -3864,8 +4421,8 @@ app.get('/api/formListSynced', (req, res) => {
 
   db2.query(sql, params, (err, results) => {
     if (err) {
-      console.error('Query error:', err);
-      return res.status(500).json({ error: 'ไม่สามารถดึง tagList ได้' });
+      console.error("Query error:", err);
+      return res.status(500).json({ error: "ไม่สามารถดึง tagList ได้" });
     }
 
     if (results.length === 0) {
@@ -3873,7 +4430,7 @@ app.get('/api/formListSynced', (req, res) => {
     }
 
     // ดึง service_order ทั้งหมดมาเช็คครั้งเดียว
-    const serviceOrders = results.map(r => r.insp_service_order);
+    const serviceOrders = results.map((r) => r.insp_service_order);
 
     const checkSql = `
       SELECT DISTINCT insp_service_order 
@@ -3883,19 +4440,21 @@ app.get('/api/formListSynced', (req, res) => {
 
     db3.query(checkSql, [serviceOrders], (err, checkResults) => {
       if (err) {
-        console.error('Error checking db3:', err);
-        return res.status(500).json({ error: 'ไม่สามารถตรวจสอบข้อมูลใน db3 ได้' });
+        console.error("Error checking db3:", err);
+        return res
+          .status(500)
+          .json({ error: "ไม่สามารถตรวจสอบข้อมูลใน db3 ได้" });
       }
 
       // สร้าง Set สำหรับการค้นหาที่เร็ว
       const existingOrders = new Set(
-        checkResults.map(r => r.insp_service_order)
+        checkResults.map((r) => r.insp_service_order)
       );
 
       // กรองและเพิ่ม has_row
       const filteredResults = results
-        .filter(row => existingOrders.has(row.insp_service_order))
-        .map(row => ({ ...row, has_row: 1 }));
+        .filter((row) => existingOrders.has(row.insp_service_order))
+        .map((row) => ({ ...row, has_row: 1 }));
 
       res.json(filteredResults);
     });
@@ -3915,13 +4474,14 @@ function queryAsync(connection, sql, params) {
   });
 }
 
-app.get('/api/forms/FormSquirrelCageMotor/:insp_no', async (req, res) => {
+app.get("/api/forms/FormSquirrelCageMotor/:insp_no", async (req, res) => {
   try {
-
     const { insp_no } = req.params;
 
     if (!insp_no) {
-      return res.status(400).json({ success: false, error: 'insp_no is required' });
+      return res
+        .status(400)
+        .json({ success: false, error: "insp_no is required" });
     }
 
     const sqlMain = `
@@ -3938,19 +4498,41 @@ app.get('/api/forms/FormSquirrelCageMotor/:insp_no', async (req, res) => {
     `;
 
     // ใช้ Promise.all กับฟังก์ชันที่ return Promise
-    const [mainData, generalChecks, insulationTests, heaters, tempSensorsStator] = await Promise.all([
+    const [
+      mainData,
+      generalChecks,
+      insulationTests,
+      heaters,
+      tempSensorsStator,
+    ] = await Promise.all([
       queryAsync(db3, sqlMain, [insp_no]),
-      queryAsync(db3, 'SELECT * FROM form_scm_general_checks WHERE insp_no = ? ORDER BY scm_gc_id', [insp_no]),
-      queryAsync(db3, 'SELECT * FROM form_scm_insulation_tests WHERE insp_no = ? ORDER BY scm_it_id', [insp_no]),
-      queryAsync(db3, 'SELECT * FROM form_scm_heaters WHERE insp_no = ? ORDER BY scm_h_unit_no', [insp_no]),
-      queryAsync(db3, 'SELECT * FROM form_scm_temp_sensors_stator WHERE insp_no = ? ORDER BY scm_tss_element_no', [insp_no])
+      queryAsync(
+        db3,
+        "SELECT * FROM form_scm_general_checks WHERE insp_no = ? ORDER BY scm_gc_id",
+        [insp_no]
+      ),
+      queryAsync(
+        db3,
+        "SELECT * FROM form_scm_insulation_tests WHERE insp_no = ? ORDER BY scm_it_id",
+        [insp_no]
+      ),
+      queryAsync(
+        db3,
+        "SELECT * FROM form_scm_heaters WHERE insp_no = ? ORDER BY scm_h_unit_no",
+        [insp_no]
+      ),
+      queryAsync(
+        db3,
+        "SELECT * FROM form_scm_temp_sensors_stator WHERE insp_no = ? ORDER BY scm_tss_element_no",
+        [insp_no]
+      ),
     ]);
 
     if (mainData.length === 0) {
       return res.status(404).json({
         success: false,
-        error: 'Inspection not found',
-        insp_no
+        error: "Inspection not found",
+        insp_no,
       });
     }
 
@@ -3962,15 +4544,14 @@ app.get('/api/forms/FormSquirrelCageMotor/:insp_no', async (req, res) => {
         insulationTests: insulationTests || [],
         heaters: heaters || [],
         tempSensorsStator: tempSensorsStator || [],
-        updated_at: mainData[0].updated_at || mainData[0].created_at
-      }
+        updated_at: mainData[0].updated_at || mainData[0].created_at,
+      },
     });
-
   } catch (error) {
-    console.error('Error in /api/scm/inspection-complete:', error);
+    console.error("Error in /api/scm/inspection-complete:", error);
     res.status(500).json({
       success: false,
-      error: error.message
+      error: error.message,
     });
   }
 });
@@ -3988,7 +4569,7 @@ function queryAsync(connection, sql, params) {
 
 // Helper function: แปลงค่าว่างเป็น NULL และจัดการวันที่
 const toNullIfEmpty = (value) => {
-  if (value === '' || value === undefined || value === null) return null;
+  if (value === "" || value === undefined || value === null) return null;
 
   // ตรวจสอบว่าเป็น Date object
   if (value instanceof Date && !isNaN(value.getTime())) {
@@ -3996,7 +4577,10 @@ const toNullIfEmpty = (value) => {
   }
 
   // ตรวจสอบว่าเป็น ISO 8601 string (2025-09-29T17:00:00.000Z)
-  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value)) {
+  if (
+    typeof value === "string" &&
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value)
+  ) {
     const dateValue = new Date(value);
     if (!isNaN(dateValue.getTime())) {
       return formatDate(dateValue);
@@ -4009,12 +4593,12 @@ const toNullIfEmpty = (value) => {
 // ฟังก์ชันแปลงวันที่เป็น yyyy-mm-dd
 const formatDate = (date) => {
   const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 };
 
-app.post('/api/scm/inspection-save', async (req, res) => {
+app.post("/api/scm/inspection-save", async (req, res) => {
   let connection;
 
   try {
@@ -4048,12 +4632,14 @@ app.post('/api/scm/inspection-save', async (req, res) => {
       tempSensorsBearing,
       heaters,
       tempSensorsStator,
-      standstillTest
+      standstillTest,
     } = req.body;
 
     if (!insp_no) {
-      await new Promise(resolve => connection.rollback(() => resolve()));
-      return res.status(400).json({ success: false, error: 'insp_no is required' });
+      await new Promise((resolve) => connection.rollback(() => resolve()));
+      return res
+        .status(400)
+        .json({ success: false, error: "insp_no is required" });
     }
 
     // ========================================
@@ -4061,89 +4647,102 @@ app.post('/api/scm/inspection-save', async (req, res) => {
     // ========================================
     const inspectionList = await queryAsync(
       connection,
-      'SELECT insp_id FROM tbl_inspection_list WHERE insp_no = ?',
+      "SELECT insp_id FROM tbl_inspection_list WHERE insp_no = ?",
       [insp_no]
     );
 
     if (inspectionList.length === 0) {
       const insertResult = await queryAsync(
         connection,
-        'INSERT INTO tbl_inspection_list (insp_no, insp_service_order, insp_customer_no, insp_customer_name, insp_created_at) VALUES (?, ?, ?, ?, NOW())',
+        "INSERT INTO tbl_inspection_list (insp_no, insp_service_order, insp_customer_no, insp_customer_name, insp_created_at) VALUES (?, ?, ?, ?, NOW())",
         [
           insp_no,
           toNullIfEmpty(insp_sv),
           toNullIfEmpty(header?.customer_no),
-          toNullIfEmpty(header?.customer_name)
+          toNullIfEmpty(header?.customer_name),
         ]
       );
 
       // เพิ่มการตรวจสอบว่า INSERT สำเร็จ
       if (!insertResult.affectedRows || insertResult.affectedRows === 0) {
-        throw new Error('Failed to insert into tbl_inspection_list');
+        throw new Error("Failed to insert into tbl_inspection_list");
       }
 
-      console.log('Inserted insp_no:', insp_no, 'Insert ID:', insertResult.insertId);
+      console.log(
+        "Inserted insp_no:",
+        insp_no,
+        "Insert ID:",
+        insertResult.insertId
+      );
     }
     // ========================================
     // 2. Inspection Headers
     // ========================================
     const existingHeader = await queryAsync(
       connection,
-      'SELECT scm_ih_id FROM form_scm_inspection_headers WHERE insp_no = ?',
+      "SELECT scm_ih_id FROM form_scm_inspection_headers WHERE insp_no = ?",
       [insp_no]
     );
 
     // กำหนดค่า default สำหรับ overall_status
-    const overallStatus = header?.overall_status || 'N';
+    const overallStatus = header?.overall_status || "N";
 
     if (existingHeader.length === 0) {
-      await queryAsync(connection, `
+      await queryAsync(
+        connection,
+        `
         INSERT INTO form_scm_inspection_headers 
         (insp_no, insp_sv, customer_name, job_no, inspection_date, attention, 
          tag_no, equipment_name, conclusion, recommendation, overall_status,
          inspector_name, inspector_signature, inspection_completed_date, created_by)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `, [
-        insp_no,
-        toNullIfEmpty(insp_sv),
-        toNullIfEmpty(header?.customer_name),
-        toNullIfEmpty(header?.job_no),
-        toNullIfEmpty(header?.inspection_date),
-        toNullIfEmpty(header?.attention),
-        toNullIfEmpty(header?.tag_no),
-        toNullIfEmpty(header?.equipment_name),
-        toNullIfEmpty(header?.conclusion),
-        toNullIfEmpty(header?.recommendation),
-        overallStatus,
-        toNullIfEmpty(header?.inspector_name),
-        toNullIfEmpty(header?.inspector_signature),
-        toNullIfEmpty(header?.inspection_completed_date),
-        created_by
-      ]);
+      `,
+        [
+          insp_no,
+          toNullIfEmpty(insp_sv),
+          toNullIfEmpty(header?.customer_name),
+          toNullIfEmpty(header?.job_no),
+          toNullIfEmpty(header?.inspection_date),
+          toNullIfEmpty(header?.attention),
+          toNullIfEmpty(header?.tag_no),
+          toNullIfEmpty(header?.equipment_name),
+          toNullIfEmpty(header?.conclusion),
+          toNullIfEmpty(header?.recommendation),
+          overallStatus,
+          toNullIfEmpty(header?.inspector_name),
+          toNullIfEmpty(header?.inspector_signature),
+          toNullIfEmpty(header?.inspection_completed_date),
+          created_by,
+        ]
+      );
     } else {
-      await queryAsync(connection, `
+      await queryAsync(
+        connection,
+        `
         UPDATE form_scm_inspection_headers 
         SET customer_name = ?, job_no = ?, inspection_date = ?, attention = ?,
             tag_no = ?, equipment_name = ?, conclusion = ?, recommendation = ?,
             overall_status = ?, inspector_name = ?, inspector_signature = ?,
             inspection_completed_date = ?, updated_by = ?, updated_at = NOW()
         WHERE insp_no = ?
-      `, [
-        toNullIfEmpty(header?.customer_name),
-        toNullIfEmpty(header?.job_no),
-        toNullIfEmpty(header?.inspection_date),
-        toNullIfEmpty(header?.attention),
-        toNullIfEmpty(header?.tag_no),
-        toNullIfEmpty(header?.equipment_name),
-        toNullIfEmpty(header?.conclusion),
-        toNullIfEmpty(header?.recommendation),
-        overallStatus,
-        toNullIfEmpty(header?.inspector_name),
-        toNullIfEmpty(header?.inspector_signature),
-        toNullIfEmpty(header?.inspection_completed_date),
-        updated_by,
-        insp_no
-      ]);
+      `,
+        [
+          toNullIfEmpty(header?.customer_name),
+          toNullIfEmpty(header?.job_no),
+          toNullIfEmpty(header?.inspection_date),
+          toNullIfEmpty(header?.attention),
+          toNullIfEmpty(header?.tag_no),
+          toNullIfEmpty(header?.equipment_name),
+          toNullIfEmpty(header?.conclusion),
+          toNullIfEmpty(header?.recommendation),
+          overallStatus,
+          toNullIfEmpty(header?.inspector_name),
+          toNullIfEmpty(header?.inspector_signature),
+          toNullIfEmpty(header?.inspection_completed_date),
+          updated_by,
+          insp_no,
+        ]
+      );
     }
 
     // ========================================
@@ -4152,12 +4751,14 @@ app.post('/api/scm/inspection-save', async (req, res) => {
     if (motorNameplate) {
       const existingNameplate = await queryAsync(
         connection,
-        'SELECT mnp_id FROM form_motor_nameplate WHERE insp_no = ?',
+        "SELECT mnp_id FROM form_motor_nameplate WHERE insp_no = ?",
         [insp_no]
       );
 
       if (existingNameplate.length === 0) {
-        await queryAsync(connection, `
+        await queryAsync(
+          connection,
+          `
           INSERT INTO form_motor_nameplate 
           (insp_no, insp_sv, fmn_manufacture, fmn_model, fmn_type, fmn_ser_no,
            fmn_frame, fmn_power, fmn_power_unit, fmn_speed, fmn_speed_unit,
@@ -4165,35 +4766,39 @@ app.post('/api/scm/inspection-save', async (req, res) => {
            fmn_design, fmn_temp_rise_class, fmn_duty, fmn_cos_phi,
            fmn_ip, fmn_sf, fmn_de_bearing, fmn_nde_bearing, fmn_note, created_by)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `, [
-          insp_no,
-          toNullIfEmpty(insp_sv),
-          toNullIfEmpty(motorNameplate.manufacture),
-          toNullIfEmpty(motorNameplate.model),
-          toNullIfEmpty(motorNameplate.type),
-          toNullIfEmpty(motorNameplate.ser_no),
-          toNullIfEmpty(motorNameplate.frame),
-          toNullIfEmpty(motorNameplate.power),
-          motorNameplate.power_unit || 'kW',
-          toNullIfEmpty(motorNameplate.speed),
-          motorNameplate.speed_unit || 'RPM',
-          toNullIfEmpty(motorNameplate.voltage),
-          toNullIfEmpty(motorNameplate.current),
-          toNullIfEmpty(motorNameplate.frequency),
-          toNullIfEmpty(motorNameplate.insulation_class),
-          toNullIfEmpty(motorNameplate.design),
-          toNullIfEmpty(motorNameplate.temp_rise_class),
-          toNullIfEmpty(motorNameplate.duty),
-          toNullIfEmpty(motorNameplate.cos_phi),
-          toNullIfEmpty(motorNameplate.ip),
-          toNullIfEmpty(motorNameplate.sf),
-          toNullIfEmpty(motorNameplate.de_bearing),
-          toNullIfEmpty(motorNameplate.nde_bearing),
-          toNullIfEmpty(motorNameplate.note),
-          created_by
-        ]);
+        `,
+          [
+            insp_no,
+            toNullIfEmpty(insp_sv),
+            toNullIfEmpty(motorNameplate.manufacture),
+            toNullIfEmpty(motorNameplate.model),
+            toNullIfEmpty(motorNameplate.type),
+            toNullIfEmpty(motorNameplate.ser_no),
+            toNullIfEmpty(motorNameplate.frame),
+            toNullIfEmpty(motorNameplate.power),
+            motorNameplate.power_unit || "kW",
+            toNullIfEmpty(motorNameplate.speed),
+            motorNameplate.speed_unit || "RPM",
+            toNullIfEmpty(motorNameplate.voltage),
+            toNullIfEmpty(motorNameplate.current),
+            toNullIfEmpty(motorNameplate.frequency),
+            toNullIfEmpty(motorNameplate.insulation_class),
+            toNullIfEmpty(motorNameplate.design),
+            toNullIfEmpty(motorNameplate.temp_rise_class),
+            toNullIfEmpty(motorNameplate.duty),
+            toNullIfEmpty(motorNameplate.cos_phi),
+            toNullIfEmpty(motorNameplate.ip),
+            toNullIfEmpty(motorNameplate.sf),
+            toNullIfEmpty(motorNameplate.de_bearing),
+            toNullIfEmpty(motorNameplate.nde_bearing),
+            toNullIfEmpty(motorNameplate.note),
+            created_by,
+          ]
+        );
       } else {
-        await queryAsync(connection, `
+        await queryAsync(
+          connection,
+          `
           UPDATE form_motor_nameplate 
           SET fmn_manufacture = ?, fmn_model = ?, fmn_type = ?, fmn_ser_no = ?,
               fmn_frame = ?, fmn_power = ?, fmn_power_unit = ?, fmn_speed = ?,
@@ -4203,32 +4808,34 @@ app.post('/api/scm/inspection-save', async (req, res) => {
               fmn_de_bearing = ?, fmn_nde_bearing = ?, fmn_note = ?, updated_by = ?,
               updated_at = NOW()
           WHERE insp_no = ?
-        `, [
-          toNullIfEmpty(motorNameplate.manufacture),
-          toNullIfEmpty(motorNameplate.model),
-          toNullIfEmpty(motorNameplate.type),
-          toNullIfEmpty(motorNameplate.ser_no),
-          toNullIfEmpty(motorNameplate.frame),
-          toNullIfEmpty(motorNameplate.power),
-          motorNameplate.power_unit || 'kW',
-          toNullIfEmpty(motorNameplate.speed),
-          motorNameplate.speed_unit || 'RPM',
-          toNullIfEmpty(motorNameplate.voltage),
-          toNullIfEmpty(motorNameplate.current),
-          toNullIfEmpty(motorNameplate.frequency),
-          toNullIfEmpty(motorNameplate.insulation_class),
-          toNullIfEmpty(motorNameplate.design),
-          toNullIfEmpty(motorNameplate.temp_rise_class),
-          toNullIfEmpty(motorNameplate.duty),
-          toNullIfEmpty(motorNameplate.cos_phi),
-          toNullIfEmpty(motorNameplate.ip),
-          toNullIfEmpty(motorNameplate.sf),
-          toNullIfEmpty(motorNameplate.de_bearing),
-          toNullIfEmpty(motorNameplate.nde_bearing),
-          toNullIfEmpty(motorNameplate.note),
-          updated_by,
-          insp_no
-        ]);
+        `,
+          [
+            toNullIfEmpty(motorNameplate.manufacture),
+            toNullIfEmpty(motorNameplate.model),
+            toNullIfEmpty(motorNameplate.type),
+            toNullIfEmpty(motorNameplate.ser_no),
+            toNullIfEmpty(motorNameplate.frame),
+            toNullIfEmpty(motorNameplate.power),
+            motorNameplate.power_unit || "kW",
+            toNullIfEmpty(motorNameplate.speed),
+            motorNameplate.speed_unit || "RPM",
+            toNullIfEmpty(motorNameplate.voltage),
+            toNullIfEmpty(motorNameplate.current),
+            toNullIfEmpty(motorNameplate.frequency),
+            toNullIfEmpty(motorNameplate.insulation_class),
+            toNullIfEmpty(motorNameplate.design),
+            toNullIfEmpty(motorNameplate.temp_rise_class),
+            toNullIfEmpty(motorNameplate.duty),
+            toNullIfEmpty(motorNameplate.cos_phi),
+            toNullIfEmpty(motorNameplate.ip),
+            toNullIfEmpty(motorNameplate.sf),
+            toNullIfEmpty(motorNameplate.de_bearing),
+            toNullIfEmpty(motorNameplate.nde_bearing),
+            toNullIfEmpty(motorNameplate.note),
+            updated_by,
+            insp_no,
+          ]
+        );
       }
     }
 
@@ -4238,45 +4845,53 @@ app.post('/api/scm/inspection-save', async (req, res) => {
     if (drivenEquipment) {
       const existingDriven = await queryAsync(
         connection,
-        'SELECT scm_de_id FROM form_scm_driven_equipment WHERE insp_no = ?',
+        "SELECT scm_de_id FROM form_scm_driven_equipment WHERE insp_no = ?",
         [insp_no]
       );
 
       if (existingDriven.length === 0) {
-        await queryAsync(connection, `
+        await queryAsync(
+          connection,
+          `
           INSERT INTO form_scm_driven_equipment 
           (insp_no, scm_de_equipment_type, scm_de_manufactory, scm_de_tag_no,
            scm_de_speed, scm_de_speed_unit, scm_de_de_bearing, scm_de_nde_bearing, created_by)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `, [
-          insp_no,
-          toNullIfEmpty(drivenEquipment.equipment_type),
-          toNullIfEmpty(drivenEquipment.manufactory),
-          toNullIfEmpty(drivenEquipment.tag_no),
-          toNullIfEmpty(drivenEquipment.speed),
-          drivenEquipment.speed_unit || 'RPM',
-          toNullIfEmpty(drivenEquipment.de_bearing),
-          toNullIfEmpty(drivenEquipment.nde_bearing),
-          created_by
-        ]);
+        `,
+          [
+            insp_no,
+            toNullIfEmpty(drivenEquipment.equipment_type),
+            toNullIfEmpty(drivenEquipment.manufactory),
+            toNullIfEmpty(drivenEquipment.tag_no),
+            toNullIfEmpty(drivenEquipment.speed),
+            drivenEquipment.speed_unit || "RPM",
+            toNullIfEmpty(drivenEquipment.de_bearing),
+            toNullIfEmpty(drivenEquipment.nde_bearing),
+            created_by,
+          ]
+        );
       } else {
-        await queryAsync(connection, `
+        await queryAsync(
+          connection,
+          `
           UPDATE form_scm_driven_equipment 
           SET scm_de_equipment_type = ?, scm_de_manufactory = ?, scm_de_tag_no = ?,
               scm_de_speed = ?, scm_de_speed_unit = ?, scm_de_de_bearing = ?,
               scm_de_nde_bearing = ?, updated_by = ?, updated_at = NOW()
           WHERE insp_no = ?
-        `, [
-          toNullIfEmpty(drivenEquipment.equipment_type),
-          toNullIfEmpty(drivenEquipment.manufactory),
-          toNullIfEmpty(drivenEquipment.tag_no),
-          toNullIfEmpty(drivenEquipment.speed),
-          drivenEquipment.speed_unit || 'RPM',
-          toNullIfEmpty(drivenEquipment.de_bearing),
-          toNullIfEmpty(drivenEquipment.nde_bearing),
-          updated_by,
-          insp_no
-        ]);
+        `,
+          [
+            toNullIfEmpty(drivenEquipment.equipment_type),
+            toNullIfEmpty(drivenEquipment.manufactory),
+            toNullIfEmpty(drivenEquipment.tag_no),
+            toNullIfEmpty(drivenEquipment.speed),
+            drivenEquipment.speed_unit || "RPM",
+            toNullIfEmpty(drivenEquipment.de_bearing),
+            toNullIfEmpty(drivenEquipment.nde_bearing),
+            updated_by,
+            insp_no,
+          ]
+        );
       }
     }
 
@@ -4286,48 +4901,56 @@ app.post('/api/scm/inspection-save', async (req, res) => {
     if (generalInfo) {
       const existingGI = await queryAsync(
         connection,
-        'SELECT scm_gi_id FROM form_scm_general_info WHERE insp_no = ?',
+        "SELECT scm_gi_id FROM form_scm_general_info WHERE insp_no = ?",
         [insp_no]
       );
 
       if (existingGI.length === 0) {
-        await queryAsync(connection, `
+        await queryAsync(
+          connection,
+          `
           INSERT INTO form_scm_general_info 
           (insp_no, scm_gi_motor_type_mv, scm_gi_motor_type_lv, scm_gi_motor_type_special,
            scm_gi_mounting_flange, scm_gi_mounting_foot, scm_gi_connection_coupling,
            scm_gi_connection_gearbox, scm_gi_connection_vbelt, created_by)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `, [
-          insp_no,
-          generalInfo.motor_type_mv ? 1 : 0,
-          generalInfo.motor_type_lv ? 1 : 0,
-          generalInfo.motor_type_special ? 1 : 0,
-          generalInfo.mounting_flange ? 1 : 0,
-          generalInfo.mounting_foot ? 1 : 0,
-          generalInfo.connection_coupling ? 1 : 0,
-          generalInfo.connection_gearbox ? 1 : 0,
-          generalInfo.connection_vbelt ? 1 : 0,
-          created_by
-        ]);
+        `,
+          [
+            insp_no,
+            generalInfo.motor_type_mv ? 1 : 0,
+            generalInfo.motor_type_lv ? 1 : 0,
+            generalInfo.motor_type_special ? 1 : 0,
+            generalInfo.mounting_flange ? 1 : 0,
+            generalInfo.mounting_foot ? 1 : 0,
+            generalInfo.connection_coupling ? 1 : 0,
+            generalInfo.connection_gearbox ? 1 : 0,
+            generalInfo.connection_vbelt ? 1 : 0,
+            created_by,
+          ]
+        );
       } else {
-        await queryAsync(connection, `
+        await queryAsync(
+          connection,
+          `
           UPDATE form_scm_general_info 
           SET scm_gi_motor_type_mv = ?, scm_gi_motor_type_lv = ?, scm_gi_motor_type_special = ?,
               scm_gi_mounting_flange = ?, scm_gi_mounting_foot = ?, scm_gi_connection_coupling = ?,
               scm_gi_connection_gearbox = ?, scm_gi_connection_vbelt = ?, updated_by = ?, updated_at = NOW()
           WHERE insp_no = ?
-        `, [
-          generalInfo.motor_type_mv ? 1 : 0,
-          generalInfo.motor_type_lv ? 1 : 0,
-          generalInfo.motor_type_special ? 1 : 0,
-          generalInfo.mounting_flange ? 1 : 0,
-          generalInfo.mounting_foot ? 1 : 0,
-          generalInfo.connection_coupling ? 1 : 0,
-          generalInfo.connection_gearbox ? 1 : 0,
-          generalInfo.connection_vbelt ? 1 : 0,
-          updated_by,
-          insp_no
-        ]);
+        `,
+          [
+            generalInfo.motor_type_mv ? 1 : 0,
+            generalInfo.motor_type_lv ? 1 : 0,
+            generalInfo.motor_type_special ? 1 : 0,
+            generalInfo.mounting_flange ? 1 : 0,
+            generalInfo.mounting_foot ? 1 : 0,
+            generalInfo.connection_coupling ? 1 : 0,
+            generalInfo.connection_gearbox ? 1 : 0,
+            generalInfo.connection_vbelt ? 1 : 0,
+            updated_by,
+            insp_no,
+          ]
+        );
       }
     }
 
@@ -4335,20 +4958,28 @@ app.post('/api/scm/inspection-save', async (req, res) => {
     // 6. General Checks (DELETE then INSERT)
     // ========================================
     if (generalChecks && generalChecks.length > 0) {
-      await queryAsync(connection, 'DELETE FROM form_scm_general_checks WHERE insp_no = ?', [insp_no]);
+      await queryAsync(
+        connection,
+        "DELETE FROM form_scm_general_checks WHERE insp_no = ?",
+        [insp_no]
+      );
 
       for (const check of generalChecks) {
-        await queryAsync(connection, `
+        await queryAsync(
+          connection,
+          `
           INSERT INTO form_scm_general_checks 
           (insp_no, scm_gc_check_item, scm_gc_status, scm_gc_remarks, created_by)
           VALUES (?, ?, ?, ?, ?)
-        `, [
-          insp_no,
-          toNullIfEmpty(check.check_item),
-          check.status || null,
-          toNullIfEmpty(check.remarks),
-          created_by
-        ]);
+        `,
+          [
+            insp_no,
+            toNullIfEmpty(check.check_item),
+            check.status || null,
+            toNullIfEmpty(check.remarks),
+            created_by,
+          ]
+        );
       }
     }
 
@@ -4358,67 +4989,83 @@ app.post('/api/scm/inspection-save', async (req, res) => {
     if (standstillTest) {
       const existingST = await queryAsync(
         connection,
-        'SELECT scm_st_id FROM form_scm_standstill_test WHERE insp_no = ?',
+        "SELECT scm_st_id FROM form_scm_standstill_test WHERE insp_no = ?",
         [insp_no]
       );
 
       if (existingST.length === 0) {
-        await queryAsync(connection, `
+        await queryAsync(
+          connection,
+          `
       INSERT INTO form_scm_standstill_test 
       (insp_no, scm_st_application, scm_st_not_application, 
        scm_st_winding_include_cable, scm_st_winding_exclude_cable, created_by)
       VALUES (?, ?, ?, ?, ?, ?)
-    `, [
-          insp_no,
-          standstillTest.application ? 1 : 0,
-          standstillTest.not_application ? 1 : 0,
-          standstillTest.winding_include_cable ? 1 : 0,
-          standstillTest.winding_exclude_cable ? 1 : 0,
-          created_by
-        ]);
+    `,
+          [
+            insp_no,
+            standstillTest.application ? 1 : 0,
+            standstillTest.not_application ? 1 : 0,
+            standstillTest.winding_include_cable ? 1 : 0,
+            standstillTest.winding_exclude_cable ? 1 : 0,
+            created_by,
+          ]
+        );
       } else {
-        await queryAsync(connection, `
+        await queryAsync(
+          connection,
+          `
       UPDATE form_scm_standstill_test 
       SET scm_st_application = ?, scm_st_not_application = ?,
           scm_st_winding_include_cable = ?, scm_st_winding_exclude_cable = ?,
           updated_by = ?, updated_at = NOW()
       WHERE insp_no = ?
-    `, [
-          standstillTest.application ? 1 : 0,
-          standstillTest.not_application ? 1 : 0,
-          standstillTest.winding_include_cable ? 1 : 0,
-          standstillTest.winding_exclude_cable ? 1 : 0,
-          updated_by,
-          insp_no
-        ]);
+    `,
+          [
+            standstillTest.application ? 1 : 0,
+            standstillTest.not_application ? 1 : 0,
+            standstillTest.winding_include_cable ? 1 : 0,
+            standstillTest.winding_exclude_cable ? 1 : 0,
+            updated_by,
+            insp_no,
+          ]
+        );
       }
     }
     // ========================================
     // 7. Insulation Tests (DELETE then INSERT)
     // ========================================
     if (insulationTests && insulationTests.length > 0) {
-      await queryAsync(connection, 'DELETE FROM form_scm_insulation_tests WHERE insp_no = ?', [insp_no]);
+      await queryAsync(
+        connection,
+        "DELETE FROM form_scm_insulation_tests WHERE insp_no = ?",
+        [insp_no]
+      );
 
       for (const test of insulationTests) {
-        await queryAsync(connection, `
+        await queryAsync(
+          connection,
+          `
           INSERT INTO form_scm_insulation_tests 
           (insp_no, scm_it_test_voltage, scm_it_phase_marking, scm_it_resistance_1min_c,
            scm_it_resistance_1min_40c, scm_it_resistance_10min_c, scm_it_resistance_10min_40c,
            scm_it_polarization_index, scm_it_winding_temp, scm_it_note, created_by)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `, [
-          insp_no,
-          toNullIfEmpty(test.test_voltage),
-          toNullIfEmpty(test.phase_marking),
-          toNullIfEmpty(test.resistance_1min_c),
-          toNullIfEmpty(test.resistance_1min_40c),
-          toNullIfEmpty(test.resistance_10min_c),
-          toNullIfEmpty(test.resistance_10min_40c),
-          toNullIfEmpty(test.polarization_index),
-          toNullIfEmpty(test.winding_temp),
-          toNullIfEmpty(test.note),
-          created_by
-        ]);
+        `,
+          [
+            insp_no,
+            toNullIfEmpty(test.test_voltage),
+            toNullIfEmpty(test.phase_marking),
+            toNullIfEmpty(test.resistance_1min_c),
+            toNullIfEmpty(test.resistance_1min_40c),
+            toNullIfEmpty(test.resistance_10min_c),
+            toNullIfEmpty(test.resistance_10min_40c),
+            toNullIfEmpty(test.polarization_index),
+            toNullIfEmpty(test.winding_temp),
+            toNullIfEmpty(test.note),
+            created_by,
+          ]
+        );
       }
     }
 
@@ -4428,40 +5075,48 @@ app.post('/api/scm/inspection-save', async (req, res) => {
     if (resistanceTests) {
       const existingRT = await queryAsync(
         connection,
-        'SELECT scm_rt_id FROM form_scm_resistance_tests WHERE insp_no = ?',
+        "SELECT scm_rt_id FROM form_scm_resistance_tests WHERE insp_no = ?",
         [insp_no]
       );
 
       if (existingRT.length === 0) {
-        await queryAsync(connection, `
+        await queryAsync(
+          connection,
+          `
           INSERT INTO form_scm_resistance_tests 
           (insp_no, scm_rt_test_unit, scm_rt_resistance_uv, scm_rt_resistance_uw,
            scm_rt_resistance_vw, scm_rt_result_status, created_by)
           VALUES (?, ?, ?, ?, ?, ?, ?)
-        `, [
-          insp_no,
-          resistanceTests.test_unit || '',
-          toNullIfEmpty(resistanceTests.resistance_uv),
-          toNullIfEmpty(resistanceTests.resistance_uw),
-          toNullIfEmpty(resistanceTests.resistance_vw),
-          resistanceTests.result_status || null,
-          created_by
-        ]);
+        `,
+          [
+            insp_no,
+            resistanceTests.test_unit || "",
+            toNullIfEmpty(resistanceTests.resistance_uv),
+            toNullIfEmpty(resistanceTests.resistance_uw),
+            toNullIfEmpty(resistanceTests.resistance_vw),
+            resistanceTests.result_status || null,
+            created_by,
+          ]
+        );
       } else {
-        await queryAsync(connection, `
+        await queryAsync(
+          connection,
+          `
           UPDATE form_scm_resistance_tests 
           SET scm_rt_test_unit = ?, scm_rt_resistance_uv = ?, scm_rt_resistance_uw = ?,
               scm_rt_resistance_vw = ?, scm_rt_result_status = ?, updated_by = ?, updated_at = NOW()
           WHERE insp_no = ?
-        `, [
-          resistanceTests.test_unit || '',
-          toNullIfEmpty(resistanceTests.resistance_uv),
-          toNullIfEmpty(resistanceTests.resistance_uw),
-          toNullIfEmpty(resistanceTests.resistance_vw),
-          resistanceTests.result_status || null,
-          updated_by,
-          insp_no
-        ]);
+        `,
+          [
+            resistanceTests.test_unit || "",
+            toNullIfEmpty(resistanceTests.resistance_uv),
+            toNullIfEmpty(resistanceTests.resistance_uw),
+            toNullIfEmpty(resistanceTests.resistance_vw),
+            resistanceTests.result_status || null,
+            updated_by,
+            insp_no,
+          ]
+        );
       }
     }
 
@@ -4471,40 +5126,48 @@ app.post('/api/scm/inspection-save', async (req, res) => {
     if (inductanceTests) {
       const existingLT = await queryAsync(
         connection,
-        'SELECT scm_lt_id FROM form_scm_inductance_tests WHERE insp_no = ?',
+        "SELECT scm_lt_id FROM form_scm_inductance_tests WHERE insp_no = ?",
         [insp_no]
       );
 
       if (existingLT.length === 0) {
-        await queryAsync(connection, `
+        await queryAsync(
+          connection,
+          `
           INSERT INTO form_scm_inductance_tests 
           (insp_no, scm_lt_test_unit, scm_lt_inductance_uv, scm_lt_inductance_uw,
            scm_lt_inductance_vw, scm_lt_result_status, created_by)
           VALUES (?, ?, ?, ?, ?, ?, ?)
-        `, [
-          insp_no,
-          inductanceTests.test_unit || '',
-          toNullIfEmpty(inductanceTests.inductance_uv),
-          toNullIfEmpty(inductanceTests.inductance_uw),
-          toNullIfEmpty(inductanceTests.inductance_vw),
-          inductanceTests.result_status || null,
-          created_by
-        ]);
+        `,
+          [
+            insp_no,
+            inductanceTests.test_unit || "",
+            toNullIfEmpty(inductanceTests.inductance_uv),
+            toNullIfEmpty(inductanceTests.inductance_uw),
+            toNullIfEmpty(inductanceTests.inductance_vw),
+            inductanceTests.result_status || null,
+            created_by,
+          ]
+        );
       } else {
-        await queryAsync(connection, `
+        await queryAsync(
+          connection,
+          `
           UPDATE form_scm_inductance_tests 
           SET scm_lt_test_unit = ?, scm_lt_inductance_uv = ?, scm_lt_inductance_uw = ?,
               scm_lt_inductance_vw = ?, scm_lt_result_status = ?, updated_by = ?, updated_at = NOW()
           WHERE insp_no = ?
-        `, [
-          inductanceTests.test_unit || '',
-          toNullIfEmpty(inductanceTests.inductance_uv),
-          toNullIfEmpty(inductanceTests.inductance_uw),
-          toNullIfEmpty(inductanceTests.inductance_vw),
-          inductanceTests.result_status || null,
-          updated_by,
-          insp_no
-        ]);
+        `,
+          [
+            inductanceTests.test_unit || "",
+            toNullIfEmpty(inductanceTests.inductance_uv),
+            toNullIfEmpty(inductanceTests.inductance_uw),
+            toNullIfEmpty(inductanceTests.inductance_vw),
+            inductanceTests.result_status || null,
+            updated_by,
+            insp_no,
+          ]
+        );
       }
     }
 
@@ -4514,48 +5177,56 @@ app.post('/api/scm/inspection-save', async (req, res) => {
     if (tempSensorsBearing) {
       const existingTSB = await queryAsync(
         connection,
-        'SELECT scm_tsb_id FROM form_scm_temp_sensors_bearing WHERE insp_no = ?',
+        "SELECT scm_tsb_id FROM form_scm_temp_sensors_bearing WHERE insp_no = ?",
         [insp_no]
       );
 
       if (existingTSB.length === 0) {
-        await queryAsync(connection, `
+        await queryAsync(
+          connection,
+          `
           INSERT INTO form_scm_temp_sensors_bearing 
           (insp_no, scm_tsb_de_connection_no1, scm_tsb_de_connection_no2, scm_tsb_de_resistance,
            scm_tsb_nde_connection_no1, scm_tsb_nde_connection_no2, scm_tsb_nde_resistance,
            scm_tsb_sensor_type, scm_tsb_result_status, created_by)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `, [
-          insp_no,
-          toNullIfEmpty(tempSensorsBearing.de_connection_no1),
-          toNullIfEmpty(tempSensorsBearing.de_connection_no2),
-          toNullIfEmpty(tempSensorsBearing.de_resistance),
-          toNullIfEmpty(tempSensorsBearing.nde_connection_no1),
-          toNullIfEmpty(tempSensorsBearing.nde_connection_no2),
-          toNullIfEmpty(tempSensorsBearing.nde_resistance),
-          toNullIfEmpty(tempSensorsBearing.sensor_type),
-          tempSensorsBearing.result_status || null,
-          created_by
-        ]);
+        `,
+          [
+            insp_no,
+            toNullIfEmpty(tempSensorsBearing.de_connection_no1),
+            toNullIfEmpty(tempSensorsBearing.de_connection_no2),
+            toNullIfEmpty(tempSensorsBearing.de_resistance),
+            toNullIfEmpty(tempSensorsBearing.nde_connection_no1),
+            toNullIfEmpty(tempSensorsBearing.nde_connection_no2),
+            toNullIfEmpty(tempSensorsBearing.nde_resistance),
+            toNullIfEmpty(tempSensorsBearing.sensor_type),
+            tempSensorsBearing.result_status || null,
+            created_by,
+          ]
+        );
       } else {
-        await queryAsync(connection, `
+        await queryAsync(
+          connection,
+          `
           UPDATE form_scm_temp_sensors_bearing 
           SET scm_tsb_de_connection_no1 = ?, scm_tsb_de_connection_no2 = ?, scm_tsb_de_resistance = ?,
               scm_tsb_nde_connection_no1 = ?, scm_tsb_nde_connection_no2 = ?, scm_tsb_nde_resistance = ?,
               scm_tsb_sensor_type = ?, scm_tsb_result_status = ?, updated_by = ?, updated_at = NOW()
           WHERE insp_no = ?
-        `, [
-          toNullIfEmpty(tempSensorsBearing.de_connection_no1),
-          toNullIfEmpty(tempSensorsBearing.de_connection_no2),
-          toNullIfEmpty(tempSensorsBearing.de_resistance),
-          toNullIfEmpty(tempSensorsBearing.nde_connection_no1),
-          toNullIfEmpty(tempSensorsBearing.nde_connection_no2),
-          toNullIfEmpty(tempSensorsBearing.nde_resistance),
-          toNullIfEmpty(tempSensorsBearing.sensor_type),
-          tempSensorsBearing.result_status || null,
-          updated_by,
-          insp_no
-        ]);
+        `,
+          [
+            toNullIfEmpty(tempSensorsBearing.de_connection_no1),
+            toNullIfEmpty(tempSensorsBearing.de_connection_no2),
+            toNullIfEmpty(tempSensorsBearing.de_resistance),
+            toNullIfEmpty(tempSensorsBearing.nde_connection_no1),
+            toNullIfEmpty(tempSensorsBearing.nde_connection_no2),
+            toNullIfEmpty(tempSensorsBearing.nde_resistance),
+            toNullIfEmpty(tempSensorsBearing.sensor_type),
+            tempSensorsBearing.result_status || null,
+            updated_by,
+            insp_no,
+          ]
+        );
       }
     }
 
@@ -4563,21 +5234,29 @@ app.post('/api/scm/inspection-save', async (req, res) => {
     // 11. Heaters (DELETE then INSERT)
     // ========================================
     if (heaters && heaters.length > 0) {
-      await queryAsync(connection, 'DELETE FROM form_scm_heaters WHERE insp_no = ?', [insp_no]);
+      await queryAsync(
+        connection,
+        "DELETE FROM form_scm_heaters WHERE insp_no = ?",
+        [insp_no]
+      );
 
       for (const heater of heaters) {
-        await queryAsync(connection, `
+        await queryAsync(
+          connection,
+          `
           INSERT INTO form_scm_heaters 
           (insp_no, scm_h_unit_no, scm_h_connection_no1, scm_h_connection_no2, scm_h_resistance, created_by)
           VALUES (?, ?, ?, ?, ?, ?)
-        `, [
-          insp_no,
-          heater.unit_no,
-          toNullIfEmpty(heater.connection_no1),
-          toNullIfEmpty(heater.connection_no2),
-          toNullIfEmpty(heater.resistance),
-          created_by
-        ]);
+        `,
+          [
+            insp_no,
+            heater.unit_no,
+            toNullIfEmpty(heater.connection_no1),
+            toNullIfEmpty(heater.connection_no2),
+            toNullIfEmpty(heater.resistance),
+            created_by,
+          ]
+        );
       }
     }
 
@@ -4585,24 +5264,32 @@ app.post('/api/scm/inspection-save', async (req, res) => {
     // 12. Temperature Sensors Stator (DELETE then INSERT)
     // ========================================
     if (tempSensorsStator && tempSensorsStator.length > 0) {
-      await queryAsync(connection, 'DELETE FROM form_scm_temp_sensors_stator WHERE insp_no = ?', [insp_no]);
+      await queryAsync(
+        connection,
+        "DELETE FROM form_scm_temp_sensors_stator WHERE insp_no = ?",
+        [insp_no]
+      );
 
       for (const sensor of tempSensorsStator) {
-        await queryAsync(connection, `
+        await queryAsync(
+          connection,
+          `
           INSERT INTO form_scm_temp_sensors_stator 
           (insp_no, scm_tss_element_no, scm_tss_connection_no1, scm_tss_connection_no2,
            scm_tss_resistance, scm_tss_sensor_type, scm_tss_result_status, created_by)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `, [
-          insp_no,
-          sensor.element_no,
-          toNullIfEmpty(sensor.connection_no1),
-          toNullIfEmpty(sensor.connection_no2),
-          toNullIfEmpty(sensor.resistance),
-          toNullIfEmpty(sensor.sensor_type),
-          sensor.result_status || null,
-          created_by
-        ]);
+        `,
+          [
+            insp_no,
+            sensor.element_no,
+            toNullIfEmpty(sensor.connection_no1),
+            toNullIfEmpty(sensor.connection_no2),
+            toNullIfEmpty(sensor.resistance),
+            toNullIfEmpty(sensor.sensor_type),
+            sensor.result_status || null,
+            created_by,
+          ]
+        );
       }
     }
 
@@ -4615,18 +5302,17 @@ app.post('/api/scm/inspection-save', async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Inspection saved successfully',
-      insp_no
+      message: "Inspection saved successfully",
+      insp_no,
     });
-
   } catch (error) {
     if (connection) {
-      await new Promise(resolve => connection.rollback(() => resolve()));
+      await new Promise((resolve) => connection.rollback(() => resolve()));
     }
-    console.error('Error in /api/scm/inspection-save:', error);
+    console.error("Error in /api/scm/inspection-save:", error);
     res.status(500).json({
       success: false,
-      error: error.message
+      error: error.message,
     });
   } finally {
     if (connection) connection.release();
@@ -4645,7 +5331,7 @@ app.post('/api/scm/inspection-save', async (req, res) => {
  * GET /api/report/inspection/:insp_no
  * ดึงข้อมูลรายงานตาม Inspection No
  */
-app.get('/api/inspectionPM/:id', (req, res) => {
+app.get("/api/inspectionPM/:id", (req, res) => {
   const { id } = req.params;
 
   const sql = `
@@ -4669,46 +5355,42 @@ WHERE i.mt_id = ?
 
   db2.query(sql, [id], (err, results) => {
     if (err) {
-      console.error('Database error:', err);
-      return res.status(500).json({ error: 'เกิดข้อผิดพลาดในการเชื่อมต่อฐานข้อมูล' });
+      console.error("Database error:", err);
+      return res
+        .status(500)
+        .json({ error: "เกิดข้อผิดพลาดในการเชื่อมต่อฐานข้อมูล" });
     }
     if (results.length === 0) {
-      return res.status(404).json({ error: 'ไม่พบข้อมูลใบงานนี้' });
+      return res.status(404).json({ error: "ไม่พบข้อมูลใบงานนี้" });
     }
     res.json(results[0]);
   });
 });
 
-
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Global process error logs
-process.on('uncaughtException', err => {
-  console.error('Uncaught Exception:', err);
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught Exception:", err);
 });
-process.on('unhandledRejection', err => {
-  console.error('Unhandled Rejection:', err);
+process.on("unhandledRejection", (err) => {
+  console.error("Unhandled Rejection:", err);
 });
-
-
 
 // ─────────────────────────────────────────────────────────────────────────────
-app.use('/img', express.static(path.join(__dirname, 'public', 'img_upload')));
-app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));
+app.use("/img", express.static(path.join(__dirname, "public", "img_upload")));
+app.use("/uploads", express.static(path.join(__dirname, "public", "uploads")));
 
 // Health
-app.get('/', (req, res) => {
+app.get("/", (req, res) => {
   res.json({
-    service: 'Inspection Management API',
-    version: '1.0.0',
-    status: 'running',
+    service: "Inspection Management API",
+    version: "1.0.0",
+    status: "running",
     uptime: process.uptime(),
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 });
-app.get('/health', (req, res) => res.status(200).send('OK'));
-
-
+app.get("/health", (req, res) => res.status(200).send("OK"));
 
 //_______________________________________________________________________________
 // Logout Endpoint
