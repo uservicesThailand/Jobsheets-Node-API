@@ -2009,14 +2009,18 @@ app.get("/api/forms/FormApproval/:insp_no", (req, res) => {
   if (!insp_no) return res.status(400).json({ error: "missing insp_no" });
 
   const sql = `
-    SELECT *
-    FROM form_approval
-    WHERE insp_no = ? AND is_deleted = 0
-    ORDER BY updated_at DESC, created_at DESC, apr_id DESC
-    LIMIT 1
+    SELECT 
+      fa.*,
+      CONCAT_WS(' ', updater.name, updater.lastname) AS updatedBy,
+      CONCAT_WS(' ', creator.name, creator.lastname) AS createdBy
+    FROM form_approval AS fa
+    LEFT JOIN u_user AS updater ON fa.updated_by = updater.user_key
+    LEFT JOIN u_user AS creator ON fa.created_by = creator.user_key
+    WHERE fa.insp_no = ?
+      AND fa.is_deleted = 0
+    ORDER BY COALESCE(fa.updated_at, fa.created_at) DESC, fa.apr_id DESC
+    LIMIT 1;
   `;
-
-  const toIso = (v) => (v ? new Date(v).toISOString() : null); // ✅ ส่งเป็น ISO string
 
   db.query(sql, [insp_no], (err, rows) => {
     if (err) {
@@ -2029,19 +2033,19 @@ app.get("/api/forms/FormApproval/:insp_no", (req, res) => {
     const out = {
       // อิงกับฟอร์มลายเซ็นฝั่งหน้าเว็บ
       incoming_name: r.incoming_name ?? null,
-      incoming_date: toIso(r.incoming_date),
+      incoming_date: r.incoming_date,
       incoming_sign: r.incoming_sign_url ?? null,
 
       final_name: r.final_name ?? null,
-      final_date: toIso(r.final_date),
+      final_date: r.final_date,
       final_sign: r.final_sign_url ?? null,
 
       mech_name: r.mech_name ?? null,
-      mech_date: toIso(r.mech_date),
+      mech_date: r.mech_date,
       mech_sign: r.mech_sign_url ?? null,
 
       approve_name: r.approve_name ?? null,
-      approve_date: toIso(r.approve_date), // ✅ เติมให้ครบ
+      approve_date: r.approve_date, // ✅ เติมให้ครบ
       approve_sign: r.approve_sign_url ?? null,
 
       // context ของเอกสาร
@@ -2051,10 +2055,10 @@ app.get("/api/forms/FormApproval/:insp_no", (req, res) => {
       // meta สำหรับโชว์/ล็อกการแก้ไข
       meta: {
         apr_id: r.apr_id,
-        created_at: toIso(r.created_at),
-        updated_at: toIso(r.updated_at),
-        created_by: r.created_by ?? null,
-        updated_by: r.updated_by ?? null,
+        createdAt: r.created_at,
+        updatedAt: r.updated_at,
+        createdBy: r.createdBy ?? null,
+        updatedBy: r.updatedBy ?? null,
       },
     };
 
