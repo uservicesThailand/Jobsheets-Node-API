@@ -11,25 +11,25 @@ module.exports = (sequelize, DataTypes) => {
       this.hasMany(models.FormBalance, {
         foreignKey: "createdBy",
         targetKey: "userKey",
-        as: "createdUser",
+        as: "createdFormBalances",
       });
 
       this.hasMany(models.FormBalance, {
         foreignKey: "updatedBy",
         targetKey: "userKey",
-        as: "updatedUser",
+        as: "updatedFormBalances",
       });
 
       this.hasMany(models.FormElectricalService, {
         foreignKey: "createdBy",
         targetKey: "userKey",
-        as: "createdUser",
+        as: "createdElectrical",
       });
 
       this.hasMany(models.FormElectricalService, {
         foreignKey: "updatedBy",
         targetKey: "userKey",
-        as: "updatedUser",
+        as: "updatedElectrical",
       });
     }
   }
