@@ -57,6 +57,8 @@ const deepMerge = (base, incoming) => {
   const result = { ...base };
 
   for (const key in incoming) {
+    if (!(key in base)) continue;
+
     if (
       incoming[key] &&
       typeof incoming[key] === "object" &&

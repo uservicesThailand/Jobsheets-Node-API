@@ -76,6 +76,13 @@ const validatePayload = (payload = {}, schemas) => {
       continue;
     }
 
+    for (const field of Object.keys(data || {})) {
+      if (!schema.fields[field]) {
+        errors.push(`Unknown field ${itemNo}.${field}`);
+      }
+    }
+
+
     for (const [field, rule] of Object.entries(schema.fields)) {
       validateValue(rule, data[field], `${itemNo}.${field}`, errors);
     }
