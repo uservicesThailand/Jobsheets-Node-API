@@ -1409,9 +1409,15 @@ app.get("/api/forms/FormMotorNameplate/:insp_no", (req, res) => {
   if (!insp_no) return res.status(400).json({ error: "missing insp_no" });
 
   const sql = `
-  SELECT fmn.*, u.name, u.lastname
+  SELECT 
+    fmn.*,  
+    fmn.created_at as createdAt,
+    fmn.updated_at as updatedAt,
+    CONCAT_WS(' ', updater.name, updater.lastname) AS updatedBy,
+    CONCAT_WS(' ', creator.name, creator.lastname) AS createdBy
   FROM form_motor_nameplate AS fmn
-  LEFT JOIN u_user AS u ON fmn.created_by = u.user_key
+  LEFT JOIN u_user AS updater ON fmn.created_by = updater.user_key
+  LEFT JOIN u_user AS creator ON fmn.updated_by = creator.user_key
   WHERE fmn.insp_no = ?
   ORDER BY COALESCE(fmn.updated_at, fmn.created_at) DESC, fmn.mnp_id DESC
   LIMIT 1
@@ -1421,7 +1427,14 @@ app.get("/api/forms/FormMotorNameplate/:insp_no", (req, res) => {
       console.error("GET form_motor_nameplate error:", err);
       return res.status(500).json({ error: "Internal Server Error" });
     }
-    res.json(rows.length ? rows[0] : null);
+    if (!rows.length) {
+      return res.json(null);
+    }
+
+    const { created_by, updated_by, created_at, updated_at, ...cleanRow } =
+      rows[0];
+
+    return res.json(cleanRow);
   });
 });
 
