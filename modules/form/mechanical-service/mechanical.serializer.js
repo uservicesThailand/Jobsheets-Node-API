@@ -1,5 +1,3 @@
-const mechanicalSchema = require("./mechanical.schemas");
-
 /**
  * undefined → null
  */
@@ -42,10 +40,10 @@ const buildEmptyFields = (fields) => {
   return obj;
 };
 
-const buildEmptyFromSchema = () => {
+const buildEmptyFromSchema = (schema) => {
   const result = {};
-  for (const index in mechanicalSchema) {
-    result[index] = buildEmptyFields(mechanicalSchema[index].fields);
+  for (const index in schema) {
+    result[index] = buildEmptyFields(schema[index].fields);
   }
   return result;
 };
@@ -76,8 +74,8 @@ const deepMerge = (base, incoming) => {
 /**
  * Serialize payload → DB data
  */
-const prepareData = (payload = {}, existingData = null) => {
-  const base = existingData || buildEmptyFromSchema();
+const prepareData = (payload = {}, existingData = null, schema) => {
+  const base = existingData || buildEmptyFromSchema(schema);
   const merged = deepMerge(base, payload);
 
   return normalizeNull(merged);

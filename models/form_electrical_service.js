@@ -28,21 +28,17 @@ module.exports = (sequelize, DataTypes) => {
   }
   FormElectricalService.init(
     {
-      els_id: {
+      elsId: {
         type: DataTypes.INTEGER,
         primaryKey: true,
         autoIncrement: true,
-        field: "mcs_id",
+        field: "els_id",
       },
 
       inspSv: {
         type: DataTypes.STRING,
         allowNull: true,
         field: "insp_sv",
-      },
-
-      basket: {
-        type: DataTypes.STRING,
       },
 
       data: {

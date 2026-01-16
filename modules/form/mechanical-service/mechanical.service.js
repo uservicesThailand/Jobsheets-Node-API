@@ -1,4 +1,5 @@
 const db = require("../../../models");
+const schemas = require("./mechanical.schemas");
 const { prepareData } = require("./mechanical.serializer");
 
 const resolveFieldContext = async (inspNo) => {
@@ -32,7 +33,11 @@ const upsert = async (inspNo, userKey, body) => {
     const ctx = await resolveFieldContext(inspNo);
     if (!ctx.success) return ctx;
 
-    body.data = prepareData(body.data, ctx.formMechanicalService?.data);
+    body.data = prepareData(
+      body.data,
+      ctx.formMechanicalService?.data,
+      schemas
+    );
 
     const payload = {
       ...body,

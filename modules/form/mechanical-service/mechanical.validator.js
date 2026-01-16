@@ -1,5 +1,5 @@
 const { TEAM, STATUS } = require("./mechanical.constants");
-const schemas = require("./mechanical.schemas");
+
 const {
   stringOptional,
   enumOptional,
@@ -67,7 +67,7 @@ const validateValue = (rule, value, path, errors) => {
   }
 };
 
-const validatePayload = (payload = {}) => {
+const validatePayload = (payload = {}, schemas) => {
   const errors = [];
   for (const [itemNo, data] of Object.entries(payload)) {
     const schema = schemas[itemNo];

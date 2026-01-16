@@ -1,8 +1,10 @@
-const service = require("./mechanical.service");
-const { validatePayload } = require("./mechanical.validator");
-const schemas = require("./mechanical.schemas");
+const service = require("./electrical.service");
+const {
+  validatePayload,
+} = require("../mechanical-service/mechanical.validator");
+const schemas = require("./electrical.schemas");
 const resUtil = require("../../../utils/response.util");
-const { mapResponse } = require("./mechanical.serializer");
+const { mapResponse } = require("./electrical.serializer");
 
 const save = async (req, res) => {
   try {
