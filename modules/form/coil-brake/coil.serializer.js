@@ -1,4 +1,3 @@
-const { toNumberOrNull } = require("../../../utils/number.util");
 const { removeUndefined } = require("../../../utils/object.util");
 
 const mapPayload = (body) => {
@@ -48,20 +47,20 @@ const coilBrake = ({ formCoilBrakeTest, coilBrakeTestTypes }) => {
     insulationClass: formCoilBrakeTest.insulationClass,
     note: formCoilBrakeTest.note,
     power: {
-      value: toNumberOrNull(formCoilBrakeTest.powerValue),
+      value: formCoilBrakeTest.powerValue,
       unit: formCoilBrakeTest.powerUnit,
     },
     speed: {
-      value: toNumberOrNull(formCoilBrakeTest.speedValue),
+      value: formCoilBrakeTest.speedValue,
       unit: formCoilBrakeTest.speedUnit,
     },
-    frequency: toNumberOrNull(formCoilBrakeTest.frequency),
-    current: toNumberOrNull(formCoilBrakeTest.current),
-    volt: toNumberOrNull(formCoilBrakeTest.volt),
-    eff: toNumberOrNull(formCoilBrakeTest.eff),
-    year: toNumberOrNull(formCoilBrakeTest.year),
-    weight: toNumberOrNull(formCoilBrakeTest.weight),
-    cos: toNumberOrNull(formCoilBrakeTest.cos),
+    frequency: formCoilBrakeTest.frequency,
+    current: formCoilBrakeTest.current,
+    volt: formCoilBrakeTest.volt,
+    eff: formCoilBrakeTest.eff,
+    year: formCoilBrakeTest.year,
+    weight: formCoilBrakeTest.weight,
+    cos: formCoilBrakeTest.cos,
     brakeTypes: Array.isArray(coilBrakeTestTypes)
       ? coilBrakeTestTypes.map((item) => item.brakeTypeCode)
       : [],

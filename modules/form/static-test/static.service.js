@@ -42,6 +42,7 @@ const upsert = async (inspNo, userKey, body) => {
 
     if (ctx.formStaticTest) {
       await ctx.formStaticTest.update(payload);
+    //   await ctx.formStaticTest.reload();
       return {
         success: true,
         created: false,

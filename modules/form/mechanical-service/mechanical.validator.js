@@ -34,13 +34,28 @@ const validateValue = (rule, value, path, errors) => {
       break;
 
     case "decimal":
-      if (typeof value !== "number" || Number.isNaN(value)) {
-        errors.push(`${path}: must be a decimal number`);
+      let str;
+
+      if (typeof value === "number") {
+        if (!Number.isFinite(value)) {
+          errors.push(`${path}: must be a finite decimal number`);
+          return;
+        }
+        str = value.toString();
+      } else if (typeof value === "string") {
+        str = value;
+      } else {
+        errors.push(`${path}: must be a decimal (string or number)`);
+        return;
+      }
+
+      if (!/^-?\d+(\.\d+)?$/.test(str)) {
+        errors.push(`${path}: invalid decimal format`);
         return;
       }
 
       if (rule.precision !== undefined) {
-        const decimalPlaces = value.toString().split(".")[1]?.length || 0;
+        const decimalPlaces = str.toString().split(".")[1]?.length || 0;
         if (decimalPlaces > rule.precision) {
           errors.push(
             `${path}: Invalid decimal (max ${rule.precision} digits)`
@@ -81,7 +96,6 @@ const validatePayload = (payload = {}, schemas) => {
         errors.push(`Unknown field ${itemNo}.${field}`);
       }
     }
-
 
     for (const [field, rule] of Object.entries(schema.fields)) {
       validateValue(rule, data[field], `${itemNo}.${field}`, errors);

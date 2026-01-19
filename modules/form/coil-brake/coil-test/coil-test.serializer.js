@@ -1,5 +1,4 @@
 const { removeUndefined } = require("../../../../utils/object.util");
-const { toNumberOrNull } = require("../../../../utils/number.util");
 
 const mapPayload = ({ volt, current }) => {
   const payload = {
@@ -27,26 +26,26 @@ const mapResponse = ({ coilBrakeTest }) => {
   return {
     volt: {
       incoming: [
-        toNumberOrNull(coilBrakeTest.voltIncoming1),
-        toNumberOrNull(coilBrakeTest.voltIncoming2),
-        toNumberOrNull(coilBrakeTest.voltIncoming3),
+        coilBrakeTest.voltIncoming1,
+        coilBrakeTest.voltIncoming2,
+        coilBrakeTest.voltIncoming3,
       ],
       final: [
-        toNumberOrNull(coilBrakeTest.voltFinal1),
-        toNumberOrNull(coilBrakeTest.voltFinal2),
-        toNumberOrNull(coilBrakeTest.voltFinal3),
+        coilBrakeTest.voltFinal1,
+        coilBrakeTest.voltFinal2,
+        coilBrakeTest.voltFinal3,
       ],
     },
     current: {
       incoming: [
-        toNumberOrNull(coilBrakeTest.currentIncoming1),
-        toNumberOrNull(coilBrakeTest.currentIncoming2),
-        toNumberOrNull(coilBrakeTest.currentIncoming3),
+        coilBrakeTest.currentIncoming1,
+        coilBrakeTest.currentIncoming2,
+        coilBrakeTest.currentIncoming3,
       ],
       final: [
-        toNumberOrNull(coilBrakeTest.currentFinal1),
-        toNumberOrNull(coilBrakeTest.currentFinal2),
-        toNumberOrNull(coilBrakeTest.currentFinal3),
+        coilBrakeTest.currentFinal1,
+        coilBrakeTest.currentFinal2,
+        coilBrakeTest.currentFinal3,
       ],
     },
   };

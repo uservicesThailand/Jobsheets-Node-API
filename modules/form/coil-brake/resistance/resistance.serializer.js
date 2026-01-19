@@ -1,5 +1,4 @@
 const { removeUndefined } = require("../../../../utils/object.util");
-const { toNumberOrNull } = require("../../../../utils/number.util");
 
 const mapPayload = ({ marking, incoming, final }) => {
   const payload = {
@@ -24,25 +23,25 @@ const mapPayload = ({ marking, incoming, final }) => {
 const resistanceTest = ({ resistanceTest }) => {
   return {
     marking: [
-      toNumberOrNull(resistanceTest.marking1),
-      toNumberOrNull(resistanceTest.marking2),
-      toNumberOrNull(resistanceTest.marking3),
+      resistanceTest.marking1,
+      resistanceTest.marking2,
+      resistanceTest.marking3,
     ],
 
     incoming: {
       values: [
-        toNumberOrNull(resistanceTest.incoming1),
-        toNumberOrNull(resistanceTest.incoming2),
-        toNumberOrNull(resistanceTest.incoming3),
+        resistanceTest.incoming1,
+        resistanceTest.incoming2,
+        resistanceTest.incoming3,
       ],
       unit: resistanceTest.incomingUnit,
     },
 
     final: {
       values: [
-        toNumberOrNull(resistanceTest.final1),
-        toNumberOrNull(resistanceTest.final2),
-        toNumberOrNull(resistanceTest.final3),
+        resistanceTest.final1,
+        resistanceTest.final2,
+        resistanceTest.final3,
       ],
       unit: resistanceTest.finalUnit,
     },

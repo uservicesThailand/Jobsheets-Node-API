@@ -4,7 +4,14 @@ const decimalOptional = (field) =>
   body(field)
     .optional({ nullable: true })
     .isDecimal({ decimal_digits: "0,3" })
-    .withMessage("Invalid decimal (max 3 digits)");
+    .withMessage("Invalid decimal (max 3 digits)")
+    .customSanitizer((value) => {
+      if (value === null || value === undefined || value === "") return null;
+      let [intPart, decPart = ""] = String(value).toString().split(".");
+      // เติม 0 ให้ครบ 3 ตำแหน่ง
+      decPart = decPart.padEnd(3, "0");
+      return `${intPart}.${decPart}`;
+    });
 
 const enumOptional = (field, allowedValues) =>
   body(field)

@@ -51,7 +51,7 @@ const buildEmptyFromSchema = (schema) => {
 /**
  * deep merge (payload override)
  */
-const deepMerge = (base, incoming) => {
+const deepMerge = (base, incoming, schema) => {
   if (!incoming) return base;
 
   const result = { ...base };
@@ -64,8 +64,15 @@ const deepMerge = (base, incoming) => {
       typeof incoming[key] === "object" &&
       !Array.isArray(incoming[key])
     ) {
-      result[key] = deepMerge(base[key] || {}, incoming[key]);
+      result[key] = deepMerge(base[key] || {}, incoming[key], schema[key]);
     } else {
+      if (schema.fields[key].type === "decimal") {
+        let [intPart, decPart = ""] = incoming[key].toString().split(".");
+        // เติม 0 ให้ครบ 3 ตำแหน่ง
+        decPart = decPart.padEnd(3, "0");
+        result[key] = `${intPart}.${decPart}`;
+        continue;
+      }
       result[key] = incoming[key];
     }
   }
@@ -78,7 +85,7 @@ const deepMerge = (base, incoming) => {
  */
 const prepareData = (payload = {}, existingData = null, schema) => {
   const base = existingData || buildEmptyFromSchema(schema);
-  const merged = deepMerge(base, payload);
+  const merged = deepMerge(base, payload, schema);
 
   return normalizeNull(merged);
 };
