@@ -26,7 +26,7 @@ app.use(
     origin: allowedOrigins,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     credentials: true,
-  })
+  }),
 );
 
 app.use(express.json());
@@ -149,7 +149,7 @@ const upload = multer({
   fileFilter: (req, file, cb) => {
     const allowedTypes = /jpeg|jpg|png|webp/;
     const extname = allowedTypes.test(
-      path.extname(file.originalname).toLowerCase()
+      path.extname(file.originalname).toLowerCase(),
     );
     const mimetype = allowedTypes.test(file.mimetype);
 
@@ -284,14 +284,14 @@ app.post("/api/bc/data", async (req, res) => {
         (err, results) => {
           if (err) reject(err);
           else resolve(results.map((r) => r.insp_service_order));
-        }
+        },
       );
     });
 
     const filteredOrders = allOrders.filter(
       (order) =>
         !existingOrders.includes(order.No) &&
-        (!branch || order.USVT_ResponsibilityCenter === branch)
+        (!branch || order.USVT_ResponsibilityCenter === branch),
     );
 
     const orderNos = filteredOrders.map((order) => order.No);
@@ -318,7 +318,7 @@ app.post("/api/bc/data", async (req, res) => {
 
     const joined = filteredOrders.map((order) => {
       const relatedItems = allItems.filter(
-        (item) => item.Document_No === order.No
+        (item) => item.Document_No === order.No,
       );
       return {
         ...order,
@@ -403,7 +403,7 @@ app.get("/api/admin/users", requireAdminOrDev, (req, res) => {
     if (err) {
       console.error(
         "Database error (/api/admin/users):",
-        err.sqlMessage || err
+        err.sqlMessage || err,
       );
       return res.status(500).json({ error: "Database error" });
     }
@@ -489,7 +489,7 @@ app.post("/api/admin/users", requireAdminOrDev, async (req, res) => {
           if (err2) return res.status(500).json({ error: "Database error" });
           res.status(201).json({ user_key: result.insertId });
         });
-      }
+      },
     );
   } catch (e) {
     console.error(e);
@@ -570,13 +570,13 @@ app.patch(
           if (result.affectedRows === 0)
             return res.status(404).json({ error: "User not found" });
           res.json({ message: "password updated" });
-        }
+        },
       );
     } catch (e) {
       console.error(e);
       res.status(500).json({ error: "Server error" });
     }
-  }
+  },
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -592,7 +592,7 @@ app.delete("/api/admin/users/:user_key", requireAdminOrDev, (req, res) => {
       if (result.affectedRows === 0)
         return res.status(404).json({ error: "User not found" });
       res.json({ message: "deleted" });
-    }
+    },
   );
 });
 
@@ -684,7 +684,7 @@ app.post("/api/inspection", (req, res) => {
           res.json({ success: true, id: inspectionId, insp_no: inspNo });
         });
       });
-    }
+    },
   );
 });
 
@@ -699,7 +699,7 @@ app.get("/api/motors", (req, res) => {
         return res.status(500).json({ error: "ไม่สามารถดึง motor ได้" });
       }
       res.json(results);
-    }
+    },
   );
 });
 
@@ -772,13 +772,13 @@ function createStepEndpoint(path, stationList, label) {
 createStepEndpoint(
   "/api/StepQA",
   ["QA BLANK", "QA Incoming", "QA final", "QA appr"],
-  "QA Incomming"
+  "QA Incomming",
 );
 createStepEndpoint("/api/StepME", ["ME", "ME Final"], "ME");
 createStepEndpoint("/api/StepPlanning", ["PLANNING"], "Planning");
 createStepEndpoint("/api/StepCS", ["CS", "CS Prove"], "CS");
 createStepEndpoint("/api/StepQC", ["QC Incoming", "QC Final"], "QC Incoming");
-createStepEndpoint("/api/StepReport", ["Going", "End"], "Going");
+createStepEndpoint("/api/StepReport", ["Report", "End"], "Going");
 
 // ─────────────────────────────────────────────────────────────────────────────
 app.post("/api/manpower", (req, res) => {
@@ -878,7 +878,7 @@ app.post("/api/send_station001", (req, res) => {
               console.error("Manpower update error:", err2);
               // ไม่ return เพราะไม่ให้ manpower error หยุด flow หลัก
             }
-          }
+          },
         );
       }
 
@@ -907,7 +907,7 @@ app.post("/api/send_station001", (req, res) => {
           }
           notifyFollowers(insp_id);
           res.json({ success: true });
-        }
+        },
       );
     });
   });
@@ -989,7 +989,7 @@ app.post("/api/accept_station", (req, res) => {
 
             notifyFollowers(insp_id);
             res.json({ success: true });
-          }
+          },
         );
       });
     });
@@ -1057,7 +1057,7 @@ app.post("/api/rework_station", (req, res) => {
           }
           notifyFollowers(insp_id);
           res.json({ success: true });
-        }
+        },
       );
     });
   });
@@ -1160,7 +1160,7 @@ app.get("/api/forms/FormTestReport/:insp_no", (req, res) => {
 
       if (row.insp_created_at) {
         row.insp_created_at = dayjs(row.insp_created_at).format(
-          "DD/MM/YYYY HH:mm"
+          "DD/MM/YYYY HH:mm",
         );
       }
 
@@ -1170,7 +1170,7 @@ app.get("/api/forms/FormTestReport/:insp_no", (req, res) => {
         row;
 
       res.json(cleanRow);
-    }
+    },
   );
 });
 
@@ -1285,11 +1285,11 @@ app.post("/api/forms/FormTestReport/:insp_no", (req, res) => {
 
                       notifyFollowers(insp_id);
                       return res.json({ success: true });
-                    }
+                    },
                   );
-                }
+                },
               );
-            }
+            },
           );
         } else {
           return res.json({ success: true });
@@ -1311,7 +1311,7 @@ app.post("/api/forms/FormTestReport/:insp_no", (req, res) => {
               return res.status(500).json({ error: "Internal Server Error" });
             }
             saveAndSendStation();
-          }
+          },
         );
       } else {
         const insertData = {
@@ -1328,7 +1328,7 @@ app.post("/api/forms/FormTestReport/:insp_no", (req, res) => {
           saveAndSendStation();
         });
       }
-    }
+    },
   );
 });
 
@@ -1464,7 +1464,7 @@ app.post("/api/forms/FormMotorNameplate/:insp_no", (req, res) => {
         return res.status(500).json({ error: "Internal Server Error" });
       }
       res.status(201).json({ success: true, mnp_id: result.insertId });
-    }
+    },
   );
 });
 
@@ -1480,7 +1480,7 @@ app.get("/api/forms/FormStaticTest/:insp_id", (req, res) => {
         return res.status(500).json({ error: "Internal Server Error" });
       }
       res.json(rows.length > 0 ? rows[0] : null);
-    }
+    },
   );
 });
 
@@ -1506,7 +1506,7 @@ app.post("/api/forms/FormStaticTest/:insp_id", (req, res) => {
               return res.status(500).json({ error: "Internal Server Error" });
             }
             res.json({ success: true });
-          }
+          },
         );
       } else {
         db.query(
@@ -1518,10 +1518,10 @@ app.post("/api/forms/FormStaticTest/:insp_id", (req, res) => {
               return res.status(500).json({ error: "Internal Server Error" });
             }
             res.json({ success: true });
-          }
+          },
         );
       }
-    }
+    },
   );
 });
 
@@ -1537,7 +1537,7 @@ app.get("/api/forms/FormEquipmentTest/:insp_id", (req, res) => {
         return res.status(500).json({ error: "Internal Server Error" });
       }
       res.json(rows.length > 0 ? rows[0] : null);
-    }
+    },
   );
 });
 
@@ -1563,7 +1563,7 @@ app.post("/api/forms/FormEquipmentTest/:insp_id", (req, res) => {
               return res.status(500).json({ error: "Internal Server Error" });
             }
             res.json({ success: true });
-          }
+          },
         );
       } else {
         db.query(
@@ -1575,10 +1575,10 @@ app.post("/api/forms/FormEquipmentTest/:insp_id", (req, res) => {
               return res.status(500).json({ error: "Internal Server Error" });
             }
             res.json({ success: true });
-          }
+          },
         );
       }
-    }
+    },
   );
 });
 
@@ -1594,7 +1594,7 @@ app.get("/api/forms/FormDynamicTest/:insp_id", (req, res) => {
         return res.status(500).json({ error: "Internal Server Error" });
       }
       res.json(rows.length > 0 ? rows[0] : null);
-    }
+    },
   );
 });
 app.post("/api/forms/FormDynamicTest/:insp_id", (req, res) => {
@@ -1619,7 +1619,7 @@ app.post("/api/forms/FormDynamicTest/:insp_id", (req, res) => {
               return res.status(500).json({ error: "Internal Server Error" });
             }
             res.json({ success: true });
-          }
+          },
         );
       } else {
         db.query(
@@ -1631,10 +1631,10 @@ app.post("/api/forms/FormDynamicTest/:insp_id", (req, res) => {
               return res.status(500).json({ error: "Internal Server Error" });
             }
             res.json({ success: true });
-          }
+          },
         );
       }
-    }
+    },
   );
 });
 
@@ -1650,7 +1650,7 @@ app.get("/api/forms/FormHousingShaft/:insp_id", (req, res) => {
         return res.status(500).json({ error: "Internal Server Error" });
       }
       res.json(rows.length > 0 ? rows[0] : null);
-    }
+    },
   );
 });
 app.post("/api/forms/FormHousingShaft/:insp_id", (req, res) => {
@@ -1675,7 +1675,7 @@ app.post("/api/forms/FormHousingShaft/:insp_id", (req, res) => {
               return res.status(500).json({ error: "Internal Server Error" });
             }
             res.json({ success: true });
-          }
+          },
         );
       } else {
         db.query(
@@ -1687,10 +1687,10 @@ app.post("/api/forms/FormHousingShaft/:insp_id", (req, res) => {
               return res.status(500).json({ error: "Internal Server Error" });
             }
             res.json({ success: true });
-          }
+          },
         );
       }
-    }
+    },
   );
 });
 
@@ -1706,7 +1706,7 @@ app.get("/api/forms/FormRequisition/:insp_id", (req, res) => {
         return res.status(500).json({ error: "Internal Server Error" });
       }
       res.json(rows.length > 0 ? rows[0] : null);
-    }
+    },
   );
 });
 app.post("/api/forms/FormRequisition/:insp_id", (req, res) => {
@@ -1731,7 +1731,7 @@ app.post("/api/forms/FormRequisition/:insp_id", (req, res) => {
               return res.status(500).json({ error: "Internal Server Error" });
             }
             res.json({ success: true });
-          }
+          },
         );
       } else {
         db.query(
@@ -1743,10 +1743,10 @@ app.post("/api/forms/FormRequisition/:insp_id", (req, res) => {
               return res.status(500).json({ error: "Internal Server Error" });
             }
             res.json({ success: true });
-          }
+          },
         );
       }
-    }
+    },
   );
 });
 
@@ -1762,7 +1762,7 @@ app.get("/api/forms/FormBalance/:insp_id", (req, res) => {
         return res.status(500).json({ error: "Internal Server Error" });
       }
       res.json(rows.length > 0 ? rows[0] : null);
-    }
+    },
   );
 });
 app.post("/api/forms/FormBalance/:insp_id", (req, res) => {
@@ -1787,7 +1787,7 @@ app.post("/api/forms/FormBalance/:insp_id", (req, res) => {
               return res.status(500).json({ error: "Internal Server Error" });
             }
             res.json({ success: true });
-          }
+          },
         );
       } else {
         db.query(
@@ -1799,10 +1799,10 @@ app.post("/api/forms/FormBalance/:insp_id", (req, res) => {
               return res.status(500).json({ error: "Internal Server Error" });
             }
             res.json({ success: true });
-          }
+          },
         );
       }
-    }
+    },
   );
 });
 
@@ -1818,7 +1818,7 @@ app.get("/api/forms/FormElectricalServices/:insp_id", (req, res) => {
         return res.status(500).json({ error: "Internal Server Error" });
       }
       res.json(rows.length > 0 ? rows[0] : null);
-    }
+    },
   );
 });
 app.post("/api/forms/FormElectricalServices/:insp_id", (req, res) => {
@@ -1841,12 +1841,12 @@ app.post("/api/forms/FormElectricalServices/:insp_id", (req, res) => {
             if (err2) {
               console.error(
                 "POST form_electrical_services error (update):",
-                err2
+                err2,
               );
               return res.status(500).json({ error: "Internal Server Error" });
             }
             res.json({ success: true });
-          }
+          },
         );
       } else {
         db.query(
@@ -1856,15 +1856,15 @@ app.post("/api/forms/FormElectricalServices/:insp_id", (req, res) => {
             if (err3) {
               console.error(
                 "POST form_electrical_services error (insert):",
-                err3
+                err3,
               );
               return res.status(500).json({ error: "Internal Server Error" });
             }
             res.json({ success: true });
-          }
+          },
         );
       }
-    }
+    },
   );
 });
 
@@ -1910,7 +1910,7 @@ app.post("/api/forms/FormInstruments/:insp_id", (req, res) => {
               return res.status(500).json({ error: "Internal Server Error" });
             }
             res.json({ success: true });
-          }
+          },
         );
       } else {
         db.query(
@@ -1922,10 +1922,10 @@ app.post("/api/forms/FormInstruments/:insp_id", (req, res) => {
               return res.status(500).json({ error: "Internal Server Error" });
             }
             res.json({ success: true });
-          }
+          },
         );
       }
-    }
+    },
   );
 });
 
@@ -1941,7 +1941,7 @@ app.get("/api/forms/FormCoilBrakeTest/:insp_id", (req, res) => {
         return res.status(500).json({ error: "Internal Server Error" });
       }
       res.json(rows.length > 0 ? rows[0] : null);
-    }
+    },
   );
 });
 app.post("/api/forms/FormCoilBrakeTest/:insp_id", (req, res) => {
@@ -1966,7 +1966,7 @@ app.post("/api/forms/FormCoilBrakeTest/:insp_id", (req, res) => {
               return res.status(500).json({ error: "Internal Server Error" });
             }
             res.json({ success: true });
-          }
+          },
         );
       } else {
         db.query(
@@ -1978,10 +1978,10 @@ app.post("/api/forms/FormCoilBrakeTest/:insp_id", (req, res) => {
               return res.status(500).json({ error: "Internal Server Error" });
             }
             res.json({ success: true });
-          }
+          },
         );
       }
-    }
+    },
   );
 });
 
@@ -2138,7 +2138,7 @@ app.post("/api/forms/FormApproval/:insp_no", (req, res) => {
       const fields = Object.keys(insertData);
       const placeholders = fields.map(() => "?").join(",");
       const sqlIns = `INSERT INTO form_approval (${fields.join(
-        ","
+        ",",
       )}) VALUES (${placeholders})`;
       db.query(
         sqlIns,
@@ -2178,9 +2178,9 @@ app.post("/api/forms/FormApproval/:insp_no", (req, res) => {
                   updated_by: x.updated_by ?? null,
                 },
               });
-            }
+            },
           );
-        }
+        },
       );
     } else {
       // UPDATE (แก้ไขแถวล่าสุด)
@@ -2229,9 +2229,9 @@ app.post("/api/forms/FormApproval/:insp_no", (req, res) => {
                   updated_by: x.updated_by ?? null,
                 },
               });
-            }
+            },
           );
-        }
+        },
       );
     }
   });
@@ -2249,7 +2249,7 @@ app.get("/api/forms/FormMechanicalServices/:insp_id", (req, res) => {
         return res.status(500).json({ error: "Internal Server Error" });
       }
       res.json(rows.length > 0 ? rows[0] : null);
-    }
+    },
   );
 });
 app.post("/api/forms/FormMechanicalServices/:insp_id", (req, res) => {
@@ -2272,12 +2272,12 @@ app.post("/api/forms/FormMechanicalServices/:insp_id", (req, res) => {
             if (err2) {
               console.error(
                 "POST form_mechanical_services error (update):",
-                err2
+                err2,
               );
               return res.status(500).json({ error: "Internal Server Error" });
             }
             res.json({ success: true });
-          }
+          },
         );
       } else {
         db.query(
@@ -2287,15 +2287,15 @@ app.post("/api/forms/FormMechanicalServices/:insp_id", (req, res) => {
             if (err3) {
               console.error(
                 "POST form_mechanical_services error (insert):",
-                err3
+                err3,
               );
               return res.status(500).json({ error: "Internal Server Error" });
             }
             res.json({ success: true });
-          }
+          },
         );
       }
-    }
+    },
   );
 });
 
@@ -2311,7 +2311,7 @@ app.get("/api/forms/FormMechanicalInspectionData/:insp_id", (req, res) => {
         return res.status(500).json({ error: "Internal Server Error" });
       }
       res.json(rows.length > 0 ? rows[0] : null);
-    }
+    },
   );
 });
 app.post("/api/forms/FormMechanicalInspectionData/:insp_id", (req, res) => {
@@ -2325,7 +2325,7 @@ app.post("/api/forms/FormMechanicalInspectionData/:insp_id", (req, res) => {
       if (err) {
         console.error(
           "POST form_mechanical_inspection_data error (select):",
-          err
+          err,
         );
         return res.status(500).json({ error: "Internal Server Error" });
       }
@@ -2337,12 +2337,12 @@ app.post("/api/forms/FormMechanicalInspectionData/:insp_id", (req, res) => {
             if (err2) {
               console.error(
                 "POST form_mechanical_inspection_data error (update):",
-                err2
+                err2,
               );
               return res.status(500).json({ error: "Internal Server Error" });
             }
             res.json({ success: true });
-          }
+          },
         );
       } else {
         db.query(
@@ -2352,15 +2352,15 @@ app.post("/api/forms/FormMechanicalInspectionData/:insp_id", (req, res) => {
             if (err3) {
               console.error(
                 "POST form_mechanical_inspection_data error (insert):",
-                err3
+                err3,
               );
               return res.status(500).json({ error: "Internal Server Error" });
             }
             res.json({ success: true });
-          }
+          },
         );
       }
-    }
+    },
   );
 });
 
@@ -2376,7 +2376,7 @@ app.get("/api/forms/FormLaserAlignment/:insp_id", (req, res) => {
         return res.status(500).json({ error: "Internal Server Error" });
       }
       res.json(rows.length > 0 ? rows[0] : null);
-    }
+    },
   );
 });
 app.post("/api/forms/FormLaserAlignment/:insp_id", (req, res) => {
@@ -2401,7 +2401,7 @@ app.post("/api/forms/FormLaserAlignment/:insp_id", (req, res) => {
               return res.status(500).json({ error: "Internal Server Error" });
             }
             res.json({ success: true });
-          }
+          },
         );
       } else {
         db.query(
@@ -2413,10 +2413,10 @@ app.post("/api/forms/FormLaserAlignment/:insp_id", (req, res) => {
               return res.status(500).json({ error: "Internal Server Error" });
             }
             res.json({ success: true });
-          }
+          },
         );
       }
-    }
+    },
   );
 });
 
@@ -2432,7 +2432,7 @@ app.get("/api/forms/FormVibrationAfterInstalled/:insp_id", (req, res) => {
         return res.status(500).json({ error: "Internal Server Error" });
       }
       res.json(rows.length > 0 ? rows[0] : null);
-    }
+    },
   );
 });
 app.post("/api/forms/FormVibrationAfterInstalled/:insp_id", (req, res) => {
@@ -2446,7 +2446,7 @@ app.post("/api/forms/FormVibrationAfterInstalled/:insp_id", (req, res) => {
       if (err) {
         console.error(
           "POST form_vibration_after_installed error (select):",
-          err
+          err,
         );
         return res.status(500).json({ error: "Internal Server Error" });
       }
@@ -2458,12 +2458,12 @@ app.post("/api/forms/FormVibrationAfterInstalled/:insp_id", (req, res) => {
             if (err2) {
               console.error(
                 "POST form_vibration_after_installed error (update):",
-                err2
+                err2,
               );
               return res.status(500).json({ error: "Internal Server Error" });
             }
             res.json({ success: true });
-          }
+          },
         );
       } else {
         db.query(
@@ -2473,15 +2473,15 @@ app.post("/api/forms/FormVibrationAfterInstalled/:insp_id", (req, res) => {
             if (err3) {
               console.error(
                 "POST form_vibration_after_installed error (insert):",
-                err3
+                err3,
               );
               return res.status(500).json({ error: "Internal Server Error" });
             }
             res.json({ success: true });
-          }
+          },
         );
       }
-    }
+    },
   );
 });
 
@@ -2497,7 +2497,7 @@ app.get("/api/forms/FormCoreLossHotSpot/:insp_id", (req, res) => {
         return res.status(500).json({ error: "Internal Server Error" });
       }
       res.json(rows.length > 0 ? rows[0] : null);
-    }
+    },
   );
 });
 app.post("/api/forms/FormCoreLossHotSpot/:insp_id", (req, res) => {
@@ -2520,12 +2520,12 @@ app.post("/api/forms/FormCoreLossHotSpot/:insp_id", (req, res) => {
             if (err2) {
               console.error(
                 "POST form_core_loss_hot_spot error (update):",
-                err2
+                err2,
               );
               return res.status(500).json({ error: "Internal Server Error" });
             }
             res.json({ success: true });
-          }
+          },
         );
       } else {
         db.query(
@@ -2535,15 +2535,15 @@ app.post("/api/forms/FormCoreLossHotSpot/:insp_id", (req, res) => {
             if (err3) {
               console.error(
                 "POST form_core_loss_hot_spot error (insert):",
-                err3
+                err3,
               );
               return res.status(500).json({ error: "Internal Server Error" });
             }
             res.json({ success: true });
-          }
+          },
         );
       }
-    }
+    },
   );
 });
 
@@ -2559,7 +2559,7 @@ app.get("/api/forms/FormRewind/:insp_id", (req, res) => {
         return res.status(500).json({ error: "Internal Server Error" });
       }
       res.json(rows.length > 0 ? rows[0] : null);
-    }
+    },
   );
 });
 app.post("/api/forms/FormRewind/:insp_id", (req, res) => {
@@ -2584,7 +2584,7 @@ app.post("/api/forms/FormRewind/:insp_id", (req, res) => {
               return res.status(500).json({ error: "Internal Server Error" });
             }
             res.json({ success: true });
-          }
+          },
         );
       } else {
         db.query(
@@ -2596,10 +2596,10 @@ app.post("/api/forms/FormRewind/:insp_id", (req, res) => {
               return res.status(500).json({ error: "Internal Server Error" });
             }
             res.json({ success: true });
-          }
+          },
         );
       }
-    }
+    },
   );
 });
 
@@ -2615,7 +2615,7 @@ app.get("/api/forms/FormMachine/:insp_id", (req, res) => {
         return res.status(500).json({ error: "Internal Server Error" });
       }
       res.json(rows.length > 0 ? rows[0] : null);
-    }
+    },
   );
 });
 app.post("/api/forms/FormMachine/:insp_id", (req, res) => {
@@ -2640,7 +2640,7 @@ app.post("/api/forms/FormMachine/:insp_id", (req, res) => {
               return res.status(500).json({ error: "Internal Server Error" });
             }
             res.json({ success: true });
-          }
+          },
         );
       } else {
         db.query(
@@ -2652,10 +2652,10 @@ app.post("/api/forms/FormMachine/:insp_id", (req, res) => {
               return res.status(500).json({ error: "Internal Server Error" });
             }
             res.json({ success: true });
-          }
+          },
         );
       }
-    }
+    },
   );
 });
 
@@ -2671,7 +2671,7 @@ app.get("/api/forms/FormPartData/:insp_id", (req, res) => {
         return res.status(500).json({ error: "Internal Server Error" });
       }
       res.json(rows.length > 0 ? rows[0] : null);
-    }
+    },
   );
 });
 app.post("/api/forms/FormPartData/:insp_id", (req, res) => {
@@ -2696,7 +2696,7 @@ app.post("/api/forms/FormPartData/:insp_id", (req, res) => {
               return res.status(500).json({ error: "Internal Server Error" });
             }
             res.json({ success: true });
-          }
+          },
         );
       } else {
         db.query(
@@ -2708,10 +2708,10 @@ app.post("/api/forms/FormPartData/:insp_id", (req, res) => {
               return res.status(500).json({ error: "Internal Server Error" });
             }
             res.json({ success: true });
-          }
+          },
         );
       }
-    }
+    },
   );
 });
 
@@ -2727,7 +2727,7 @@ app.get("/api/forms/FormAttachments/:insp_id", (req, res) => {
         return res.status(500).json({ error: "Internal Server Error" });
       }
       res.json(rows.length > 0 ? rows[0] : null);
-    }
+    },
   );
 });
 app.post("/api/forms/FormAttachments/:insp_id", (req, res) => {
@@ -2752,7 +2752,7 @@ app.post("/api/forms/FormAttachments/:insp_id", (req, res) => {
               return res.status(500).json({ error: "Internal Server Error" });
             }
             res.json({ success: true });
-          }
+          },
         );
       } else {
         db.query(
@@ -2764,10 +2764,10 @@ app.post("/api/forms/FormAttachments/:insp_id", (req, res) => {
               return res.status(500).json({ error: "Internal Server Error" });
             }
             res.json({ success: true });
-          }
+          },
         );
       }
-    }
+    },
   );
 });
 
@@ -2783,7 +2783,7 @@ app.get("/api/forms/FormPhotoManager/:insp_id", (req, res) => {
         return res.status(500).json({ error: "Internal Server Error" });
       }
       res.json(rows.length > 0 ? rows[0] : null);
-    }
+    },
   );
 });
 app.post("/api/forms/FormPhotoManager/:insp_id", (req, res) => {
@@ -2808,7 +2808,7 @@ app.post("/api/forms/FormPhotoManager/:insp_id", (req, res) => {
               return res.status(500).json({ error: "Internal Server Error" });
             }
             res.json({ success: true });
-          }
+          },
         );
       } else {
         db.query(
@@ -2820,10 +2820,10 @@ app.post("/api/forms/FormPhotoManager/:insp_id", (req, res) => {
               return res.status(500).json({ error: "Internal Server Error" });
             }
             res.json({ success: true });
-          }
+          },
         );
       }
-    }
+    },
   );
 });
 
@@ -2939,7 +2939,7 @@ app.post("/api/searchSV", (req, res) => {
         ...row,
         insp_created_at: row.insp_created_at?.toISOString().slice(0, 10),
         insp_document_date: row.insp_document_date?.toISOString().slice(0, 10),
-      }))
+      })),
     );
   });
 });
@@ -2973,7 +2973,7 @@ app.post("/api/searchCustomer", (req, res) => {
         ...row,
         insp_created_at: row.insp_created_at?.toISOString().slice(0, 10),
         insp_document_date: row.insp_document_date?.toISOString().slice(0, 10),
-      }))
+      })),
     );
   });
 });
@@ -3051,7 +3051,7 @@ app.put("/api/user/:id", (req, res) => {
     (err) => {
       if (err) return res.status(500).json({ error: "อัปเดตข้อมูลไม่สำเร็จ" });
       res.json({ message: "อัปเดตข้อมูลสำเร็จ" });
-    }
+    },
   );
 });
 
@@ -3079,7 +3079,7 @@ app.post(
       console.error("Upload failed:", err);
       res.status(500).json({ error: "Upload failed" });
     }
-  }
+  },
 );
 
 // Notifications list with pagination
@@ -3426,7 +3426,7 @@ app.post("/api/todolist", (req, res) => {
         time: time || null,
         status: "pending",
       });
-    }
+    },
   );
 });
 
@@ -3470,7 +3470,7 @@ app.put("/api/todolist/:id", (req, res) => {
         date: date || null,
         time: time || null,
       });
-    }
+    },
   );
 });
 
@@ -3691,7 +3691,7 @@ app.post("/api/upload", upload.single("image"), async (req, res) => {
     // เช็คขนาดไฟล์ที่บันทึก
     const stats = await fs.promises.stat(filepath);
     const compressionRatio = ((1 - stats.size / req.file.size) * 100).toFixed(
-      1
+      1,
     );
 
     res.json({
@@ -4082,7 +4082,7 @@ app.put("/api/restore-all-images", async (req, res) => {
     const [deletedImages] = await db3.promise().execute(checkQuery, [inspNo]);
 
     console.log(
-      `🔍 Found ${deletedImages.length} deleted images for inspNo: ${inspNo}`
+      `🔍 Found ${deletedImages.length} deleted images for inspNo: ${inspNo}`,
     );
 
     if (deletedImages.length === 0) {
@@ -4392,7 +4392,7 @@ app.get("/api/formList", (req, res) => {
 
       // สร้าง Set ของ service_order ที่มีอยู่ใน db3
       const existingOrders = new Set(
-        checkResults.map((r) => r.insp_service_order)
+        checkResults.map((r) => r.insp_service_order),
       );
 
       // กรองเฉพาะที่ไม่มีใน db3 (has_row = 0)
@@ -4466,7 +4466,7 @@ app.get("/api/formListSynced", (req, res) => {
 
       // สร้าง Set สำหรับการค้นหาที่เร็ว
       const existingOrders = new Set(
-        checkResults.map((r) => r.insp_service_order)
+        checkResults.map((r) => r.insp_service_order),
       );
 
       // กรองและเพิ่ม has_row
@@ -4527,22 +4527,22 @@ app.get("/api/forms/FormSquirrelCageMotor/:insp_no", async (req, res) => {
       queryAsync(
         db3,
         "SELECT * FROM form_scm_general_checks WHERE insp_no = ? ORDER BY scm_gc_id",
-        [insp_no]
+        [insp_no],
       ),
       queryAsync(
         db3,
         "SELECT * FROM form_scm_insulation_tests WHERE insp_no = ? ORDER BY scm_it_id",
-        [insp_no]
+        [insp_no],
       ),
       queryAsync(
         db3,
         "SELECT * FROM form_scm_heaters WHERE insp_no = ? ORDER BY scm_h_unit_no",
-        [insp_no]
+        [insp_no],
       ),
       queryAsync(
         db3,
         "SELECT * FROM form_scm_temp_sensors_stator WHERE insp_no = ? ORDER BY scm_tss_element_no",
-        [insp_no]
+        [insp_no],
       ),
     ]);
 
@@ -4666,7 +4666,7 @@ app.post("/api/scm/inspection-save", async (req, res) => {
     const inspectionList = await queryAsync(
       connection,
       "SELECT insp_id FROM tbl_inspection_list WHERE insp_no = ?",
-      [insp_no]
+      [insp_no],
     );
 
     if (inspectionList.length === 0) {
@@ -4678,7 +4678,7 @@ app.post("/api/scm/inspection-save", async (req, res) => {
           toNullIfEmpty(insp_sv),
           toNullIfEmpty(header?.customer_no),
           toNullIfEmpty(header?.customer_name),
-        ]
+        ],
       );
 
       // เพิ่มการตรวจสอบว่า INSERT สำเร็จ
@@ -4690,7 +4690,7 @@ app.post("/api/scm/inspection-save", async (req, res) => {
         "Inserted insp_no:",
         insp_no,
         "Insert ID:",
-        insertResult.insertId
+        insertResult.insertId,
       );
     }
     // ========================================
@@ -4699,7 +4699,7 @@ app.post("/api/scm/inspection-save", async (req, res) => {
     const existingHeader = await queryAsync(
       connection,
       "SELECT scm_ih_id FROM form_scm_inspection_headers WHERE insp_no = ?",
-      [insp_no]
+      [insp_no],
     );
 
     // กำหนดค่า default สำหรับ overall_status
@@ -4731,7 +4731,7 @@ app.post("/api/scm/inspection-save", async (req, res) => {
           toNullIfEmpty(header?.inspector_signature),
           toNullIfEmpty(header?.inspection_completed_date),
           created_by,
-        ]
+        ],
       );
     } else {
       await queryAsync(
@@ -4759,7 +4759,7 @@ app.post("/api/scm/inspection-save", async (req, res) => {
           toNullIfEmpty(header?.inspection_completed_date),
           updated_by,
           insp_no,
-        ]
+        ],
       );
     }
 
@@ -4770,7 +4770,7 @@ app.post("/api/scm/inspection-save", async (req, res) => {
       const existingNameplate = await queryAsync(
         connection,
         "SELECT mnp_id FROM form_motor_nameplate WHERE insp_no = ?",
-        [insp_no]
+        [insp_no],
       );
 
       if (existingNameplate.length === 0) {
@@ -4811,7 +4811,7 @@ app.post("/api/scm/inspection-save", async (req, res) => {
             toNullIfEmpty(motorNameplate.nde_bearing),
             toNullIfEmpty(motorNameplate.note),
             created_by,
-          ]
+          ],
         );
       } else {
         await queryAsync(
@@ -4852,7 +4852,7 @@ app.post("/api/scm/inspection-save", async (req, res) => {
             toNullIfEmpty(motorNameplate.note),
             updated_by,
             insp_no,
-          ]
+          ],
         );
       }
     }
@@ -4864,7 +4864,7 @@ app.post("/api/scm/inspection-save", async (req, res) => {
       const existingDriven = await queryAsync(
         connection,
         "SELECT scm_de_id FROM form_scm_driven_equipment WHERE insp_no = ?",
-        [insp_no]
+        [insp_no],
       );
 
       if (existingDriven.length === 0) {
@@ -4886,7 +4886,7 @@ app.post("/api/scm/inspection-save", async (req, res) => {
             toNullIfEmpty(drivenEquipment.de_bearing),
             toNullIfEmpty(drivenEquipment.nde_bearing),
             created_by,
-          ]
+          ],
         );
       } else {
         await queryAsync(
@@ -4908,7 +4908,7 @@ app.post("/api/scm/inspection-save", async (req, res) => {
             toNullIfEmpty(drivenEquipment.nde_bearing),
             updated_by,
             insp_no,
-          ]
+          ],
         );
       }
     }
@@ -4920,7 +4920,7 @@ app.post("/api/scm/inspection-save", async (req, res) => {
       const existingGI = await queryAsync(
         connection,
         "SELECT scm_gi_id FROM form_scm_general_info WHERE insp_no = ?",
-        [insp_no]
+        [insp_no],
       );
 
       if (existingGI.length === 0) {
@@ -4944,7 +4944,7 @@ app.post("/api/scm/inspection-save", async (req, res) => {
             generalInfo.connection_gearbox ? 1 : 0,
             generalInfo.connection_vbelt ? 1 : 0,
             created_by,
-          ]
+          ],
         );
       } else {
         await queryAsync(
@@ -4967,7 +4967,7 @@ app.post("/api/scm/inspection-save", async (req, res) => {
             generalInfo.connection_vbelt ? 1 : 0,
             updated_by,
             insp_no,
-          ]
+          ],
         );
       }
     }
@@ -4979,7 +4979,7 @@ app.post("/api/scm/inspection-save", async (req, res) => {
       await queryAsync(
         connection,
         "DELETE FROM form_scm_general_checks WHERE insp_no = ?",
-        [insp_no]
+        [insp_no],
       );
 
       for (const check of generalChecks) {
@@ -4996,7 +4996,7 @@ app.post("/api/scm/inspection-save", async (req, res) => {
             check.status || null,
             toNullIfEmpty(check.remarks),
             created_by,
-          ]
+          ],
         );
       }
     }
@@ -5008,7 +5008,7 @@ app.post("/api/scm/inspection-save", async (req, res) => {
       const existingST = await queryAsync(
         connection,
         "SELECT scm_st_id FROM form_scm_standstill_test WHERE insp_no = ?",
-        [insp_no]
+        [insp_no],
       );
 
       if (existingST.length === 0) {
@@ -5027,7 +5027,7 @@ app.post("/api/scm/inspection-save", async (req, res) => {
             standstillTest.winding_include_cable ? 1 : 0,
             standstillTest.winding_exclude_cable ? 1 : 0,
             created_by,
-          ]
+          ],
         );
       } else {
         await queryAsync(
@@ -5046,7 +5046,7 @@ app.post("/api/scm/inspection-save", async (req, res) => {
             standstillTest.winding_exclude_cable ? 1 : 0,
             updated_by,
             insp_no,
-          ]
+          ],
         );
       }
     }
@@ -5057,7 +5057,7 @@ app.post("/api/scm/inspection-save", async (req, res) => {
       await queryAsync(
         connection,
         "DELETE FROM form_scm_insulation_tests WHERE insp_no = ?",
-        [insp_no]
+        [insp_no],
       );
 
       for (const test of insulationTests) {
@@ -5082,7 +5082,7 @@ app.post("/api/scm/inspection-save", async (req, res) => {
             toNullIfEmpty(test.winding_temp),
             toNullIfEmpty(test.note),
             created_by,
-          ]
+          ],
         );
       }
     }
@@ -5094,7 +5094,7 @@ app.post("/api/scm/inspection-save", async (req, res) => {
       const existingRT = await queryAsync(
         connection,
         "SELECT scm_rt_id FROM form_scm_resistance_tests WHERE insp_no = ?",
-        [insp_no]
+        [insp_no],
       );
 
       if (existingRT.length === 0) {
@@ -5114,7 +5114,7 @@ app.post("/api/scm/inspection-save", async (req, res) => {
             toNullIfEmpty(resistanceTests.resistance_vw),
             resistanceTests.result_status || null,
             created_by,
-          ]
+          ],
         );
       } else {
         await queryAsync(
@@ -5133,7 +5133,7 @@ app.post("/api/scm/inspection-save", async (req, res) => {
             resistanceTests.result_status || null,
             updated_by,
             insp_no,
-          ]
+          ],
         );
       }
     }
@@ -5145,7 +5145,7 @@ app.post("/api/scm/inspection-save", async (req, res) => {
       const existingLT = await queryAsync(
         connection,
         "SELECT scm_lt_id FROM form_scm_inductance_tests WHERE insp_no = ?",
-        [insp_no]
+        [insp_no],
       );
 
       if (existingLT.length === 0) {
@@ -5165,7 +5165,7 @@ app.post("/api/scm/inspection-save", async (req, res) => {
             toNullIfEmpty(inductanceTests.inductance_vw),
             inductanceTests.result_status || null,
             created_by,
-          ]
+          ],
         );
       } else {
         await queryAsync(
@@ -5184,7 +5184,7 @@ app.post("/api/scm/inspection-save", async (req, res) => {
             inductanceTests.result_status || null,
             updated_by,
             insp_no,
-          ]
+          ],
         );
       }
     }
@@ -5196,7 +5196,7 @@ app.post("/api/scm/inspection-save", async (req, res) => {
       const existingTSB = await queryAsync(
         connection,
         "SELECT scm_tsb_id FROM form_scm_temp_sensors_bearing WHERE insp_no = ?",
-        [insp_no]
+        [insp_no],
       );
 
       if (existingTSB.length === 0) {
@@ -5220,7 +5220,7 @@ app.post("/api/scm/inspection-save", async (req, res) => {
             toNullIfEmpty(tempSensorsBearing.sensor_type),
             tempSensorsBearing.result_status || null,
             created_by,
-          ]
+          ],
         );
       } else {
         await queryAsync(
@@ -5243,7 +5243,7 @@ app.post("/api/scm/inspection-save", async (req, res) => {
             tempSensorsBearing.result_status || null,
             updated_by,
             insp_no,
-          ]
+          ],
         );
       }
     }
@@ -5255,7 +5255,7 @@ app.post("/api/scm/inspection-save", async (req, res) => {
       await queryAsync(
         connection,
         "DELETE FROM form_scm_heaters WHERE insp_no = ?",
-        [insp_no]
+        [insp_no],
       );
 
       for (const heater of heaters) {
@@ -5273,7 +5273,7 @@ app.post("/api/scm/inspection-save", async (req, res) => {
             toNullIfEmpty(heater.connection_no2),
             toNullIfEmpty(heater.resistance),
             created_by,
-          ]
+          ],
         );
       }
     }
@@ -5285,7 +5285,7 @@ app.post("/api/scm/inspection-save", async (req, res) => {
       await queryAsync(
         connection,
         "DELETE FROM form_scm_temp_sensors_stator WHERE insp_no = ?",
-        [insp_no]
+        [insp_no],
       );
 
       for (const sensor of tempSensorsStator) {
@@ -5306,7 +5306,7 @@ app.post("/api/scm/inspection-save", async (req, res) => {
             toNullIfEmpty(sensor.sensor_type),
             sensor.result_status || null,
             created_by,
-          ]
+          ],
         );
       }
     }
