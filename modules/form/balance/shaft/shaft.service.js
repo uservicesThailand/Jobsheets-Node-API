@@ -51,7 +51,7 @@ const save = async (inspNo, body) => {
         success: true,
         created: false,
         data: {
-          balanceShaft,
+          balanceShaft: ctx.balanceShaft,
         },
       };
     }
@@ -106,7 +106,7 @@ const saveBalance = async (inspNo, body) => {
       balanceShaftId: ctx.balanceShaft.shaftId,
     });
     await shaftBalance.reload();
-    
+
     return {
       success: true,
       created: true,
