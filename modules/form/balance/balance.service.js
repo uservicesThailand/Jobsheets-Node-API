@@ -19,9 +19,29 @@ const create = async (inspNo, userKey) => {
     });
 
     if (existingFormBalance) {
+      await db.FormBalance.update(
+        {
+          updatedBy: userKey,
+        },
+        {
+          where: { inspId: inspectionId },
+        },
+      );
+      await existingFormBalance.reload({
+        include: [
+          { model: db.Uuser, as: "createdUser" },
+          { model: db.Uuser, as: "updatedUser" },
+        ],
+      });
       return {
-        success: false,
-        message: "Form balance already exists",
+        success: true,
+        created: false,
+        data: {
+          inspection: inspection,
+          formBalance: existingFormBalance,
+          createdBy: existingFormBalance.createdUser,
+          updatedBy: existingFormBalance.updatedUser,
+        },
       };
     }
 
@@ -40,6 +60,7 @@ const create = async (inspNo, userKey) => {
 
     return {
       success: true,
+      created: true,
       data: {
         inspection: inspection,
         formBalance: formWithUser,

@@ -13,8 +13,8 @@ const create = async (req, res) => {
     return resUtil.successResponse(
       res,
       balance(result.data),
-      "created successfully",
-      201
+      result.created ? "created successfully" : "updated successfully",
+      result.created ? 201 : 200,
     );
   } catch (err) {
     return resUtil.errorResponse(res, err.message);
@@ -33,7 +33,7 @@ const get = async (req, res) => {
       res,
       balance(result.data),
       "fetched successfully",
-      200
+      200,
     );
   } catch (err) {
     return resUtil.errorResponse(res, err.message);
