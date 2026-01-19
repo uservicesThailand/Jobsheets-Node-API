@@ -3,7 +3,8 @@ const { toNumberOrNull } = require("../../../../utils/number.util");
 const rotor = ({ balanceRotor }) => {
   return {
     rotorType: balanceRotor.rotorType || null,
-    rotorWeight: balanceRotor.rotorWeight || null,
+    includeWith: balanceRotor.includeWith || null,
+    rotorWeight: toNumberOrNull(balanceRotor.rotorWeight),
     diameterA: toNumberOrNull(balanceRotor.diameterA),
     diameterB: toNumberOrNull(balanceRotor.diameterB),
     diameterC: toNumberOrNull(balanceRotor.diameterC),

@@ -4,6 +4,7 @@ const balanceRouter = require("./balance/balance.route");
 const coilRouter = require("./coil-brake/coil.route");
 const mechanicalServiceRouter = require("./mechanical-service/mechanical.route");
 const electricalServiceRouter = require("./electrical-service/electrical.route");
+const staticTestRouter = require("./static-test/static.route");
 
 const router = express.Router();
 
@@ -11,5 +12,6 @@ router.use("/balance", auth, balanceRouter);
 router.use("/coil-brake", auth, coilRouter);
 router.use("/mechanical-service", auth, mechanicalServiceRouter);
 router.use("/electrical-service", auth, electricalServiceRouter);
+router.use("/static-test", auth, staticTestRouter);
 
 module.exports = router;
