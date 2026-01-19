@@ -31,6 +31,18 @@ module.exports = (sequelize, DataTypes) => {
         targetKey: "userKey",
         as: "updatedElectrical",
       });
+
+      this.hasMany(models.FormStaticTest, {
+        foreignKey: "createdBy",
+        targetKey: "userKey",
+        as: "createdStatic",
+      });
+
+      this.hasMany(models.FormStaticTest, {
+        foreignKey: "updatedBy",
+        targetKey: "userKey",
+        as: "updatedStatic",
+      });
     }
   }
   Uuser.init(
