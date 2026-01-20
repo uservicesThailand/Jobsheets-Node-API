@@ -34,15 +34,17 @@ module.exports = (sequelize, DataTypes) => {
         autoIncrement: true,
       },
 
-      section_type: {
+      sectionType: {
         type: DataTypes.ENUM("INCOMING", "FINAL"),
+        field: "section_type",
       },
 
-      ambient_temperature: {
+      ambientTemp: {
         type: DataTypes.DECIMAL(5, 2),
+        field: "ambient_temperature",
       },
 
-      section_type: {
+      surgeWaveform: {
         type: DataTypes.ENUM(
           "N/A",
           "GOOD",
@@ -50,10 +52,12 @@ module.exports = (sequelize, DataTypes) => {
           "SHORT_TURN",
           "SHORT_PHASE",
         ),
+        field: "surge_waveform",
       },
 
-      circuit_type: {
+      circuitType: {
         type: DataTypes.ENUM("A", "DELTA", "STAR", "3_LINE", "STAR_DELTA"),
+        field: "circuit_type",
       },
 
       createdAt: {

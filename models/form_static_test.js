@@ -24,6 +24,11 @@ module.exports = (sequelize, DataTypes) => {
         targetKey: "userKey",
         as: "updatedUser",
       });
+
+      this.hasMany(models.StaticTestSection, {
+        foreignKey: "staticTestId",
+        targetKey: "sttId",
+      });
     }
   }
   FormStaticTest.init(
@@ -72,7 +77,7 @@ module.exports = (sequelize, DataTypes) => {
       modelName: "FormStaticTest",
       tableName: "form_static_test",
       underscored: true,
-    }
+    },
   );
   return FormStaticTest;
 };

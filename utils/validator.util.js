@@ -1,15 +1,15 @@
 const { body } = require("express-validator");
 
-const decimalOptional = (field) =>
+const decimalOptional = (field, { max = 3 } = {}) =>
   body(field)
     .optional({ nullable: true })
-    .isDecimal({ decimal_digits: "0,3" })
-    .withMessage("Invalid decimal (max 3 digits)")
+    .isDecimal({ decimal_digits: `0,${max}` })
+    .withMessage(`Invalid decimal (max ${max} digits)`)
     .customSanitizer((value) => {
       if (value === null || value === undefined || value === "") return null;
       let [intPart, decPart = ""] = String(value).toString().split(".");
-      // เติม 0 ให้ครบ 3 ตำแหน่ง
-      decPart = decPart.padEnd(3, "0");
+      // เติม 0 ให้ครบ ตำแหน่ง
+      decPart = decPart.padEnd(max, "0");
       return `${intPart}.${decPart}`;
     });
 

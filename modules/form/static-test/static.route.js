@@ -3,7 +3,11 @@ const controller = require("./static.controller");
 const validator = require("./static.validator");
 const validate = require("../../../middlewares/validate.middleware");
 
+const sectionRouter = require("./section/section.route");
+
 const router = express.Router();
+
+router.use("/section", sectionRouter);
 
 router.post("/:inspNo", validator.create, validate, controller.save);
 router.get("/:inspNo", controller.get);

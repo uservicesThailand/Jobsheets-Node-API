@@ -29,7 +29,7 @@ module.exports = {
         type: Sequelize.DECIMAL(5, 2),
       },
 
-      section_type: {
+      surge_waveform: {
         type: Sequelize.ENUM(
           "N/A",
           "GOOD",

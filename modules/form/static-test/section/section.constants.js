@@ -1,0 +1,5 @@
+module.exports = {
+  SECTION_TYPE: ["INCOMING", "FINAL"],
+  SURGR_WAVE: ["N/A", "GOOD", "GROUND", "SHORT_TURN", "SHORT_PHASE"],
+  CIRCUIT_TYPE: ["A", "DELTA", "STAR", "3_LINE", "STAR_DELTA"],
+};
