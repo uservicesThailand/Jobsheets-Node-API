@@ -1,16 +1,16 @@
 "use strict";
 const { Model } = require("sequelize");
 module.exports = (sequelize, DataTypes) => {
-  class FormStaticTest extends Model {
+  class StaticTestInductance extends Model {
     /**
      * Helper method for defining associations.
      * This method is not a part of Sequelize lifecycle.
      * The `models/index` file will call this method automatically.
      */
     static associate(models) {
-      this.belongsTo(models.TblInspectionList, {
-        foreignKey: "inspId",
-        targetKey: "inspId",
+      this.belongsTo(models.FormStaticTest, {
+        foreignKey: "staticTestId",
+        targetKey: "sttId",
       });
 
       this.belongsTo(models.Uuser, {
@@ -24,50 +24,53 @@ module.exports = (sequelize, DataTypes) => {
         targetKey: "userKey",
         as: "updatedUser",
       });
-
-      this.hasMany(models.StaticTestSection, {
-        foreignKey: "staticTestId",
-        targetKey: "sttId",
-      });
-
-      this.hasMany(models.StaticTestResistance, {
-        foreignKey: "staticTestId",
-        targetKey: "sttId",
-      });
-
-      this.hasMany(models.StaticTestInductance, {
-        foreignKey: "staticTestId",
-        targetKey: "sttId",
-      });
     }
   }
-  FormStaticTest.init(
+  StaticTestInductance.init(
     {
-      sttId: {
+      id: {
         type: DataTypes.INTEGER,
         primaryKey: true,
         autoIncrement: true,
-        field: "stt_id",
       },
 
-      inspSv: {
-        type: DataTypes.STRING(255),
-        allowNull: true,
-        field: "insp_sv",
+      sectionType: {
+        type: DataTypes.ENUM("INCOMING", "FINAL"),
+        field: "section_type",
       },
 
-      voltKvdc1: {
+      marking1: {
+        type: DataTypes.STRING,
+        field: "marking_1",
+      },
+
+      marking2: {
+        type: DataTypes.STRING,
+        field: "marking_2",
+      },
+
+      marking3: {
+        type: DataTypes.STRING,
+        field: "marking_3",
+      },
+
+      value1: {
         type: DataTypes.DECIMAL(10, 3),
-        field: "volt_kvdc_1",
+        field: "value_1",
       },
 
-      voltKvdc2: {
+      value2: {
         type: DataTypes.DECIMAL(10, 3),
-        field: "volt_kvdc_2",
+        field: "value_2",
       },
 
-      note: {
-        type: DataTypes.TEXT,
+      value3: {
+        type: DataTypes.DECIMAL(10, 3),
+        field: "value_3",
+      },
+
+      unit: {
+        type: DataTypes.STRING(5),
       },
 
       createdAt: {
@@ -84,10 +87,10 @@ module.exports = (sequelize, DataTypes) => {
     },
     {
       sequelize,
-      modelName: "FormStaticTest",
-      tableName: "form_static_test",
+      modelName: "StaticTestInductance",
+      tableName: "static_test_inductance",
       underscored: true,
     },
   );
-  return FormStaticTest;
+  return StaticTestInductance;
 };
