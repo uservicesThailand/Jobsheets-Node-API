@@ -1123,6 +1123,57 @@ WHERE i.insp_no = ?
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Update Motor Type
+app.put("/api/inspection/:insp_id/motor-type", async (req, res) => {
+  const { insp_id } = req.params;
+  const { motorCode } = req.body;
+
+  if (!motorCode) {
+    return res.status(400).json({ error: "กรุณาระบุ motor_name" });
+  }
+
+  try {
+
+
+    // ดึง motor_code เดิมเพื่อเก็บใน insp_motor_prev
+    const [currentRows] = await db.promise().query(
+      "SELECT insp_motor_code FROM tbl_inspection_list WHERE insp_id = ?",
+      [insp_id]
+    );
+
+    if (currentRows.length === 0) {
+      return res.status(404).json({ error: "ไม่พบข้อมูล inspection นี้" });
+    }
+
+    const prevMotorCode = currentRows[0].insp_motor_code;
+
+    // อัพเดท motor_code ใหม่ และเก็บค่าเดิมใน insp_motor_prev
+    await db.promise().query(
+      `UPDATE tbl_inspection_list
+       SET insp_motor_code = ?,
+           insp_motor_prev = ?,
+           inspection_updated_at = NOW()
+       WHERE insp_id = ?`,
+      [motorCode, prevMotorCode, insp_id]
+    );
+
+    res.json({
+      success: true,
+      message: "อัพเดท motor type สำเร็จ",
+      data: {
+        insp_id,
+        new_motor_code: motorCode,
+        prev_motor_code: prevMotorCode
+      }
+    });
+
+  } catch (err) {
+    console.error("Update motor type error:", err);
+    res.status(500).json({ error: "เกิดข้อผิดพลาดในการอัพเดทข้อมูล" });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // FormTestReport (บันทึกแล้วส่งสถานีถ้าจำเป็น)
 app.get("/api/forms/FormTestReport/:insp_no", (req, res) => {
   const { insp_no } = req.params;
@@ -1186,7 +1237,6 @@ app.post("/api/forms/FormTestReport/:insp_no", (req, res) => {
   };
 
   const mapFields = (data) => ({
-    trp_motor_code: data.motorCode,
     trp_service_order: data.serviceOrder,
     trp_service_item: data.serviceItem,
     trp_id_text: data.id,
@@ -1219,6 +1269,25 @@ app.post("/api/forms/FormTestReport/:insp_no", (req, res) => {
         console.error("POST form_testreport error (select):", err);
         return res.status(500).json({ error: "Internal Server Error" });
       }
+
+      const updateMotorCode = (callback) => {
+        if (!payload.motorCode) {
+          return callback();
+        }
+        db.query(
+          `UPDATE tbl_inspection_list
+           SET insp_motor_prev = insp_motor_code,
+               insp_motor_code = ?
+           WHERE insp_no = ?`,
+          [payload.motorCode, insp_no],
+          (errMotor) => {
+            if (errMotor) {
+              console.error("Update motor code error:", errMotor);
+            }
+            callback();
+          }
+        );
+      };
 
       const saveAndSendStation = () => {
         if (payload.stationNow === "Start" && payload.stationTo) {
@@ -1307,7 +1376,7 @@ app.post("/api/forms/FormTestReport/:insp_no", (req, res) => {
               console.error("POST form_testreport error (update):", err2);
               return res.status(500).json({ error: "Internal Server Error" });
             }
-            saveAndSendStation();
+            updateMotorCode(() => saveAndSendStation());
           },
         );
       } else {
@@ -1322,7 +1391,7 @@ app.post("/api/forms/FormTestReport/:insp_no", (req, res) => {
             console.error("POST form_testreport error (insert):", err3);
             return res.status(500).json({ error: "Internal Server Error" });
           }
-          saveAndSendStation();
+          updateMotorCode(() => saveAndSendStation());
         });
       }
     },
@@ -2824,7 +2893,7 @@ app.post("/api/forms/FormPhotoManager/:insp_id", (req, res) => {
   );
 });
 
-// Tag list (prefer trp_motor_code from latest form_test_report when exists)
+// Tag list
 app.get("/api/tagList", (req, res) => {
   const { branch = "" } = req.query;
 
@@ -2833,37 +2902,15 @@ app.get("/api/tagList", (req, res) => {
     SELECT
       i.*,
       m.motor_name,
-      COALESCE(t.trp_motor_code, i.insp_motor_code) AS effective_motor_code
+      i.insp_motor_code AS effective_motor_code
     FROM tbl_inspection_list AS i
-    /* เลือก form_test_report แถวล่าสุดต่อ insp_no แบบ MySQL 5.7 friendly */
-    LEFT JOIN (
-      SELECT f.*
-      FROM form_test_report f
-      INNER JOIN (
-        SELECT
-          insp_no,
-          MAX(CONCAT(
-            DATE_FORMAT(COALESCE(updated_at, created_at), '%Y-%m-%d %H:%i:%s'),
-            LPAD(trp_id, 10, '0')
-          )) AS max_key
-        FROM form_test_report
-        GROUP BY insp_no
-      ) g
-        ON g.insp_no = f.insp_no
-       AND CONCAT(
-            DATE_FORMAT(COALESCE(f.updated_at, f.created_at), '%Y-%m-%d %H:%i:%s'),
-            LPAD(f.trp_id, 10, '0')
-          ) = g.max_key
-    ) AS t
-      ON t.insp_no = i.insp_no
     LEFT JOIN list_motor_type AS m
-      ON m.motor_code = COALESCE(t.trp_motor_code, i.insp_motor_code)
+      ON m.motor_code = i.insp_motor_code
      AND m.is_active = '1'
-    WHERE 1=1
   `;
 
   if (branch) {
-    sql += ` AND i.insp_branch = ?`;
+    sql += ` WHERE i.insp_branch = ?`;
     params.push(branch);
   }
 
