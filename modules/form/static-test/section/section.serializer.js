@@ -6,10 +6,6 @@ const mapResponse = ({ staticTestSections }) => {
     ambientTemp: item.ambientTemp,
     surgeWaveform: item.surgeWaveform,
     circuitType: item.circuitType,
-    updatedBy: `${item.updatedUser.name} ${item.updatedUser.lastname}`,
-    createdBy: `${item.createdUser.name} ${item.createdUser.lastname}`,
-    updatedAt: item.updatedAt,
-    createdAt: item.createdAt,
   }));
 };
 

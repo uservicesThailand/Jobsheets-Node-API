@@ -46,6 +46,31 @@ const arrayMaxLengthOpt = ({ min, max }, key = "data") =>
     .isArray({ min, max })
     .withMessage(`Array length must not exceed (${(min, max)})`);
 
+const uniqueInArray = (arrayField = "data", key) =>
+  body(arrayField).custom((arr) => {
+    if (!Array.isArray(arr)) return true;
+
+    const seen = new Map();
+
+    for (let i = 0; i < arr.length; i += 1) {
+      const value = arr[i]?.[key];
+
+      if (value === undefined || value === null) continue;
+
+      if (seen.has(value)) {
+        const firstIndex = seen.get(value);
+
+        throw new Error(
+          `${arrayField}[${i}].${key} duplicated with ${arrayField}[${firstIndex}].${key}`,
+        );
+      }
+
+      seen.set(value, i);
+    }
+
+    return true;
+  });
+
 module.exports = {
   decimalOptional,
   enumOptional,
@@ -53,4 +78,5 @@ module.exports = {
   stringOptional,
   arrayMaxLength,
   arrayMaxLengthOpt,
+  uniqueInArray,
 };

@@ -1,5 +1,5 @@
 const db = require("../../../../models");
-const { generate, merge } = require("./section.serializer");
+const { generate, merge } = require("./resistance.serializer");
 
 const resolveFieldContext = async (inspNo) => {
   const inspection = await db.TblInspectionList.findOne({
@@ -9,7 +9,7 @@ const resolveFieldContext = async (inspNo) => {
         model: db.FormStaticTest,
         include: [
           {
-            model: db.StaticTestSection,
+            model: db.StaticTestResistance,
           },
         ],
       },
@@ -32,16 +32,16 @@ const resolveFieldContext = async (inspNo) => {
     };
   }
 
-  const staticTestSections =
-    formStaticTest.StaticTestSections.length > 0
-      ? formStaticTest.StaticTestSections
+  const staticTestResistances =
+    formStaticTest.StaticTestResistances.length > 0
+      ? formStaticTest.StaticTestResistances
       : null;
 
   return {
     success: true,
     inspection,
     formStaticTest,
-    staticTestSections,
+    staticTestResistances,
   };
 };
 
@@ -52,16 +52,16 @@ const upsert = async (inspNo, userKey, dataUpsert) => {
 
     const staticTestId = ctx.formStaticTest.sttId;
 
-    if (ctx.staticTestSections) {
+    if (ctx.staticTestResistances) {
       return await update(dataUpsert, staticTestId, userKey);
     }
 
     const generatedRows = generate(staticTestId, userKey);
     const finalRows = merge(generatedRows, dataUpsert);
 
-    await db.StaticTestSection.bulkCreate(finalRows);
+    await db.StaticTestResistance.bulkCreate(finalRows);
 
-    const staticTestSections = await db.StaticTestSection.findAll({
+    const staticTestResistances = await db.StaticTestResistance.findAll({
       where: { staticTestId },
     });
 
@@ -69,7 +69,7 @@ const upsert = async (inspNo, userKey, dataUpsert) => {
       success: true,
       created: true,
       data: {
-        staticTestSections: staticTestSections,
+        staticTestResistances,
       },
     };
   } catch (err) {
@@ -80,7 +80,7 @@ const upsert = async (inspNo, userKey, dataUpsert) => {
 const update = async (dataUpdate, staticTestId, userKey) => {
   try {
     for (const data of dataUpdate) {
-      await db.StaticTestSection.update(
+      await db.StaticTestResistance.update(
         { ...data, updatedBy: userKey },
         {
           where: {
@@ -91,15 +91,15 @@ const update = async (dataUpdate, staticTestId, userKey) => {
       );
     }
 
-    const staticTestSections = await db.StaticTestSection.findAll({
+    const staticTestResistances = await db.StaticTestResistance.findAll({
       where: { staticTestId },
     });
-
+    
     return {
       success: true,
       created: false,
       data: {
-        staticTestSections: staticTestSections,
+        staticTestResistances,
       },
     };
   } catch (error) {
@@ -112,17 +112,17 @@ const get = async (inspNo) => {
     const ctx = await resolveFieldContext(inspNo);
     if (!ctx.success) return ctx;
 
-    if (!ctx.staticTestSections) {
+    if (!ctx.staticTestResistances) {
       return {
         success: false,
-        message: "static test section not found.",
+        message: "static test resistance not found.",
       };
     }
 
     return {
       success: true,
       data: {
-        staticTestSections: ctx.staticTestSections,
+        staticTestResistances: ctx.staticTestResistances,
       },
     };
   } catch (err) {
@@ -135,13 +135,13 @@ const remove = async (inspNo) => {
     const ctx = await resolveFieldContext(inspNo);
     if (!ctx.success) return ctx;
 
-    if (!ctx.staticTestSections) {
+    if (!ctx.staticTestResistances) {
       return {
         success: false,
-        message: "static test section not found.",
+        message: "static test resistance not found.",
       };
     }
-    await db.StaticTestSection.destroy({
+    await db.StaticTestResistance.destroy({
       where: {
         staticTestId: ctx.formStaticTest.sttId,
       },
