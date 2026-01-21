@@ -2,6 +2,7 @@ const { SECTION_TYPE } = require("./resistance.constants");
 
 const mapResponse = ({ staticTestResistances }) => {
   return staticTestResistances.map((item) => ({
+    sectionType: item.sectionType,
     marking1: item.marking1,
     marking2: item.marking2,
     marking3: item.marking3,

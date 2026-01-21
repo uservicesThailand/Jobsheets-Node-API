@@ -2,6 +2,7 @@ const { SECTION_TYPE } = require("./inductance.constants");
 
 const mapResponse = ({ staticTestInductances }) => {
   return staticTestInductances.map((item) => ({
+    sectionType: item.sectionType,
     marking1: item.marking1,
     marking2: item.marking2,
     marking3: item.marking3,
