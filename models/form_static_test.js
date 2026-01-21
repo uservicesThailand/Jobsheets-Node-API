@@ -39,6 +39,11 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "staticTestId",
         targetKey: "sttId",
       });
+
+      this.hasMany(models.StaticTestInsulation, {
+        foreignKey: "staticTestId",
+        targetKey: "sttId",
+      });
     }
   }
   FormStaticTest.init(
