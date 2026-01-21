@@ -1101,13 +1101,10 @@ app.get("/api/inspection/:id", (req, res) => {
   i.insp_station_prev,
   i.inspection_updated_at,
   i.insp_incoming_date,
-  i.insp_final_date,
-  tr.trp_motor_code,
-  mt2.motor_name AS trp_motor_name
+  i.insp_final_date
 FROM tbl_inspection_list i
 LEFT JOIN form_test_report tr ON i.insp_no = tr.insp_no
 LEFT JOIN list_motor_type mt1 ON i.insp_motor_code = mt1.motor_code
-LEFT JOIN list_motor_type mt2 ON tr.trp_motor_code = mt2.motor_code
 WHERE i.insp_no = ?
 `;
 
