@@ -721,13 +721,11 @@ function createStepEndpoint(path, stationList, label) {
         tr.trp_customer AS trp_customer_name,
         tr.trp_tag_no, 
         tr.trp_team,
-        mt1.motor_name AS insp_motor_name,
-        mt2.motor_name AS trp_motor_name
+        mt1.motor_name AS insp_motor_name
       FROM tbl_inspection_list i
       LEFT JOIN form_test_report tr ON i.insp_no = tr.insp_no
       LEFT JOIN form_motor_nameplate mn ON i.insp_no = mn.insp_no
       LEFT JOIN list_motor_type mt1 ON i.insp_motor_code = mt1.motor_code
-      LEFT JOIN list_motor_type mt2 ON tr.trp_motor_code = mt2.motor_code
       WHERE (
         i.insp_station_now IN (${placeholders})
         OR (
@@ -745,7 +743,7 @@ function createStepEndpoint(path, stationList, label) {
       sql += ` AND i.insp_branch = ?`;
       params.push(branch);
     }
-
+    sql += ` GROUP BY i.insp_id`;
     sql += ` ORDER BY i.insp_created_at DESC, i.inspection_updated_at DESC`;
 
     db.query(sql, params, (err, results) => {
