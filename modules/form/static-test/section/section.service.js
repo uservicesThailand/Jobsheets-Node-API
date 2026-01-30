@@ -1,5 +1,12 @@
 const db = require("../../../../models");
 const { generate, merge } = require("./section.serializer");
+const {
+  MARKING_BY_CIRCUIT: RESISTANCE_MARKING_BY_CIRCUIT,
+} = require("../resistance/resistance.constants");
+
+const {
+  MARKING_BY_CIRCUIT: INDUCTANCE_MARKING_BY_CIRCUIT,
+} = require("../inductance/inductance.constants");
 
 const resolveFieldContext = async (inspNo) => {
   const inspection = await db.TblInspectionList.findOne({
@@ -89,6 +96,41 @@ const update = async (dataUpdate, staticTestId, userKey) => {
           },
         },
       );
+
+      if (data.circuitType) {
+        const resistance_marking =
+          RESISTANCE_MARKING_BY_CIRCUIT[data.circuitType];
+        const inductance_marking =
+          INDUCTANCE_MARKING_BY_CIRCUIT[data.circuitType];
+
+        await db.StaticTestResistance.update(
+          {
+            marking1: resistance_marking[0],
+            marking2: resistance_marking[1],
+            marking3: resistance_marking[2],
+          },
+          {
+            where: {
+              staticTestId: staticTestId,
+              sectionType: data.sectionType,
+            },
+          },
+        );
+
+        await db.StaticTestInductance.update(
+          {
+            marking1: inductance_marking[0],
+            marking2: inductance_marking[1],
+            marking3: inductance_marking[2],
+          },
+          {
+            where: {
+              staticTestId: staticTestId,
+              sectionType: data.sectionType,
+            },
+          },
+        );
+      }
     }
 
     const staticTestSections = await db.StaticTestSection.findAll({

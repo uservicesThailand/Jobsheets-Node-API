@@ -14,8 +14,8 @@ const {
 const create = [
   arrayMaxLength(2),
   enumRequired("data.*.sectionType", SECTION_TYPE),
+  enumRequired("data.*.circuitType", CIRCUIT_TYPE),
   enumOptional("data.*.surgeWaveform", SURGR_WAVE),
-  enumOptional("data.*.circuitType", CIRCUIT_TYPE),
   decimalOptional("data.*.ambientTemp", { max: 2 }),
 ];
 

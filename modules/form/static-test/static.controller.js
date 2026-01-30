@@ -14,7 +14,7 @@ const save = async (req, res) => {
       res,
       mapResponse(result.data),
       result.created ? "created successfully" : "updated successfully",
-      result.created ? 201 : 200
+      result.created ? 201 : 200,
     );
   } catch (err) {
     return resUtil.errorResponse(res, err.message);
@@ -33,7 +33,7 @@ const get = async (req, res) => {
       res,
       mapResponse(result.data),
       "fetched successfully",
-      200
+      200,
     );
   } catch (err) {
     return resUtil.errorResponse(res, err.message);
@@ -56,6 +56,6 @@ const remove = async (req, res) => {
 
 module.exports = {
   save,
-  get, 
-  remove
+  get,
+  remove,
 };

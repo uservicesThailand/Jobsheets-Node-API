@@ -3,7 +3,6 @@ const {
   enumRequired,
   enumOptional,
   arrayMaxLength,
-  stringOptional,
   uniqueInArray,
 } = require("../../../../utils/validator.util");
 
@@ -14,9 +13,6 @@ const create = [
 
   uniqueInArray("data", "sectionType"),
   enumRequired("data.*.sectionType", SECTION_TYPE),
-  stringOptional("data.*.marking1"),
-  stringOptional("data.*.marking2"),
-  stringOptional("data.*.marking3"),
   decimalOptional("data.*.value1"),
   decimalOptional("data.*.value2"),
   decimalOptional("data.*.value3"),

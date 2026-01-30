@@ -13,7 +13,6 @@ const save = async (req, res) => {
 
     return resUtil.successResponse(
       res,
-
       mapResponse(result.data),
       result.created ? "created successfully" : "updated successfully",
       result.created ? 201 : 200,

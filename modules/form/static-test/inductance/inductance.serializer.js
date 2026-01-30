@@ -1,4 +1,4 @@
-const { SECTION_TYPE } = require("./inductance.constants");
+const { SECTION_TYPE, MARKING_BY_CIRCUIT } = require("./inductance.constants");
 
 const mapResponse = ({ staticTestInductances }) => {
   return staticTestInductances.map((item) => ({
@@ -35,14 +35,16 @@ const generate = (staticTestId, userKey) => {
   return rows;
 };
 
-const merge = (defaults, payloadList = []) => {
+const merge = (defaults, payloadList = [], staticTestSections) => {
   const payloadMap = new Map();
+  const circuitMap = new Map();
+
+  for (const section of staticTestSections) {
+    circuitMap.set(section.sectionType, section.circuitType);
+  }
 
   for (const item of payloadList) {
     payloadMap.set(item.sectionType, {
-      marking1: item.marking1 ?? null,
-      marking2: item.marking2 ?? null,
-      marking3: item.marking3 ?? null,
       value1: item.value1 ?? null,
       value2: item.value2 ?? null,
       value3: item.value3 ?? null,
@@ -51,11 +53,17 @@ const merge = (defaults, payloadList = []) => {
   }
 
   return defaults.map((row) => {
-    if (!payloadMap.has(row.sectionType)) return row;
+    const circuitType = circuitMap.get(row.sectionType);
+    const payload = payloadMap.get(row.sectionType);
+
+    const markings = MARKING_BY_CIRCUIT[circuitType] ?? [];
 
     return {
       ...row,
-      ...payloadMap.get(row.sectionType),
+      marking1: markings[0] ?? null,
+      marking2: markings[1] ?? null,
+      marking3: markings[2] ?? null,
+      ...(payload ?? {}),
     };
   });
 };

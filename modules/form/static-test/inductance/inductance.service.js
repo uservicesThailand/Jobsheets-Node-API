@@ -11,6 +11,9 @@ const resolveFieldContext = async (inspNo) => {
           {
             model: db.StaticTestInductance,
           },
+          {
+            model: db.StaticTestSection,
+          },
         ],
       },
     ],
@@ -37,11 +40,17 @@ const resolveFieldContext = async (inspNo) => {
       ? formStaticTest.StaticTestInductances
       : null;
 
+  const staticTestSections =
+    formStaticTest.StaticTestSections.length > 0
+      ? formStaticTest.StaticTestSections
+      : null;
+
   return {
     success: true,
     inspection,
     formStaticTest,
     staticTestInductances,
+    staticTestSections
   };
 };
 
@@ -57,7 +66,7 @@ const upsert = async (inspNo, userKey, dataUpsert) => {
     }
 
     const generatedRows = generate(staticTestId, userKey);
-    const finalRows = merge(generatedRows, dataUpsert);
+    const finalRows = merge(generatedRows, dataUpsert, ctx.staticTestSections);
 
     await db.StaticTestInductance.bulkCreate(finalRows);
 
@@ -80,8 +89,9 @@ const upsert = async (inspNo, userKey, dataUpsert) => {
 const update = async (dataUpdate, staticTestId, userKey) => {
   try {
     for (const data of dataUpdate) {
+      const { marking1, marking2, marking3, ...finalData } = data;
       await db.StaticTestInductance.update(
-        { ...data, updatedBy: userKey },
+        { ...finalData, updatedBy: userKey },
         {
           where: {
             staticTestId: staticTestId,
