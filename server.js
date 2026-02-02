@@ -767,6 +767,13 @@ function createStepEndpoint(path, stationList, label) {
   });
 }
 
+/* NOTE:
+Parameter
+[1]: ตั้งชื่อ path Endpoint
+[2]: หมายถึง LABEL Station ที่ถูกส่งมาตั้งชื่อให้ตรง (connet FE)
+[3]: Label สำหรับไว้ Log ดูว่า endpoint ไหนมีปัญหา ไม่เกี่ยวกับ FE
+*/
+
 createStepEndpoint(
   "/api/StepQA",
   ["QA BLANK", "QA Incoming", "QA final", "QA appr"],
@@ -775,9 +782,10 @@ createStepEndpoint(
 createStepEndpoint("/api/StepME", ["ME", "ME Final"], "ME");
 createStepEndpoint("/api/StepPlanning", ["PLANNING"], "Planning");
 createStepEndpoint("/api/StepCS", ["CS", "CS Prove"], "CS");
-createStepEndpoint("/api/StepQC", ["QC Incoming", "QC Final"], "QC Incoming");
-createStepEndpoint("/api/StepReport", ["Report", "End"], "Going");
-
+createStepEndpoint("/api/StepQC", ["QC Incoming", "QC Final"], "QC");
+createStepEndpoint("/api/StepReport", ["REPORT", "End"], "REPORT");
+createStepEndpoint("/api/StepMgrQA", ["Mgr QA"], "MgrQA");
+createStepEndpoint("/api/StepMgrME", ["Mgr ME"], "MgrME");
 // ─────────────────────────────────────────────────────────────────────────────
 app.post("/api/manpower", (req, res) => {
   const { insp_no, manpower } = req.body;
