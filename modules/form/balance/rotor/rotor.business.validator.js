@@ -1,0 +1,66 @@
+const { POINTS_BY_SIDE } = require("./rotor.constants");
+
+const validateRunoutBusiness = (data = []) => {
+  const errors = [];
+  const uniqueSet = new Set();
+
+  for (let i = 0; i < data.length; i++) {
+    const row = data[i];
+
+    // ✅ rule: point ต้องตรงกับ side
+    const allowedPoints = POINTS_BY_SIDE[row.side] || [];
+    if (!allowedPoints.includes(row.point)) {
+      errors.push({
+        index: i,
+        message: `point '${row.point}' ไม่สอดคล้องกับ side '${row.side}'`,
+      });
+    }
+
+    // ✅ rule: ห้าม duplicate combo
+    const key = `${row.phase}_${row.side}_${row.point}_${row.position}`;
+    if (uniqueSet.has(key)) {
+      errors.push({
+        index: i,
+        message: `ข้อมูลซ้ำ: ${key}`,
+      });
+    } else {
+      uniqueSet.add(key);
+    }
+  }
+
+  return errors;
+};
+
+const validateRunoutResult = (data = []) => {
+  const errors = [];
+  const phaseSet = new Set();
+
+  if (!Array.isArray(data)) {
+    return [
+      {
+        index: 0,
+        message: "data must be an array",
+      },
+    ];
+  }
+
+  data.forEach((item, index) => {
+    if (!item.phase) return;
+
+    if (phaseSet.has(item.phase)) {
+      errors.push({
+        index,
+        message: `phase '${item.phase}' duplicated`,
+      });
+    }
+
+    phaseSet.add(item.phase);
+  });
+
+  return errors;
+};
+
+module.exports = {
+  validateRunoutBusiness,
+  validateRunoutResult,
+};
