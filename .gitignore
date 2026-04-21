@@ -25,3 +25,8 @@ dist-ssr
 .env
    
 # ป้องกันทุกไฟล์เช่น .env.local, .env.production
+
+# Uploaded files (local storage - migrated to Azure Blob)
+uploads/
+public/img_upload/
+public/uploads/

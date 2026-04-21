@@ -162,6 +162,43 @@ const upload = multer({
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Azure Blob Storage
+const { BlobServiceClient } = require("@azure/storage-blob");
+const blobServiceClient = BlobServiceClient.fromConnectionString(
+  process.env.AZURE_STORAGE_CONNECTION_STRING,
+);
+const containerName = process.env.AZURE_BLOB_CONTAINER_NAME;
+const containerClient = blobServiceClient.getContainerClient(containerName);
+
+// สร้าง container อัตโนมัติถ้ายังไม่มี (Public blob access)
+containerClient
+  .createIfNotExists({ access: "blob" })
+  .catch((err) => console.error("Azure container init error:", err));
+
+/** แปลง full blob URL → blob name */
+function getBlobNameFromUrl(url) {
+  const prefix = `https://${blobServiceClient.accountName}.blob.core.windows.net/${containerName}/`;
+  return url.startsWith(prefix) ? url.slice(prefix.length) : url;
+}
+
+/** อัพโหลด buffer ไป Azure Blob แล้วคืน full URL */
+async function uploadToBlob(buffer, blobName) {
+  const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+  await blockBlobClient.uploadData(buffer, {
+    blobHTTPHeaders: { blobContentType: "image/jpeg" },
+  });
+  return blockBlobClient.url;
+}
+
+/** ลบ blob (รับทั้ง full URL หรือ blob name) */
+async function deleteBlob(blobNameOrUrl) {
+  const blobName = blobNameOrUrl.startsWith("http")
+    ? getBlobNameFromUrl(blobNameOrUrl)
+    : blobNameOrUrl;
+  await containerClient.getBlockBlobClient(blobName).deleteIfExists();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Global process error logs
 process.on("uncaughtException", (err) => {
   console.error("Uncaught Exception:", err);
@@ -192,10 +229,8 @@ function chunkArray(array, size) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Swagger & Static
+// Swagger
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-app.use("/img", express.static(path.join(__dirname, "public", "img_upload")));
-app.use("/uploads", express.static(path.join(__dirname, "public", "uploads")));
 
 // Health
 app.get("/", (req, res) => {
@@ -721,13 +756,11 @@ function createStepEndpoint(path, stationList, label) {
         tr.trp_customer AS trp_customer_name,
         tr.trp_tag_no, 
         tr.trp_team,
-        mt1.motor_name AS insp_motor_name,
-        mt2.motor_name AS trp_motor_name
+        mt1.motor_name AS insp_motor_name
       FROM tbl_inspection_list i
       LEFT JOIN form_test_report tr ON i.insp_no = tr.insp_no
       LEFT JOIN form_motor_nameplate mn ON i.insp_no = mn.insp_no
       LEFT JOIN list_motor_type mt1 ON i.insp_motor_code = mt1.motor_code
-      LEFT JOIN list_motor_type mt2 ON tr.trp_motor_code = mt2.motor_code
       WHERE (
         i.insp_station_now IN (${placeholders})
         OR (
@@ -745,7 +778,7 @@ function createStepEndpoint(path, stationList, label) {
       sql += ` AND i.insp_branch = ?`;
       params.push(branch);
     }
-
+    sql += ` GROUP BY i.insp_id`;
     sql += ` ORDER BY i.insp_created_at DESC, i.inspection_updated_at DESC`;
 
     db.query(sql, params, (err, results) => {
@@ -769,6 +802,13 @@ function createStepEndpoint(path, stationList, label) {
   });
 }
 
+/* NOTE:
+Parameter
+[1]: ตั้งชื่อ path Endpoint
+[2]: หมายถึง LABEL Station ที่ถูกส่งมาตั้งชื่อให้ตรง (connet FE)
+[3]: Label สำหรับไว้ Log ดูว่า endpoint ไหนมีปัญหา ไม่เกี่ยวกับ FE
+*/
+
 createStepEndpoint(
   "/api/StepQA",
   ["QA BLANK", "QA Incoming", "QA final", "QA appr"],
@@ -777,9 +817,10 @@ createStepEndpoint(
 createStepEndpoint("/api/StepME", ["ME", "ME Final"], "ME");
 createStepEndpoint("/api/StepPlanning", ["PLANNING"], "Planning");
 createStepEndpoint("/api/StepCS", ["CS", "CS Prove"], "CS");
-createStepEndpoint("/api/StepQC", ["QC Incoming", "QC Final"], "QC Incoming");
-createStepEndpoint("/api/StepReport", ["Report", "End"], "Going");
-
+createStepEndpoint("/api/StepQC", ["QC Incoming", "QC Final"], "QC");
+createStepEndpoint("/api/StepReport", ["REPORT", "End"], "REPORT");
+createStepEndpoint("/api/StepMgrQA", ["Mgr QA"], "MgrQA");
+createStepEndpoint("/api/StepMgrME", ["Mgr ME"], "MgrME");
 // ─────────────────────────────────────────────────────────────────────────────
 app.post("/api/manpower", (req, res) => {
   const { insp_no, manpower } = req.body;
@@ -1101,13 +1142,10 @@ app.get("/api/inspection/:id", (req, res) => {
   i.insp_station_prev,
   i.inspection_updated_at,
   i.insp_incoming_date,
-  i.insp_final_date,
-  tr.trp_motor_code,
-  mt2.motor_name AS trp_motor_name
+  i.insp_final_date
 FROM tbl_inspection_list i
 LEFT JOIN form_test_report tr ON i.insp_no = tr.insp_no
 LEFT JOIN list_motor_type mt1 ON i.insp_motor_code = mt1.motor_code
-LEFT JOIN list_motor_type mt2 ON tr.trp_motor_code = mt2.motor_code
 WHERE i.insp_no = ?
 `;
 
@@ -1123,6 +1161,57 @@ WHERE i.insp_no = ?
     }
     res.json(results[0]);
   });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Update Motor Type
+app.put("/api/inspection/:insp_id/motor-type", async (req, res) => {
+  const { insp_id } = req.params;
+  const { motorCode } = req.body;
+
+  if (!motorCode) {
+    return res.status(400).json({ error: "กรุณาระบุ motor_name" });
+  }
+
+  try {
+
+
+    // ดึง motor_code เดิมเพื่อเก็บใน insp_motor_prev
+    const [currentRows] = await db.promise().query(
+      "SELECT insp_motor_code FROM tbl_inspection_list WHERE insp_id = ?",
+      [insp_id]
+    );
+
+    if (currentRows.length === 0) {
+      return res.status(404).json({ error: "ไม่พบข้อมูล inspection นี้" });
+    }
+
+    const prevMotorCode = currentRows[0].insp_motor_code;
+
+    // อัพเดท motor_code ใหม่ และเก็บค่าเดิมใน insp_motor_prev
+    await db.promise().query(
+      `UPDATE tbl_inspection_list
+       SET insp_motor_code = ?,
+           insp_motor_prev = ?,
+           inspection_updated_at = NOW()
+       WHERE insp_id = ?`,
+      [motorCode, prevMotorCode, insp_id]
+    );
+
+    res.json({
+      success: true,
+      message: "อัพเดท motor type สำเร็จ",
+      data: {
+        insp_id,
+        new_motor_code: motorCode,
+        prev_motor_code: prevMotorCode
+      }
+    });
+
+  } catch (err) {
+    console.error("Update motor type error:", err);
+    res.status(500).json({ error: "เกิดข้อผิดพลาดในการอัพเดทข้อมูล" });
+  }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1189,7 +1278,6 @@ app.post("/api/forms/FormTestReport/:insp_no", (req, res) => {
   };
 
   const mapFields = (data) => ({
-    trp_motor_code: data.motorCode,
     trp_service_order: data.serviceOrder,
     trp_service_item: data.serviceItem,
     trp_id_text: data.id,
@@ -1222,6 +1310,25 @@ app.post("/api/forms/FormTestReport/:insp_no", (req, res) => {
         console.error("POST form_testreport error (select):", err);
         return res.status(500).json({ error: "Internal Server Error" });
       }
+
+      const updateMotorCode = (callback) => {
+        if (!payload.motorCode) {
+          return callback();
+        }
+        db.query(
+          `UPDATE tbl_inspection_list
+           SET insp_motor_prev = insp_motor_code,
+               insp_motor_code = ?
+           WHERE insp_no = ?`,
+          [payload.motorCode, insp_no],
+          (errMotor) => {
+            if (errMotor) {
+              console.error("Update motor code error:", errMotor);
+            }
+            callback();
+          }
+        );
+      };
 
       const saveAndSendStation = () => {
         if (payload.stationNow === "Start" && payload.stationTo) {
@@ -1310,7 +1417,7 @@ app.post("/api/forms/FormTestReport/:insp_no", (req, res) => {
               console.error("POST form_testreport error (update):", err2);
               return res.status(500).json({ error: "Internal Server Error" });
             }
-            saveAndSendStation();
+            updateMotorCode(() => saveAndSendStation());
           },
         );
       } else {
@@ -1325,7 +1432,7 @@ app.post("/api/forms/FormTestReport/:insp_no", (req, res) => {
             console.error("POST form_testreport error (insert):", err3);
             return res.status(500).json({ error: "Internal Server Error" });
           }
-          saveAndSendStation();
+          updateMotorCode(() => saveAndSendStation());
         });
       }
     },
@@ -1341,30 +1448,32 @@ app.post("/api/upload2", upload.single("file"), async (req, res) => {
       return res.status(400).json({ error: "Missing inspNo or file" });
     }
 
-    // sanitize filename
     const safeOriginal = req.file.originalname
       .replace(/\s+/g, "_")
       .replace(/[^a-zA-Z0-9._-]/g, "");
     const fileName = safeOriginal || `img_${Date.now()}.jpg`;
-    const outputPath = path.join(__dirname, "public", "img_upload", fileName);
+    const blobName = `${inspNo}/${fileName}`;
 
-    if (fs.existsSync(outputPath)) {
+    // เช็คว่า blob มีอยู่แล้วหรือเปล่า
+    const exists = await containerClient.getBlockBlobClient(blobName).exists();
+    if (exists) {
       return res.status(409).json({ error: "ไฟล์นี้มีอยู่แล้ว" });
     }
 
-    await sharp(req.file.buffer).jpeg({ quality: 70 }).toFile(outputPath);
+    const buffer = await sharp(req.file.buffer).jpeg({ quality: 70 }).toBuffer();
+    const url = await uploadToBlob(buffer, blobName);
 
     const updateSql = `
       UPDATE form_test_report
       SET trp_img_name = TRIM(BOTH ',' FROM CONCAT_WS(',', trp_img_name, ?))
       WHERE insp_no = ?
     `;
-    db.query(updateSql, [fileName, inspNo], (err) => {
+    db.query(updateSql, [url, inspNo], (err) => {
       if (err) {
         console.error("DB update error:", err);
         return res.status(500).json({ error: "Database update failed" });
       }
-      res.json({ success: true, filename: fileName });
+      res.json({ success: true, filename: fileName, url });
     });
   } catch (err) {
     console.error("Upload error:", err);
@@ -1372,29 +1481,30 @@ app.post("/api/upload2", upload.single("file"), async (req, res) => {
   }
 });
 
-app.delete("/api/upload2", (req, res) => {
+app.delete("/api/upload2", async (req, res) => {
   const { filename, inspNo } = req.body;
-  const filePath = path.join(__dirname, "public", "img_upload", filename);
+  const blobName = `${inspNo}/${filename}`;
+  const url = containerClient.getBlockBlobClient(blobName).url;
 
-  fs.unlink(filePath, (err) => {
-    if (err) {
-      console.error("Delete file error:", err);
-      return res.status(500).json({ error: "Delete failed" });
-    }
+  try {
+    await deleteBlob(blobName);
 
     const updateSql = `
       UPDATE form_test_report
       SET trp_img_name = REPLACE(CONCAT(',', trp_img_name, ','), CONCAT(',', ?, ','), ',')
       WHERE insp_no = ?
     `;
-    db.query(updateSql, [filename, inspNo], (err2) => {
-      if (err2) {
-        console.error("DB update after delete failed:", err2);
+    db.query(updateSql, [url, inspNo], (err) => {
+      if (err) {
+        console.error("DB update after delete failed:", err);
         return res.status(500).json({ error: "DB update failed" });
       }
       res.json({ success: true });
     });
-  });
+  } catch (err) {
+    console.error("Delete file error:", err);
+    res.status(500).json({ error: "Delete failed" });
+  }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2827,7 +2937,7 @@ app.post("/api/forms/FormPhotoManager/:insp_id", (req, res) => {
   );
 });
 
-// Tag list (prefer trp_motor_code from latest form_test_report when exists)
+// Tag list
 app.get("/api/tagList", (req, res) => {
   const { branch = "" } = req.query;
 
@@ -2836,37 +2946,15 @@ app.get("/api/tagList", (req, res) => {
     SELECT
       i.*,
       m.motor_name,
-      COALESCE(t.trp_motor_code, i.insp_motor_code) AS effective_motor_code
+      i.insp_motor_code AS effective_motor_code
     FROM tbl_inspection_list AS i
-    /* เลือก form_test_report แถวล่าสุดต่อ insp_no แบบ MySQL 5.7 friendly */
-    LEFT JOIN (
-      SELECT f.*
-      FROM form_test_report f
-      INNER JOIN (
-        SELECT
-          insp_no,
-          MAX(CONCAT(
-            DATE_FORMAT(COALESCE(updated_at, created_at), '%Y-%m-%d %H:%i:%s'),
-            LPAD(trp_id, 10, '0')
-          )) AS max_key
-        FROM form_test_report
-        GROUP BY insp_no
-      ) g
-        ON g.insp_no = f.insp_no
-       AND CONCAT(
-            DATE_FORMAT(COALESCE(f.updated_at, f.created_at), '%Y-%m-%d %H:%i:%s'),
-            LPAD(f.trp_id, 10, '0')
-          ) = g.max_key
-    ) AS t
-      ON t.insp_no = i.insp_no
     LEFT JOIN list_motor_type AS m
-      ON m.motor_code = COALESCE(t.trp_motor_code, i.insp_motor_code)
+      ON m.motor_code = i.insp_motor_code
      AND m.is_active = '1'
-    WHERE 1=1
   `;
 
   if (branch) {
-    sql += ` AND i.insp_branch = ?`;
+    sql += ` WHERE i.insp_branch = ?`;
     params.push(branch);
   }
 
@@ -3055,7 +3143,7 @@ app.put("/api/user/:id", (req, res) => {
   );
 });
 
-// Upload profile image
+// Upload profile image → Azure Blob Storage
 app.post(
   "/api/upload-profile-image/:userId",
   upload.single("image"),
@@ -3066,15 +3154,18 @@ app.post(
       if (!file) return res.status(400).json({ error: "No file uploaded" });
 
       const fileName = `user-${userId}.jpg`;
-      const outputPath = path.join(__dirname, "public", "img_upload", fileName);
+      const blobName = `profiles/${fileName}`;
 
-      if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
+      // ลบรูปเก่าถ้ามี แล้ว upload ใหม่
+      await deleteBlob(blobName);
 
-      await sharp(file.buffer)
+      const buffer = await sharp(file.buffer)
         .resize(300)
         .jpeg({ quality: 80 })
-        .toFile(outputPath);
-      res.json({ fileName });
+        .toBuffer();
+
+      const url = await uploadToBlob(buffer, blobName);
+      res.json({ fileName, url });
     } catch (err) {
       console.error("Upload failed:", err);
       res.status(500).json({ error: "Upload failed" });
@@ -3653,56 +3744,37 @@ app.get("/api/forms/form_scm_inspection_headers/:insp_no", (req, res) => {
 การจัดการรูปภาพ 
 */
 // สร้างโฟลเดอร์สำหรับเก็บรูป
-const UPLOAD_DIR = path.join(__dirname, "uploads");
-fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-
-// Mock Database (ในโปรเจคจริงใช้ MySQL, PostgreSQL, MongoDB ฯลฯ)
-const imageDatabase = [];
-
-// 1. Endpoint สำหรับอัพโหลดไฟล์และบีบอัด
+// 1. Endpoint สำหรับอัพโหลดไฟล์และบีบอัด → Azure Blob Storage
 app.post("/api/upload", upload.single("image"), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: "กรุณาเลือกไฟล์รูปภาพ" });
     }
 
+    const { inspNo } = req.body;
     const timestamp = Date.now();
     const randomStr = Math.random().toString(36).substring(2, 8);
-    const ext = path.extname(req.file.originalname).toLowerCase();
-
-    // ใช้นามสกุลเดิมหรือแปลงเป็น .jpg
     const filename = `${timestamp}-${randomStr}.jpg`;
-    const filepath = path.join(UPLOAD_DIR, filename);
+    const blobName = inspNo ? `${inspNo}/${filename}` : filename;
 
-    // บีบอัดเป็น JPEG (ได้ผลจริง)
-    await sharp(req.file.buffer)
-      .resize(1920, 1920, {
-        // จำกัดขนาดสูงสุด (optional)
-        fit: "inside",
-        withoutEnlargement: true,
-      })
-      .jpeg({
-        quality: 80, // 🎯 ลดคุณภาพ 20% = ไฟล์เล็กลง 50-70%
-        progressive: true, // โหลดเร็วขึ้น
-        mozjpeg: true, // บีบอัดดีกว่า
-      })
-      .toFile(filepath);
+    const buffer = await sharp(req.file.buffer)
+      .resize(1920, 1920, { fit: "inside", withoutEnlargement: true })
+      .jpeg({ quality: 80, progressive: true, mozjpeg: true })
+      .toBuffer();
 
-    // เช็คขนาดไฟล์ที่บันทึก
-    const stats = await fs.promises.stat(filepath);
-    const compressionRatio = ((1 - stats.size / req.file.size) * 100).toFixed(
-      1,
-    );
+    const url = await uploadToBlob(buffer, blobName);
+    const compressionRatio = ((1 - buffer.length / req.file.size) * 100).toFixed(1);
 
     res.json({
       success: true,
       message: "อัพโหลดสำเร็จ",
       data: {
-        filename: filename,
-        path: `/uploads/${filename}`,
+        filename,
+        path: `/${blobName}`,
+        url,
         originalName: req.file.originalname,
         originalSize: req.file.size,
-        compressedSize: stats.size,
+        compressedSize: buffer.length,
         savedSpace: `${compressionRatio}%`,
       },
     });
@@ -3712,6 +3784,54 @@ app.post("/api/upload", upload.single("image"), async (req, res) => {
       error: "เกิดข้อผิดพลาดในการอัพโหลด",
       details: error.message,
     });
+  }
+});
+
+// DELETE /api/upload — soft-delete รูปงาน (FormPhotoBefore / FormTestReport)
+// รับ: { filename: "<Azure URL>", inspNo }
+// ทำ: บันทึกลง images_location (del=1) + ตัดออกจาก trp_img_name
+// ตอบ: { success, data: { id, url, restorable: true } }
+app.delete("/api/upload", async (req, res) => {
+  try {
+    const { filename, inspNo } = req.body;
+
+    if (!filename || !inspNo) {
+      return res.status(400).json({ success: false, error: "กรุณาระบุ filename และ inspNo" });
+    }
+
+    // 1. บันทึก soft-delete ลง images_location (ไม่ลบ blob จริง → กู้คืนได้)
+    const [insertResult] = await db3.promise().execute(
+      `INSERT INTO images_location (insp_no, image_path, del, location, createdAt, updatedAt)
+       VALUES (?, ?, 1, 'form_photo', NOW(), NOW())`,
+      [inspNo, filename]
+    );
+
+    // 2. ตัด URL ออกจาก trp_img_name ใน form_test_report
+    await new Promise((resolve, reject) =>
+      db.query(
+        `UPDATE form_test_report
+         SET trp_img_name = TRIM(BOTH ',' FROM
+           REPLACE(CONCAT(',', COALESCE(trp_img_name, ''), ','),
+                   CONCAT(',', ?, ','), ','))
+         WHERE insp_no = ?`,
+        [filename, inspNo],
+        (err, result) => (err ? reject(err) : resolve(result))
+      )
+    );
+
+    res.json({
+      success: true,
+      message: "ลบรูปภาพสำเร็จ (สามารถกู้คืนได้)",
+      data: {
+        id: insertResult.insertId,
+        url: filename,
+        inspNo,
+        restorable: true,
+      },
+    });
+  } catch (error) {
+    console.error("DELETE /api/upload error:", error);
+    res.status(500).json({ success: false, error: "เกิดข้อผิดพลาดในการลบไฟล์", details: error.message });
   }
 });
 
@@ -4058,6 +4178,58 @@ app.put("/api/restore-image", async (req, res) => {
   }
 });
 
+// PUT /api/restore-upload — กู้คืนรูปงาน (FormPhotoBefore / FormTestReport)
+// รับ: { id: <images_location.id>, inspNo }
+// ทำ: del=0 ใน images_location + เพิ่ม URL กลับเข้า trp_img_name
+app.put("/api/restore-upload", async (req, res) => {
+  try {
+    const { id, inspNo } = req.body;
+
+    if (!id || !inspNo) {
+      return res.status(400).json({ success: false, error: "กรุณาระบุ id และ inspNo" });
+    }
+
+    // ดึง image URL จาก images_location
+    const [rows] = await db3.promise().execute(
+      `SELECT * FROM images_location WHERE id = ? AND del = 1`,
+      [id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, error: "ไม่พบรูปภาพที่ถูกลบ" });
+    }
+
+    const imageUrl = rows[0].image_path;
+
+    // 1. กู้คืน del = 0
+    await db3.promise().execute(
+      `UPDATE images_location SET del = 0, updatedAt = NOW() WHERE id = ?`,
+      [id]
+    );
+
+    // 2. เพิ่ม URL กลับเข้า trp_img_name
+    await new Promise((resolve, reject) =>
+      db.query(
+        `UPDATE form_test_report
+         SET trp_img_name = TRIM(BOTH ',' FROM
+           CONCAT_WS(',', COALESCE(NULLIF(trp_img_name, ''), NULL), ?))
+         WHERE insp_no = ?`,
+        [imageUrl, inspNo],
+        (err, result) => (err ? reject(err) : resolve(result))
+      )
+    );
+
+    res.json({
+      success: true,
+      message: "กู้คืนรูปภาพสำเร็จ",
+      data: { id, url: imageUrl, inspNo },
+    });
+  } catch (error) {
+    console.error("PUT /api/restore-upload error:", error);
+    res.status(500).json({ success: false, error: "เกิดข้อผิดพลาดในการกู้คืน", details: error.message });
+  }
+});
+
 // ========================================
 // API 2: กู้คืนรูปภาพทั้งหมดของ insp_no (del = 0)
 // ========================================
@@ -4225,28 +4397,21 @@ app.get("/api/form-scm-images", async (req, res) => {
   }
 });
 
-// 4. เสิร์ฟไฟล์รูปภาพ (static files)
-app.use("/uploads", express.static(UPLOAD_DIR));
-
 // 5. Endpoint สำหรับลบโปรเจค
 app.delete("/api/form-scm-images/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
-    // ดึงข้อมูลรูปภาพก่อนลบเพื่อลบไฟล์
     const selectQuery = "SELECT * FROM form_scm_images WHERE id = ?";
     const [rows] = await db3.promise().execute(selectQuery, [id]);
 
     if (rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "ไม่พบข้อมูล",
-      });
+      return res.status(404).json({ success: false, message: "ไม่พบข้อมูล" });
     }
 
     const project = rows[0];
 
-    // ลบไฟล์รูปภาพ
+    // ลบ blob ทุกรูปใน Azure
     const imagePaths = [
       project.before_image_1_path,
       project.before_image_2_path,
@@ -4256,24 +4421,14 @@ app.delete("/api/form-scm-images/:id", async (req, res) => {
       project.after_image_3_path,
     ];
 
-    imagePaths.forEach((imagePath) => {
-      if (imagePath) {
-        const filename = imagePath.replace("/uploads/", "");
-        const filepath = path.join(UPLOAD_DIR, filename);
-        if (fs.existsSync(filepath)) {
-          fs.unlinkSync(filepath);
-        }
-      }
-    });
+    await Promise.all(
+      imagePaths.filter(Boolean).map((p) => deleteBlob(p).catch(console.error)),
+    );
 
-    // ลบข้อมูลจากฐานข้อมูล
     const deleteQuery = "DELETE FROM form_scm_images WHERE id = ?";
     await db3.promise().execute(deleteQuery, [id]);
 
-    res.json({
-      success: true,
-      message: "ลบข้อมูลสำเร็จ",
-    });
+    res.json({ success: true, message: "ลบข้อมูลสำเร็จ" });
   } catch (error) {
     console.error("Delete project error:", error);
     res.status(500).json({
@@ -4283,37 +4438,17 @@ app.delete("/api/form-scm-images/:id", async (req, res) => {
   }
 });
 
-// API สำหรับลบไฟล์รูปภาพ
+// API สำหรับลบไฟล์รูปภาพ (รับ full Azure URL หรือ blob name)
 app.delete("/api/delete-image", async (req, res) => {
   try {
     const { path: imagePath } = req.body;
 
     if (!imagePath) {
-      return res.status(400).json({
-        success: false,
-        message: "ไม่พบ path ของรูปภาพ",
-      });
+      return res.status(400).json({ success: false, message: "ไม่พบ path ของรูปภาพ" });
     }
 
-    // แปลง path เป็น filename
-    const filename = imagePath.replace("/uploads/", "");
-    const filepath = path.join(UPLOAD_DIR, filename);
-
-    // ตรวจสอบว่าไฟล์มีอยู่จริง
-    if (fs.existsSync(filepath)) {
-      // ลบไฟล์
-      fs.unlinkSync(filepath);
-
-      res.json({
-        success: true,
-        message: "ลบไฟล์สำเร็จ",
-      });
-    } else {
-      res.json({
-        success: true,
-        message: "ไม่พบไฟล์ (อาจถูกลบไปแล้ว)",
-      });
-    }
+    await deleteBlob(imagePath);
+    res.json({ success: true, message: "ลบไฟล์สำเร็จ" });
   } catch (error) {
     console.error("Delete image error:", error);
     res.status(500).json({
@@ -5393,10 +5528,6 @@ process.on("uncaughtException", (err) => {
 process.on("unhandledRejection", (err) => {
   console.error("Unhandled Rejection:", err);
 });
-
-// ─────────────────────────────────────────────────────────────────────────────
-app.use("/img", express.static(path.join(__dirname, "public", "img_upload")));
-app.use("/uploads", express.static(path.join(__dirname, "public", "uploads")));
 
 // Health
 app.get("/", (req, res) => {
