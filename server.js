@@ -5437,6 +5437,415 @@ app.get("/health", (req, res) => res.status(200).send("OK"));
 /* ระบบPM-form */
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Form Skip Log
+
+app.get("/api/forms/skip-log/:insp_no", async (req, res) => {
+  try {
+    const rows = await queryAsync(db3, "SELECT form_key FROM form_skip_log WHERE insp_no = ?", [req.params.insp_no]);
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.post("/api/forms/skip-log", async (req, res) => {
+  try {
+    const { insp_no, form_key, skipped_by } = req.body;
+    if (!insp_no || !form_key) return res.status(400).json({ success: false, error: "insp_no and form_key required" });
+    await queryAsync(db3,
+      "INSERT INTO form_skip_log (insp_no, form_key, skipped_by) VALUES (?,?,?) ON DUPLICATE KEY UPDATE skipped_by=VALUES(skipped_by)",
+      [insp_no, form_key, skipped_by || null]
+    );
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.delete("/api/forms/skip-log", async (req, res) => {
+  try {
+    const { insp_no, form_key } = req.body;
+    if (!insp_no || !form_key) return res.status(400).json({ success: false, error: "insp_no and form_key required" });
+    await queryAsync(db3, "DELETE FROM form_skip_log WHERE insp_no = ? AND form_key = ?", [insp_no, form_key]);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FormVibrationAC
+
+app.get("/api/forms/FormVibrationAC/:insp_no", async (req, res) => {
+  try {
+    const { insp_no } = req.params;
+    if (!insp_no) {
+      return res.status(400).json({ success: false, error: "insp_no is required" });
+    }
+
+    const sqlMain = `
+      SELECT ih.*, fmn.*, ve.*,
+        de.scm_de_equipment_type  AS vac_de_equipment_type,
+        de.scm_de_manufactory     AS vac_de_manufactory,
+        de.scm_de_tag_no          AS vac_de_tag_no,
+        de.scm_de_speed           AS vac_de_speed,
+        de.scm_de_speed_unit      AS vac_de_speed_unit,
+        de.scm_de_de_bearing      AS vac_de_de_bearing,
+        de.scm_de_nde_bearing     AS vac_de_nde_bearing,
+        gi.vac_gi_rotation, gi.vac_gi_mounting, gi.vac_gi_foundation, gi.vac_gi_connection
+      FROM form_scm_inspection_headers ih
+      LEFT JOIN form_motor_nameplate fmn ON ih.insp_no = fmn.insp_no
+      LEFT JOIN form_scm_driven_equipment de ON ih.insp_no = de.insp_no
+      LEFT JOIN form_vac_general_info gi ON ih.insp_no = gi.insp_no
+      LEFT JOIN form_vac_header_extras ve ON ih.insp_no = ve.insp_no
+      WHERE ih.insp_no = ?
+    `;
+
+    const [mainData, measurements, mechMeasurements, lubricant] = await Promise.all([
+      queryAsync(db3, sqlMain, [insp_no]),
+      queryAsync(db3, "SELECT * FROM form_vac_measurements WHERE insp_no = ? ORDER BY no", [insp_no]),
+      queryAsync(db3, "SELECT * FROM form_vac_mech_measurements WHERE insp_no = ? ORDER BY no", [insp_no]),
+      queryAsync(db3, "SELECT * FROM form_vac_lubricant WHERE insp_no = ?", [insp_no]),
+    ]);
+
+    if (mainData.length === 0) {
+      return res.status(404).json({ success: false, error: "Inspection not found", insp_no });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        ...mainData[0],
+        measurements: measurements || [],
+        mech_measurements: mechMeasurements || [],
+        lubricant: lubricant[0] || null,
+      },
+    });
+  } catch (error) {
+    console.error("Error in GET /api/forms/FormVibrationAC:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.post("/api/vac/inspection-save", async (req, res) => {
+  let connection;
+  try {
+    connection = await new Promise((resolve, reject) => {
+      db3.getConnection((err, conn) => { if (err) return reject(err); resolve(conn); });
+    });
+    await new Promise((resolve, reject) => {
+      connection.beginTransaction((err) => { if (err) return reject(err); resolve(); });
+    });
+
+    const {
+      insp_no, insp_sv, created_by, updated_by,
+      header, motorNameplate, drivenEquipment, generalInfo,
+      measurements, mech_measurements, lubricant, result_status, remark,
+    } = req.body;
+
+    if (!insp_no) {
+      await new Promise((resolve) => connection.rollback(() => resolve()));
+      return res.status(400).json({ success: false, error: "insp_no is required" });
+    }
+
+    // 1a. form_scm_inspection_headers (common fields — shared with SCM)
+    const existingHeader = await queryAsync(
+      connection, "SELECT scm_ih_id FROM form_scm_inspection_headers WHERE insp_no = ?", [insp_no]
+    );
+    if (existingHeader.length === 0) {
+      await queryAsync(connection, `
+        INSERT INTO form_scm_inspection_headers
+        (insp_no, insp_sv, customer_name, job_no, inspection_date, attention,
+         tag_no, equipment_name, recommendation, overall_status,
+         inspector_name, inspection_completed_date, created_by)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+      `, [
+        insp_no, toNullIfEmpty(insp_sv),
+        toNullIfEmpty(header?.customer_name), toNullIfEmpty(header?.job_no),
+        toNullIfEmpty(header?.inspection_date), toNullIfEmpty(header?.attention),
+        toNullIfEmpty(header?.tag_no), toNullIfEmpty(header?.equipment_name),
+        toNullIfEmpty(header?.recommendation), toNullIfEmpty(result_status),
+        toNullIfEmpty(header?.inspector_name), toNullIfEmpty(header?.inspection_completed_date),
+        created_by,
+      ]);
+    } else {
+      await queryAsync(connection, `
+        UPDATE form_scm_inspection_headers
+        SET customer_name=?, job_no=?, inspection_date=?, attention=?,
+            tag_no=?, equipment_name=?, recommendation=?, overall_status=?,
+            inspector_name=?, inspection_completed_date=?,
+            updated_by=?, updated_at=NOW()
+        WHERE insp_no=?
+      `, [
+        toNullIfEmpty(header?.customer_name), toNullIfEmpty(header?.job_no),
+        toNullIfEmpty(header?.inspection_date), toNullIfEmpty(header?.attention),
+        toNullIfEmpty(header?.tag_no), toNullIfEmpty(header?.equipment_name),
+        toNullIfEmpty(header?.recommendation), toNullIfEmpty(result_status),
+        toNullIfEmpty(header?.inspector_name), toNullIfEmpty(header?.inspection_completed_date),
+        updated_by, insp_no,
+      ]);
+    }
+
+    // 1b. form_vac_header_extras (VAC-specific fields only)
+    const existingExtras = await queryAsync(
+      connection, "SELECT vac_he_id FROM form_vac_header_extras WHERE insp_no = ?", [insp_no]
+    );
+    if (existingExtras.length === 0) {
+      await queryAsync(connection, `
+        INSERT INTO form_vac_header_extras
+        (insp_no, business_from, circuit, coil_fan, bearing, monitoring, transformer,
+         problem_analysis, customer_acceptable, customer_acceptable_date,
+         result_status, remark, created_by)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+      `, [
+        insp_no,
+        toNullIfEmpty(header?.business_from), toNullIfEmpty(header?.circuit),
+        toNullIfEmpty(header?.coil_fan), toNullIfEmpty(header?.bearing),
+        toNullIfEmpty(header?.monitoring), toNullIfEmpty(header?.transformer),
+        toNullIfEmpty(header?.problem_analysis),
+        toNullIfEmpty(header?.customer_acceptable), toNullIfEmpty(header?.customer_acceptable_date),
+        toNullIfEmpty(result_status), toNullIfEmpty(remark), created_by,
+      ]);
+    } else {
+      await queryAsync(connection, `
+        UPDATE form_vac_header_extras
+        SET business_from=?, circuit=?, coil_fan=?, bearing=?, monitoring=?,
+            transformer=?, problem_analysis=?, customer_acceptable=?,
+            customer_acceptable_date=?, result_status=?, remark=?,
+            updated_by=?, updated_at=NOW()
+        WHERE insp_no=?
+      `, [
+        toNullIfEmpty(header?.business_from), toNullIfEmpty(header?.circuit),
+        toNullIfEmpty(header?.coil_fan), toNullIfEmpty(header?.bearing),
+        toNullIfEmpty(header?.monitoring), toNullIfEmpty(header?.transformer),
+        toNullIfEmpty(header?.problem_analysis),
+        toNullIfEmpty(header?.customer_acceptable), toNullIfEmpty(header?.customer_acceptable_date),
+        toNullIfEmpty(result_status), toNullIfEmpty(remark), updated_by, insp_no,
+      ]);
+    }
+
+    // 2. form_motor_nameplate (shared)
+    if (motorNameplate) {
+      const existingNameplate = await queryAsync(
+        connection, "SELECT mnp_id FROM form_motor_nameplate WHERE insp_no = ?", [insp_no]
+      );
+      if (existingNameplate.length === 0) {
+        await queryAsync(connection, `
+          INSERT INTO form_motor_nameplate
+          (insp_no, insp_sv, fmn_manufacture, fmn_model, fmn_type, fmn_ser_no,
+           fmn_frame, fmn_power, fmn_power_unit, fmn_speed, fmn_speed_unit,
+           fmn_voltage, fmn_current, fmn_frequency, fmn_insulation_class,
+           fmn_design, fmn_temp_rise_class, fmn_duty, fmn_cos_phi,
+           fmn_ip, fmn_sf, fmn_de_bearing, fmn_nde_bearing, fmn_note, created_by)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        `, [
+          insp_no, toNullIfEmpty(insp_sv),
+          toNullIfEmpty(motorNameplate.manufacture), toNullIfEmpty(motorNameplate.model),
+          toNullIfEmpty(motorNameplate.type), toNullIfEmpty(motorNameplate.ser_no),
+          toNullIfEmpty(motorNameplate.frame), toNullIfEmpty(motorNameplate.power),
+          motorNameplate.power_unit || "kW", toNullIfEmpty(motorNameplate.speed),
+          motorNameplate.speed_unit || "RPM", toNullIfEmpty(motorNameplate.voltage),
+          toNullIfEmpty(motorNameplate.current), toNullIfEmpty(motorNameplate.frequency),
+          toNullIfEmpty(motorNameplate.insulation_class), toNullIfEmpty(motorNameplate.design),
+          toNullIfEmpty(motorNameplate.temp_rise_class), toNullIfEmpty(motorNameplate.duty),
+          toNullIfEmpty(motorNameplate.cos_phi), toNullIfEmpty(motorNameplate.ip),
+          toNullIfEmpty(motorNameplate.sf), toNullIfEmpty(motorNameplate.de_bearing),
+          toNullIfEmpty(motorNameplate.nde_bearing), toNullIfEmpty(motorNameplate.note),
+          created_by,
+        ]);
+      } else {
+        await queryAsync(connection, `
+          UPDATE form_motor_nameplate
+          SET fmn_manufacture=?, fmn_model=?, fmn_type=?, fmn_ser_no=?,
+              fmn_frame=?, fmn_power=?, fmn_power_unit=?, fmn_speed=?,
+              fmn_speed_unit=?, fmn_voltage=?, fmn_current=?, fmn_frequency=?,
+              fmn_insulation_class=?, fmn_design=?, fmn_temp_rise_class=?,
+              fmn_duty=?, fmn_cos_phi=?, fmn_ip=?, fmn_sf=?,
+              fmn_de_bearing=?, fmn_nde_bearing=?, fmn_note=?,
+              updated_by=?, updated_at=NOW()
+          WHERE insp_no=?
+        `, [
+          toNullIfEmpty(motorNameplate.manufacture), toNullIfEmpty(motorNameplate.model),
+          toNullIfEmpty(motorNameplate.type), toNullIfEmpty(motorNameplate.ser_no),
+          toNullIfEmpty(motorNameplate.frame), toNullIfEmpty(motorNameplate.power),
+          motorNameplate.power_unit || "kW", toNullIfEmpty(motorNameplate.speed),
+          motorNameplate.speed_unit || "RPM", toNullIfEmpty(motorNameplate.voltage),
+          toNullIfEmpty(motorNameplate.current), toNullIfEmpty(motorNameplate.frequency),
+          toNullIfEmpty(motorNameplate.insulation_class), toNullIfEmpty(motorNameplate.design),
+          toNullIfEmpty(motorNameplate.temp_rise_class), toNullIfEmpty(motorNameplate.duty),
+          toNullIfEmpty(motorNameplate.cos_phi), toNullIfEmpty(motorNameplate.ip),
+          toNullIfEmpty(motorNameplate.sf), toNullIfEmpty(motorNameplate.de_bearing),
+          toNullIfEmpty(motorNameplate.nde_bearing), toNullIfEmpty(motorNameplate.note),
+          updated_by, insp_no,
+        ]);
+      }
+    }
+
+    // 3. form_scm_driven_equipment (shared with SCM)
+    if (drivenEquipment) {
+      const existingDE = await queryAsync(
+        connection, "SELECT scm_de_id FROM form_scm_driven_equipment WHERE insp_no = ?", [insp_no]
+      );
+      if (existingDE.length === 0) {
+        await queryAsync(connection, `
+          INSERT INTO form_scm_driven_equipment
+          (insp_no, scm_de_equipment_type, scm_de_manufactory, scm_de_tag_no,
+           scm_de_speed, scm_de_speed_unit, scm_de_de_bearing, scm_de_nde_bearing, created_by)
+          VALUES (?,?,?,?,?,?,?,?,?)
+        `, [
+          insp_no,
+          toNullIfEmpty(drivenEquipment.equipment_type), toNullIfEmpty(drivenEquipment.manufactory),
+          toNullIfEmpty(drivenEquipment.tag_no), toNullIfEmpty(drivenEquipment.speed),
+          drivenEquipment.speed_unit || "RPM",
+          toNullIfEmpty(drivenEquipment.de_bearing), toNullIfEmpty(drivenEquipment.nde_bearing),
+          created_by,
+        ]);
+      } else {
+        await queryAsync(connection, `
+          UPDATE form_scm_driven_equipment
+          SET scm_de_equipment_type=?, scm_de_manufactory=?, scm_de_tag_no=?,
+              scm_de_speed=?, scm_de_speed_unit=?, scm_de_de_bearing=?,
+              scm_de_nde_bearing=?, updated_by=?, updated_at=NOW()
+          WHERE insp_no=?
+        `, [
+          toNullIfEmpty(drivenEquipment.equipment_type), toNullIfEmpty(drivenEquipment.manufactory),
+          toNullIfEmpty(drivenEquipment.tag_no), toNullIfEmpty(drivenEquipment.speed),
+          drivenEquipment.speed_unit || "RPM",
+          toNullIfEmpty(drivenEquipment.de_bearing), toNullIfEmpty(drivenEquipment.nde_bearing),
+          updated_by, insp_no,
+        ]);
+      }
+    }
+
+    // 4. form_vac_general_info
+    if (generalInfo) {
+      const existingGI = await queryAsync(
+        connection, "SELECT vac_gi_id FROM form_vac_general_info WHERE insp_no = ?", [insp_no]
+      );
+      if (existingGI.length === 0) {
+        await queryAsync(connection, `
+          INSERT INTO form_vac_general_info
+          (insp_no, vac_gi_rotation, vac_gi_mounting, vac_gi_foundation, vac_gi_connection, created_by)
+          VALUES (?,?,?,?,?,?)
+        `, [
+          insp_no,
+          toNullIfEmpty(generalInfo.rotation), toNullIfEmpty(generalInfo.mounting),
+          toNullIfEmpty(generalInfo.foundation), toNullIfEmpty(generalInfo.connection),
+          created_by,
+        ]);
+      } else {
+        await queryAsync(connection, `
+          UPDATE form_vac_general_info
+          SET vac_gi_rotation=?, vac_gi_mounting=?, vac_gi_foundation=?,
+              vac_gi_connection=?, updated_by=?, updated_at=NOW()
+          WHERE insp_no=?
+        `, [
+          toNullIfEmpty(generalInfo.rotation), toNullIfEmpty(generalInfo.mounting),
+          toNullIfEmpty(generalInfo.foundation), toNullIfEmpty(generalInfo.connection),
+          updated_by, insp_no,
+        ]);
+      }
+    }
+
+    // 5. form_vac_measurements (DELETE + INSERT)
+    if (measurements && measurements.length > 0) {
+      await queryAsync(connection, "DELETE FROM form_vac_measurements WHERE insp_no = ?", [insp_no]);
+      for (const row of measurements) {
+        await queryAsync(connection, `
+          INSERT INTO form_vac_measurements
+          (insp_no, no, time, voltage_uv, voltage_uw, voltage_vw,
+           current_u, current_v, current_w, pressure_load,
+           temp_motor_nde, temp_frame, temp_motor_de, temp_load_de, temp_load_nde, temp_amb)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        `, [
+          insp_no, row.no, toNullIfEmpty(row.time),
+          toNullIfEmpty(row.voltage_uv), toNullIfEmpty(row.voltage_uw), toNullIfEmpty(row.voltage_vw),
+          toNullIfEmpty(row.current_u), toNullIfEmpty(row.current_v), toNullIfEmpty(row.current_w),
+          toNullIfEmpty(row.pressure_load),
+          toNullIfEmpty(row.temp_motor_nde), toNullIfEmpty(row.temp_frame),
+          toNullIfEmpty(row.temp_motor_de), toNullIfEmpty(row.temp_load_de),
+          toNullIfEmpty(row.temp_load_nde), toNullIfEmpty(row.temp_amb),
+        ]);
+      }
+    }
+
+    // 6. form_vac_mech_measurements (DELETE + INSERT)
+    if (mech_measurements && mech_measurements.length > 0) {
+      await queryAsync(connection, "DELETE FROM form_vac_mech_measurements WHERE insp_no = ?", [insp_no]);
+      for (const row of mech_measurements) {
+        await queryAsync(connection, `
+          INSERT INTO form_vac_mech_measurements
+          (insp_no, no, time,
+           m_nde_h, m_nde_v, m_nde_a, m_nde_dbm, m_nde_dbc, m_nde_dbi, m_nde_g,
+           m_de_h,  m_de_v,  m_de_a,  m_de_dbm,  m_de_dbc,  m_de_dbi,  m_de_g,
+           l_de_h,  l_de_v,  l_de_a,  l_de_dbm,  l_de_dbc,  l_de_dbi,  l_de_g,
+           l_nde_h, l_nde_v, l_nde_a, l_nde_dbm, l_nde_dbc, l_nde_dbi, l_nde_g)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        `, [
+          insp_no, row.no, toNullIfEmpty(row.time),
+          toNullIfEmpty(row.m_nde_h), toNullIfEmpty(row.m_nde_v), toNullIfEmpty(row.m_nde_a),
+          toNullIfEmpty(row.m_nde_dbm), toNullIfEmpty(row.m_nde_dbc), toNullIfEmpty(row.m_nde_dbi), toNullIfEmpty(row.m_nde_g),
+          toNullIfEmpty(row.m_de_h), toNullIfEmpty(row.m_de_v), toNullIfEmpty(row.m_de_a),
+          toNullIfEmpty(row.m_de_dbm), toNullIfEmpty(row.m_de_dbc), toNullIfEmpty(row.m_de_dbi), toNullIfEmpty(row.m_de_g),
+          toNullIfEmpty(row.l_de_h), toNullIfEmpty(row.l_de_v), toNullIfEmpty(row.l_de_a),
+          toNullIfEmpty(row.l_de_dbm), toNullIfEmpty(row.l_de_dbc), toNullIfEmpty(row.l_de_dbi), toNullIfEmpty(row.l_de_g),
+          toNullIfEmpty(row.l_nde_h), toNullIfEmpty(row.l_nde_v), toNullIfEmpty(row.l_nde_a),
+          toNullIfEmpty(row.l_nde_dbm), toNullIfEmpty(row.l_nde_dbc), toNullIfEmpty(row.l_nde_dbi), toNullIfEmpty(row.l_nde_g),
+        ]);
+      }
+    }
+
+    // 7. form_vac_lubricant
+    if (lubricant) {
+      const existingLub = await queryAsync(
+        connection, "SELECT vac_lub_id FROM form_vac_lubricant WHERE insp_no = ?", [insp_no]
+      );
+      if (existingLub.length === 0) {
+        await queryAsync(connection, `
+          INSERT INTO form_vac_lubricant
+          (insp_no, de_status, de_remarks, de_oil_type, de_regrease,
+           nde_status, nde_remarks, nde_oil_type, nde_regrease, created_by)
+          VALUES (?,?,?,?,?,?,?,?,?,?)
+        `, [
+          insp_no,
+          toNullIfEmpty(lubricant.de_status), toNullIfEmpty(lubricant.de_remarks),
+          toNullIfEmpty(lubricant.de_oil_type), toNullIfEmpty(lubricant.de_regrease),
+          toNullIfEmpty(lubricant.nde_status), toNullIfEmpty(lubricant.nde_remarks),
+          toNullIfEmpty(lubricant.nde_oil_type), toNullIfEmpty(lubricant.nde_regrease),
+          created_by,
+        ]);
+      } else {
+        await queryAsync(connection, `
+          UPDATE form_vac_lubricant
+          SET de_status=?, de_remarks=?, de_oil_type=?, de_regrease=?,
+              nde_status=?, nde_remarks=?, nde_oil_type=?, nde_regrease=?,
+              updated_by=?, updated_at=NOW()
+          WHERE insp_no=?
+        `, [
+          toNullIfEmpty(lubricant.de_status), toNullIfEmpty(lubricant.de_remarks),
+          toNullIfEmpty(lubricant.de_oil_type), toNullIfEmpty(lubricant.de_regrease),
+          toNullIfEmpty(lubricant.nde_status), toNullIfEmpty(lubricant.nde_remarks),
+          toNullIfEmpty(lubricant.nde_oil_type), toNullIfEmpty(lubricant.nde_regrease),
+          updated_by, insp_no,
+        ]);
+      }
+    }
+
+    await new Promise((resolve, reject) => {
+      connection.commit((err) => { if (err) return reject(err); resolve(); });
+    });
+
+    res.json({ success: true, message: "บันทึกสำเร็จ", insp_no });
+  } catch (error) {
+    if (connection) await new Promise((resolve) => connection.rollback(() => resolve()));
+    console.error("Error in POST /api/vac/inspection-save:", error);
+    res.status(500).json({ success: false, error: error.message });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Listen
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
